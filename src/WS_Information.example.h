@@ -8,15 +8,8 @@
 // IMPORTANT: Do not commit real passwords to GitHub.
 
 // ===================== Feature Switches =====================
-#define RTC_Enable                 0               // 1: enable DS3231 timing
 #define MQTT_CLOUD_Enable          true            // true: enable MQTT client
 #define WIFI_FallbackPortal_Enable true            // true: start AP config portal when WiFi fails
-#define BLUETOOTH_Enable           false           // true: enable BLE control service
-
-// ===================== Bluetooth (BLE) =====================
-#define BLUETOOTH_DEVICE_NAME            "Fish-esp32s3"
-#define BLUETOOTH_IP_REPORT_Enable       true
-#define BLUETOOTH_IP_REPORT_INTERVAL_MS  10000UL
 
 // ===================== Preset WiFi =====================
 #define STASSID       "YOUR_WIFI_SSID"
@@ -91,16 +84,4 @@
 #define SERIAL_GATE_LOG_Enable              false
 #define SERIAL_GATE_LOG_BLOCK_INTERVAL_MS   5000
 
-// ===================== RTC NTP Safety =====================
-#define RTC_NTP_MIN_VALID_EPOCH       1609459200UL
-#define RTC_NTP_SYNC_TIMEOUT_MS       15000UL
-#define RTC_NTP_RETRY_INTERVAL_MS     200UL
-
-// RTC schedule (valid only when RTC_Enable == 1)
-#define RTC_OPEN_Time_Hour    18
-#define RTC_OPEN_Time_Min     33
-#define RTC_Closs_Time_Hour   18
-#define RTC_Closs_Time_Min    34
-
 #endif
-

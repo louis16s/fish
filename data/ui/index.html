@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>水闸面板</title>
+  <style>
+    :root{
+      --bg0:#070a13;
+      --bg1:#0b1630;
+      --card:rgba(255,255,255,.06);
+      --card2:rgba(255,255,255,.08);
+      --stroke:rgba(148,163,184,.22);
+      --stroke2:rgba(148,163,184,.32);
+      --text:#e7eefc;
+      --muted:#a5b4cf;
+      --muted2:#7c8db4;
+      --aqua:#38bdf8;
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+      --shadow:0 18px 55px rgba(0,0,0,.45);
+      --r:18px;
+      --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 800px at 18% 12%, rgba(34,211,238,.25), transparent 55%),
+        radial-gradient(900px 700px at 85% 18%, rgba(56,189,248,.18), transparent 55%),
+        radial-gradient(1100px 900px at 70% 88%, rgba(59,130,246,.16), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      padding:18px 14px 28px;
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+    .wrap{max-width:1180px;margin:0 auto}
+
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:14px;
+      padding:14px 14px;
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .statusDot{
+      width:12px;height:12px;border-radius:999px;
+      background:rgba(148,163,184,.55);
+      box-shadow:0 0 0 6px rgba(148,163,184,.08);
+      flex:0 0 auto;
+    }
+    .statusDot.on{background:var(--good);box-shadow:0 0 0 6px rgba(34,197,94,.15), 0 0 26px rgba(34,197,94,.20)}
+    .statusDot.bad{background:var(--bad);box-shadow:0 0 0 6px rgba(251,113,133,.12), 0 0 26px rgba(251,113,133,.20)}
+    .brandTxt{min-width:0}
+    .brandTitle{
+      font-weight:950;letter-spacing:.3px;
+      font-size:15px;line-height:1.15;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .brandSub{
+      font-size:12px;color:var(--muted);
+      margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .navbtn{
+      display:inline-grid;place-items:center;
+      min-height:44px;padding:10px 12px;border-radius:999px;
+      border:1px solid var(--stroke);
+      text-decoration:none;
+      color:var(--text);
+      background:rgba(255,255,255,.04);
+      font-weight:900;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .navbtn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .navbtn:active{transform:translateY(1px)}
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    .panel{
+      border:1px solid var(--stroke);
+      border-radius:var(--r);
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+    }
+    .panelHd{
+      display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+      padding:14px 14px 12px;
+      border-bottom:1px solid rgba(148,163,184,.16);
+    }
+    .panelTitle{font-weight:950;letter-spacing:.25px}
+    .panelSub{margin-top:3px;color:var(--muted2);font-size:12px;line-height:1.55}
+
+    .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .chip{
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      font-family:var(--mono);
+    }
+    .chip.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
+    .chip.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
+    .chip.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
+
+    .vizBody{padding:14px}
+    .vizWrap{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:
+        radial-gradient(900px 520px at 22% 28%, rgba(56,189,248,.14), transparent 60%),
+        radial-gradient(800px 600px at 70% 55%, rgba(34,211,238,.10), transparent 58%),
+        linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      overflow:hidden;
+    }
+    .vizHud{
+      display:grid;
+      grid-template-columns: 1fr 240px;
+      align-items:start;
+      gap:12px;
+      padding:12px;
+      border-bottom:1px solid rgba(148,163,184,.16);
+      background:linear-gradient(180deg, rgba(2,6,23,.34), rgba(2,6,23,.18));
+    }
+    .vizMain{padding:12px}
+    .schem{display:block}
+    .schem .ph{
+      padding:12px 12px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted2);
+    }
+    .schem svg{display:block;width:100%;height:auto}
+    .readouts{display:grid;grid-template-columns: 1fr 1fr;gap:10px;align-content:start}
+    .metric{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.35);
+      border-radius:14px;
+      padding:10px 10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.25);
+    }
+    .mk{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .mv{margin-top:6px;font-size:18px;font-weight:980;letter-spacing:.2px}
+    .ms{margin-top:2px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+    .meter{
+      min-width:210px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.35);
+      border-radius:14px;
+      padding:10px 10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.25);
+    }
+    .meterRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .meterK{font-size:12px;color:var(--muted2);font-weight:950}
+    .meterV{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+    .bar{
+      margin-top:8px;height:10px;border-radius:999px;
+      background:rgba(148,163,184,.12);
+      border:1px solid rgba(148,163,184,.18);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block;height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(56,189,248,.95), rgba(34,197,94,.95));
+      box-shadow:0 0 22px rgba(34,211,238,.26);
+      transition:width .20s ease;
+    }
+    .meterHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.4}
+
+    .stack{display:grid;gap:14px;align-content:start}
+    .panelBody{padding:14px}
+    .kv{display:grid;grid-template-columns: 92px 1fr;gap:10px 10px;align-items:center}
+    .k{color:var(--muted2);font-size:12px;font-weight:950}
+    .v{font-size:18px;font-weight:980}
+    .v.small{font-size:14px;font-family:var(--mono);color:var(--muted)}
+
+    .formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:grid;gap:6px}
+    .fieldK{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .rowInline{display:flex;gap:10px;align-items:center}
+    .fieldNote{
+      min-height:44px;
+      display:flex;align-items:center;justify-content:center;
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:12px;
+      padding:0 10px;
+      color:var(--muted);
+      background:rgba(255,255,255,.04);
+      font-family:var(--mono);
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .inp{
+      width:100%;
+      min-height:44px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.28);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:950;
+      font-family:var(--font);
+      transition:border-color .18s ease, background .18s ease;
+    }
+    .inp:hover{border-color:rgba(148,163,184,.32)}
+    .inp:disabled{opacity:.6}
+    .inp[type="number"]{text-align:right}
+    .check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:950;user-select:none}
+    .check input{width:18px;height:18px;accent-color:rgba(34,211,238,.85)}
+
+    .rule{
+      margin-top:12px;
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:14px;
+      background:rgba(2,6,23,.28);
+      padding:12px;
+    }
+    .ruleHd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .ruleTitle{font-weight:950;letter-spacing:.2px}
+    .ruleSub{margin-top:2px;font-size:12px;color:var(--muted2);line-height:1.45}
+    .ruleGrid{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:10px}
+    .ruleGrid3{display:grid;gap:10px;margin-top:10px}
+    .ruleCols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .durRow{display:grid;grid-template-columns:1fr 86px 86px;gap:10px;align-items:center}
+    .miniLbl{font-size:12px;color:var(--muted2);font-weight:950}
+    .miniHint{font-size:12px;color:var(--muted2);line-height:1.5}
+    .btnRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+
+    .controls{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin-top:12px}
+    .btn{
+      appearance:none;
+      min-height:48px;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:980;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .btn:hover{background:rgba(255,255,255,.08);border-color:rgba(148,163,184,.32)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(34,211,238,.34);background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(56,189,248,.14))}
+    .btn.danger{border-color:rgba(251,113,133,.35);background:linear-gradient(180deg, rgba(251,113,133,.18), rgba(2,6,23,.02))}
+    .btn.warn{border-color:rgba(245,158,11,.35);background:linear-gradient(180deg, rgba(245,158,11,.16), rgba(2,6,23,.02))}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+
+    .alarmBox{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.35);
+      border-radius:14px;
+      padding:12px 12px;
+      font-weight:950;
+      font-family:var(--mono);
+      min-height:48px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+    }
+    .alarmBox.on{border-color:rgba(251,113,133,.34);background:rgba(251,113,133,.08)}
+    .alarmTag{font-size:12px;color:var(--muted2);font-family:var(--font);font-weight:980}
+    .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
+
+    :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
+    @media (max-width:980px){ .layout{grid-template-columns:1fr} .meter{min-width:unset} }
+    @media (max-width:520px){
+      .readouts{grid-template-columns:1fr}
+      .controls{grid-template-columns:1fr}
+      .nav{gap:8px}
+      .vizHud{grid-template-columns:1fr}
+      .formGrid{grid-template-columns:1fr}
+      .ruleCols{grid-template-columns:1fr}
+      .btnRow{grid-template-columns:1fr}
+      .durRow{grid-template-columns:1fr 1fr}
+      .durRow .miniLbl{grid-column:1 / -1}
+    }
+    @media (prefers-reduced-motion: reduce){
+      *{scroll-behavior:auto !important;transition:none !important;animation:none !important}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <span class="statusDot" id="statusDot" aria-hidden="true"></span>
+        <div class="brandTxt">
+          <div class="brandTitle">水闸面板</div>
+          <div class="brandSub" id="statusLine">连接中…</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="快捷入口">
+        <a class="navbtn" href="/update">升级</a>
+        <a class="navbtn" href="/logs">日志</a>
+        <a class="navbtn" href="/config">配置</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">水闸可视化</div>
+            <div class="panelSub">水位范围 0-5m。闸门开度会以“闸板上下移动”显示，开闸后两侧水体连通并出现流向动画。</div>
+          </div>
+          <div class="chips">
+            <span class="chip" id="chipDelta">Δ --</span>
+            <span class="chip" id="chipFlow">连通 --</span>
+          </div>
+        </div>
+        <div class="vizBody">
+          <div class="vizWrap">
+            <div class="vizHud" aria-label="实时读数">
+              <div class="readouts" aria-hidden="true">
+                <div class="metric">
+                  <div class="mk">外塘水位</div>
+                  <div class="mv" id="outerLevelM">--</div>
+                  <div class="ms" id="outerLevelMm">--</div>
+                </div>
+                <div class="metric">
+                  <div class="mk">内塘水位</div>
+                  <div class="mv" id="innerLevelM">--</div>
+                  <div class="ms" id="innerLevelMm">--</div>
+                </div>
+                <div class="metric">
+                  <div class="mk">外塘传感器</div>
+                  <div class="mv" id="outerOnline">--</div>
+                  <div class="ms" id="outerTemp">--</div>
+                </div>
+                <div class="metric">
+                  <div class="mk">内塘传感器</div>
+                  <div class="mv" id="innerOnline">--</div>
+                  <div class="ms" id="innerTemp">--</div>
+                </div>
+              </div>
+              <div class="meter" aria-label="闸门开度">
+                <div class="meterRow">
+                  <div class="meterK">闸门开度</div>
+                  <div class="meterV" id="gatePct">--%</div>
+                </div>
+                <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="闸门开度进度条">
+                  <i id="gateBar" style="width:0%"></i>
+                </div>
+                <div class="meterHint" id="gateState">状态：--</div>
+              </div>
+            </div>
+            <div class="vizMain">
+              <div class="schem" id="schemWrap">
+                <div class="ph" id="schemMsg">示意图加载中…</div>
+              </div>
+            </div>
+          </div>
+          <div class="hint" id="interlock">互锁：--</div>
+        </div>
+      </section>
+
+      <aside class="stack">
+        <section class="panel">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">控制</div>
+              <div class="panelSub">按钮会调用 POST /api/cmd</div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="kv">
+              <div class="k">自动</div><div class="v" id="autoState">--</div>
+              <div class="k">网络</div><div class="v small" id="netLine">--</div>
+            </div>
+            <div class="controls" role="group" aria-label="闸门操作">
+              <button class="btn primary" id="btnOpen" onclick="cmd('gate_open')">开闸</button>
+              <button class="btn primary" id="btnClose" onclick="cmd('gate_close')">关闸</button>
+              <button class="btn danger" id="btnStop" onclick="cmd('gate_stop')">停止</button>
+              <button class="btn" id="btnAutoOn" onclick="cmd('auto_on')">开启自动</button>
+              <button class="btn" id="btnAutoOff" onclick="cmd('auto_off')">手动接管(暂停)</button>
+              <button class="btn" id="btnManualEnd" onclick="cmd('manual_end')">恢复自动</button>
+              <button class="btn warn" id="btnLatch" onclick="confirmLatch()">关闭自动(锁定)</button>
+              <button class="btn" id="btnRefresh" onclick="refreshOnce()">刷新</button>
+            </div>
+            <div class="hint" id="metaLine">固件版本 --</div>
+          </div>
+        </section>
+
+        <section class="panel" id="cfgPanel">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">规则</div>
+              <div class="panelSub">快速配置：定时 / 循环 / 水位差（保存后写入 /ctrl.json）</div>
+            </div>
+            <div class="chips">
+              <span class="chip" id="cfgChip">CFG --</span>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="formGrid">
+              <div class="field">
+                <div class="fieldK">模式</div>
+                <select id="cfg_mode" class="inp">
+                  <option value="mixed">混合(推荐)</option>
+                  <option value="daily">仅定时</option>
+                  <option value="cycle">仅循环</option>
+                  <option value="leveldiff">仅水位差</option>
+                </select>
+              </div>
+              <div class="field">
+                <div class="fieldK">时区</div>
+                <div class="rowInline">
+                  <input id="cfg_tz_h" class="inp" type="number" min="-12" max="14" step="1" value="8" aria-label="时区小时偏移">
+                  <div class="fieldNote" id="cfg_tz_label">UTC+8</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">定时</div>
+                  <div class="ruleSub">每天固定时间开/关闸</div>
+                </div>
+                <label class="check"><input id="cfg_d_en" type="checkbox"><span>启用</span></label>
+              </div>
+              <div class="ruleGrid">
+                <label class="check"><input id="cfg_d_open_en" type="checkbox"><span>开闸</span></label>
+                <input id="cfg_d_open" class="inp" type="time" value="08:00" aria-label="定时开闸时间">
+                <label class="check"><input id="cfg_d_close_en" type="checkbox"><span>关闸</span></label>
+                <input id="cfg_d_close" class="inp" type="time" value="09:00" aria-label="定时关闸时间">
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">循环</div>
+                  <div class="ruleSub">按时长循环开/关（仅编辑第一组）</div>
+                </div>
+                <label class="check"><input id="cfg_c_en" type="checkbox"><span>启用</span></label>
+              </div>
+              <div class="ruleGrid3">
+                <div class="durRow">
+                  <div class="miniLbl">开闸时长</div>
+                  <input id="cfg_c_open_h" class="inp" type="number" min="0" max="999" step="1" value="8" aria-label="循环开闸小时">
+                  <input id="cfg_c_open_m" class="inp" type="number" min="0" max="59" step="1" value="0" aria-label="循环开闸分钟">
+                </div>
+                <div class="durRow">
+                  <div class="miniLbl">关闸时长</div>
+                  <input id="cfg_c_close_h" class="inp" type="number" min="0" max="999" step="1" value="3" aria-label="循环关闸小时">
+                  <input id="cfg_c_close_m" class="inp" type="number" min="0" max="59" step="1" value="0" aria-label="循环关闸分钟">
+                </div>
+                <div class="miniHint">说明：保存时会更新 cycle[0] 的首个 open/close 步骤，其余步骤会保留。</div>
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">水位差</div>
+                  <div class="ruleSub">delta = 内塘 - 外塘（mm）</div>
+                </div>
+                <label class="check"><input id="cfg_l_en" type="checkbox"><span>启用</span></label>
+              </div>
+              <div class="ruleCols">
+                <div class="field">
+                  <div class="miniLbl">打开阈值(mm)</div>
+                  <input id="cfg_l_open" class="inp" type="number" step="1" value="-60" aria-label="水位差打开阈值">
+                </div>
+                <div class="field">
+                  <div class="miniLbl">关闭阈值(mm)</div>
+                  <input id="cfg_l_close" class="inp" type="number" step="1" value="-20" aria-label="水位差关闭阈值">
+                </div>
+              </div>
+            </div>
+
+            <div class="btnRow">
+              <button class="btn" id="cfgReload" onclick="cfgLoad()">重新加载</button>
+              <button class="btn primary" id="cfgSave" onclick="cfgSave()">保存规则</button>
+              <a class="btn" href="/config" style="text-decoration:none;display:inline-grid;place-items:center">高级配置</a>
+            </div>
+            <div class="hint" id="cfgMsg"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">告警</div>
+              <div class="panelSub">设备侧告警文本来自 /api/state</div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="alarmBox" id="alarmBox">
+              <span class="alarmTag">状态</span>
+              <span id="alarmLine">--</span>
+            </div>
+            <div class="hint" id="lastSeen">最后刷新 --</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+    const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
+    const UI_VERSION = 'ui-2026.02.13-01';
+
+    const nowHHMMSS = () => {
+      const d = new Date();
+      const p = (x) => (x<10?('0'+x):(''+x));
+      return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+    };
+
+    function setStatus(text, state){
+      $('statusLine').textContent = text;
+      const dot = $('statusDot');
+      dot.className = 'statusDot' + (state === 'on' ? ' on' : (state === 'bad' ? ' bad' : ''));
+    }
+
+    function gateStateText(s, ratio){
+      if(s===1) return '开闸中';
+      if(s===2) return '关闸中';
+      if(ratio >= 0.98) return '已开启';
+      if(ratio <= 0.02) return '已关闭';
+      return '已停止(半开)';
+    }
+
+    // SVG handles
+    let g_svg=null;
+    let g_waterL=null, g_waterR=null, g_chan=null;
+    let g_surfL=null, g_surfR=null, g_surfC=null;
+    let g_gatePlateGroup=null, g_gateBadgeText=null;
+    let g_flowFx=null, g_flowLeft=null, g_flowRight=null;
+
+    // animation state
+    let g_gateRatio=0; // 0..1
+    let g_gateTarget=0;
+    let g_lastTelemetry=null;
+    let g_lastOkAt=0;
+    let g_reqBusy=0;
+    let g_polling=0;
+    let g_cfg=null;
+
+    async function loadSchematic(){
+      try{
+        const r = await fetch('/ui/pond_gate.svg', {cache:'no-store'});
+        const tx = await r.text();
+        $('schemWrap').innerHTML = tx;
+        g_svg = $('schemWrap').querySelector('svg');
+        g_waterL = g_svg && g_svg.querySelector('#water_left');
+        g_waterR = g_svg && g_svg.querySelector('#water_right');
+        g_chan  = g_svg && g_svg.querySelector('#channel_water');
+        g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
+        g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
+        g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
+        g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
+        g_gateBadgeText = g_svg && g_svg.querySelector('#gate_badge_text');
+        g_flowFx = g_svg && g_svg.querySelector('#flow_fx');
+        g_flowLeft = g_svg && g_svg.querySelector('#flow_dir_left');
+        g_flowRight = g_svg && g_svg.querySelector('#flow_dir_right');
+      }catch(e){
+        $('schemMsg').textContent = '示意图加载失败';
+      }
+    }
+
+    function setWaterRect(el, surf, mm, valid){
+      if(!el) return;
+      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
+      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
+      const maxMm = 5000;
+      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
+      const h = Math.max(0, baseH * ratio);
+      const y = baseY + (baseH - h);
+      el.setAttribute('y', y.toFixed(2));
+      el.setAttribute('height', h.toFixed(2));
+      el.setAttribute('data-valid', valid ? '1' : '0');
+
+      if(!surf) return;
+      const show = valid && h > 2;
+      surf.style.display = show ? '' : 'none';
+      if(show){
+        const sy = Math.max(baseY, y - 4);
+        surf.setAttribute('y', sy.toFixed(2));
+      }
+    }
+
+    function setChannelWater(el, surf, mm, valid, gateRatio){
+      if(!el) return;
+      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
+      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
+      const maxMm = 5000;
+      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
+      const hFull = Math.max(0, baseH * ratio);
+      const hOpen = baseH * clamp(gateRatio, 0, 1);
+      const h = Math.max(0, Math.min(hFull, hOpen));
+      const y = baseY + (baseH - h);
+
+      const show = valid && h > 1.5 && gateRatio > 0.03;
+      el.style.display = show ? '' : 'none';
+      if(show){
+        el.setAttribute('y', y.toFixed(2));
+        el.setAttribute('height', h.toFixed(2));
+      }
+
+      if(!surf) return;
+      surf.style.display = show ? '' : 'none';
+      if(show){
+        const sy = Math.max(baseY, y - 4);
+        surf.setAttribute('y', sy.toFixed(2));
+      }
+    }
+
+    function setGateRatio(ratio){
+      g_gateRatio = clamp(ratio, 0, 1);
+      $('gatePct').textContent = Math.round(g_gateRatio*100) + '%';
+      $('gateBar').style.width = (g_gateRatio*100).toFixed(1) + '%';
+      $('gateBar').parentElement.setAttribute('aria-valuenow', String(Math.round(g_gateRatio*100)));
+
+      if(g_gatePlateGroup){
+        const openDy = parseFloat(g_gatePlateGroup.getAttribute('data-open-dy') || '-600');
+        const closedDy = parseFloat(g_gatePlateGroup.getAttribute('data-closed-dy') || '0');
+        const dy = closedDy + (openDy - closedDy) * g_gateRatio;
+        g_gatePlateGroup.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
+      }
+      if(g_gateBadgeText){
+        g_gateBadgeText.textContent = '开度 ' + Math.round(g_gateRatio*100) + '%';
+      }
+    }
+
+    function setFlowFx(on, dir){
+      if(!g_flowFx) return;
+      g_flowFx.setAttribute('data-on', on ? '1' : '0');
+      if(g_flowLeft) g_flowLeft.style.display = (on && dir === 'left') ? '' : 'none';
+      if(g_flowRight) g_flowRight.style.display = (on && dir === 'right') ? '' : 'none';
+    }
+
+    function deriveGateTarget(t){
+      const cand = [
+        t && t.gate_open_pct,
+        t && t.gate_open_percent,
+        t && t.gate_open_ratio,
+        t && t.gate_ratio,
+      ].find(v => typeof v === 'number' && isFinite(v));
+
+      if(typeof cand === 'number'){
+        if(cand > 1.2) return clamp(cand/100, 0, 1);
+        return clamp(cand, 0, 1);
+      }
+
+      if(t && t.gate_state === 1) return 1;
+      if(t && t.gate_state === 2) return 0;
+      return (t && t.gate_position_open) ? 1 : 0;
+    }
+
+    function renderTelemetry(t){
+      if(!t) return;
+      g_lastTelemetry = t;
+
+      const s1=t.sensor1||{}, s2=t.sensor2||{};
+      const innerOk=!!s1.valid, outerOk=!!s2.valid;
+      const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
+      const innerTempOk=!!s1.temp_valid, outerTempOk=!!s2.temp_valid;
+
+      $('innerLevelM').textContent = innerOk ? fmtM(innerMm) : '离线';
+      $('innerLevelMm').textContent = innerOk ? (innerMm + ' mm') : '--';
+      $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : '离线';
+      $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '--';
+
+      $('innerOnline').textContent = s1.online ? '在线' : '离线';
+      $('outerOnline').textContent = s2.online ? '在线' : '离线';
+      $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '--';
+      $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '--';
+
+      const deltaOk = innerOk && outerOk;
+      const deltaMm = innerMm - outerMm;
+      $('chipDelta').textContent = deltaOk ? ('Δ ' + deltaMm + ' mm') : 'Δ --';
+      $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
+
+      g_gateTarget = deriveGateTarget(t);
+
+      setWaterRect(g_waterL, g_surfL, outerMm, outerOk);
+      setWaterRect(g_waterR, g_surfR, innerMm, innerOk);
+
+      $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+      $('autoState').textContent = t.auto_latched ? '锁定关闭' : (t.auto_gate ? '已启用' : '已关闭');
+
+      const reason=(t.ctrl&&t.ctrl.reason)?t.ctrl.reason:'';
+      $('interlock').textContent = '互锁：' + (reason || '正常');
+
+      if(t.net){
+        const ip = t.net.ip || '--';
+        const rssi = (typeof t.net.rssi === 'number') ? (t.net.rssi + ' dBm') : '--';
+        $('netLine').textContent = `Wi-Fi ${t.net.wifi?'在线':'离线'} | MQTT ${t.net.mqtt?'在线':'离线'} | IP ${ip} | RSSI ${rssi}`;
+        setStatus(`IP ${ip} | Wi-Fi ${t.net.wifi?'在线':'离线'} | MQTT ${t.net.mqtt?'在线':'离线'}`, 'on');
+      }else{
+        setStatus('在线', 'on');
+      }
+
+      if(t.alarm && t.alarm.active){
+        $('alarmLine').textContent = t.alarm.text || '告警';
+        $('alarmBox').className = 'alarmBox on';
+      }else{
+        $('alarmLine').textContent = 'normal';
+        $('alarmBox').className = 'alarmBox';
+      }
+
+      const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
+      $('metaLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + ' | UI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+    }
+
+    async function fetchTelemetry(){
+      try{
+        const r = await fetch('/api/state', {cache:'no-store'});
+        const j = await r.json();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return j.telemetry || j;
+      }catch(e){
+        const r2 = await fetch('/getData', {cache:'no-store'});
+        const j2 = await r2.json();
+        if(!r2.ok) throw new Error('HTTP ' + r2.status);
+        return j2;
+      }
+    }
+
+    function setBusy(b){
+      g_reqBusy = b ? 1 : 0;
+      const ids = ['btnOpen','btnClose','btnStop','btnAutoOn','btnAutoOff','btnManualEnd','btnLatch','btnRefresh'];
+      ids.forEach(id => { const el = $(id); if(el) el.disabled = !!g_reqBusy; });
+    }
+
+    async function cmd(c){
+      if(g_reqBusy) return;
+      setBusy(true);
+      try{
+        const r = await fetch('/api/cmd', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cmd:c})});
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+      }catch(e){
+        const map = {
+          gate_open:'/GateOpen',
+          gate_close:'/GateClose',
+          gate_stop:'/GateStop',
+          auto_on:'/AutoGateOn',
+          auto_off:'/AutoGateOff',
+          auto_latch_off:'/AutoGateLatchOff',
+          manual_end:'/ManualEnd',
+        };
+        const url = map[c];
+        if(url){
+          try{ await fetch(url, {cache:'no-store'}); }catch(e2){}
+        }
+      }finally{
+        setTimeout(()=>setBusy(false), 260);
+      }
+      refreshOnce();
+    }
+
+    function confirmLatch(){ if(confirm('确认关闭自动(锁定)？')) cmd('auto_latch_off'); }
+    window.cmd = cmd;
+    window.confirmLatch = confirmLatch;
+
+    async function refreshOnce(){
+      if(g_polling) return;
+      g_polling = 1;
+      try{
+        const t = await fetchTelemetry();
+        g_lastOkAt = Date.now();
+        $('lastSeen').textContent = '最后刷新 ' + nowHHMMSS();
+        renderTelemetry(t);
+      }catch(e){
+        setStatus('连接失败（将重试）', 'bad');
+        $('lastSeen').textContent = '最后刷新失败 ' + nowHHMMSS();
+      }finally{
+        g_polling = 0;
+      }
+    }
+    window.refreshOnce = refreshOnce;
+
+    // --- Control Rules (Quick Config) ---
+    const num = (v, def) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : def;
+    };
+
+    function hhmmToMs(s){
+      if(!s || s.length < 4) return 0;
+      const parts = String(s).split(':');
+      if(parts.length < 2) return 0;
+      const h = clamp(num(parts[0], 0), 0, 23);
+      const m = clamp(num(parts[1], 0), 0, 59);
+      return (h*3600 + m*60) * 1000;
+    }
+
+    function msToHHMM(ms){
+      const day = 24*3600*1000;
+      let v = num(ms, 0);
+      v = ((v%day)+day)%day;
+      const h = Math.floor(v/3600000);
+      const m = Math.floor((v%3600000)/60000);
+      const pad = (x) => (x < 10 ? ('0'+x) : (''+x));
+      return pad(h) + ':' + pad(m);
+    }
+
+    function tzLabelFromHours(h){
+      const hh = num(h, 8);
+      const sign = hh >= 0 ? '+' : '';
+      if(hh === 8) return 'UTC+8 Shanghai';
+      return 'UTC' + sign + hh;
+    }
+
+    function cfgSetChip(text, kind){
+      const el = $('cfgChip');
+      if(!el) return;
+      el.textContent = text;
+      el.className = 'chip' + (kind ? (' ' + kind) : '');
+    }
+
+    function cfgSetMsg(text){
+      const el = $('cfgMsg');
+      if(!el) return;
+      el.textContent = text || '';
+    }
+
+    function cfgBusySet(b){
+      const busy = !!b;
+      const ids = ['cfgReload', 'cfgSave', 'cfg_mode', 'cfg_tz_h', 'cfg_d_en', 'cfg_d_open_en', 'cfg_d_open', 'cfg_d_close_en', 'cfg_d_close', 'cfg_c_en', 'cfg_c_open_h', 'cfg_c_open_m', 'cfg_c_close_h', 'cfg_c_close_m', 'cfg_l_en', 'cfg_l_open', 'cfg_l_close'];
+      ids.forEach(id => { const el = $(id); if(el) el.disabled = busy; });
+    }
+
+    function cfgMigrate(raw){
+      const out = Object.assign({tz_offset_ms:28800000, mode:'mixed', daily:[], cycle:[], leveldiff:[]}, raw || {});
+
+      if(out.tz_offset_ms == null && out.tz_offset_s != null){
+        out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
+      }
+      if(out.tz_offset_ms == null) out.tz_offset_ms = 28800000;
+
+      if(!out.mode) out.mode = 'mixed';
+
+      out.daily = Array.isArray(out.daily) ? out.daily : [];
+      out.daily = out.daily.map((r)=>{
+        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00')}, r || {});
+        if(rr.open_ms == null && rr.open) rr.open_ms = hhmmToMs(rr.open);
+        if(rr.close_ms == null && rr.close) rr.close_ms = hhmmToMs(rr.close);
+        rr.open_ms = num(rr.open_ms, hhmmToMs('08:00'));
+        rr.close_ms = num(rr.close_ms, hhmmToMs('09:00'));
+        return rr;
+      });
+
+      out.cycle = Array.isArray(out.cycle) ? out.cycle : [];
+      out.cycle = out.cycle.map((r)=>{
+        const rr = Object.assign({en:false, steps:[]}, r || {});
+        rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
+        rr.steps = rr.steps.map((st)=>{
+          const s = Object.assign({state:'open', dur_ms:3600000}, st || {});
+          if(s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
+          if(s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
+          s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+          s.state = (s.state === 'close') ? 'close' : 'open';
+          return s;
+        });
+        return rr;
+      });
+
+      out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
+      out.leveldiff = out.leveldiff.map((r)=>{
+        const rr = Object.assign({en:false, open_mm:-60, close_mm:-20}, r || {});
+        rr.open_mm = num(rr.open_mm, -60);
+        rr.close_mm = num(rr.close_mm, -20);
+        return rr;
+      });
+
+      return out;
+    }
+
+    function cfgEnsure(){
+      if(!g_cfg) g_cfg = cfgMigrate({});
+      if(!Array.isArray(g_cfg.daily)) g_cfg.daily = [];
+      if(!Array.isArray(g_cfg.cycle)) g_cfg.cycle = [];
+      if(!Array.isArray(g_cfg.leveldiff)) g_cfg.leveldiff = [];
+      if(g_cfg.daily.length === 0) g_cfg.daily.push({en:false, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00')});
+      if(g_cfg.cycle.length === 0) g_cfg.cycle.push({en:false, steps:[{state:'open', dur_ms:8*3600000},{state:'close', dur_ms:3*3600000}]});
+      if(g_cfg.leveldiff.length === 0) g_cfg.leveldiff.push({en:false, open_mm:-60, close_mm:-20});
+    }
+
+    function cfgRender(){
+      cfgEnsure();
+
+      $('cfg_mode').value = g_cfg.mode || 'mixed';
+      const tzH = Math.round(num(g_cfg.tz_offset_ms, 28800000) / 3600000);
+      $('cfg_tz_h').value = tzH;
+      $('cfg_tz_label').textContent = tzLabelFromHours(tzH);
+
+      const d = g_cfg.daily[0];
+      $('cfg_d_en').checked = !!d.en;
+      $('cfg_d_open_en').checked = (d.open_en !== false);
+      $('cfg_d_close_en').checked = (d.close_en !== false);
+      $('cfg_d_open').value = msToHHMM(d.open_ms);
+      $('cfg_d_close').value = msToHHMM(d.close_ms);
+
+      const c = g_cfg.cycle[0];
+      $('cfg_c_en').checked = !!c.en;
+      const steps = Array.isArray(c.steps) ? c.steps : [];
+      const openStep = steps.find(s => s && s.state === 'open') || {dur_ms:8*3600000};
+      const closeStep = steps.find(s => s && s.state === 'close') || {dur_ms:3*3600000};
+      const toHM = (ms)=>{
+        const min = Math.floor(Math.max(1, num(ms, 60000)) / 60000);
+        return {h: Math.floor(min/60), m: (min % 60)};
+      };
+      const ohm = toHM(openStep.dur_ms);
+      const chm = toHM(closeStep.dur_ms);
+      $('cfg_c_open_h').value = ohm.h;
+      $('cfg_c_open_m').value = ohm.m;
+      $('cfg_c_close_h').value = chm.h;
+      $('cfg_c_close_m').value = chm.m;
+
+      const l = g_cfg.leveldiff[0];
+      $('cfg_l_en').checked = !!l.en;
+      $('cfg_l_open').value = num(l.open_mm, -60);
+      $('cfg_l_close').value = num(l.close_mm, -20);
+
+      cfgSetChip('CFG OK', 'good');
+      cfgSetMsg('');
+    }
+
+    function cfgCollect(){
+      cfgEnsure();
+      g_cfg.mode = $('cfg_mode').value || 'mixed';
+      const tzH = num($('cfg_tz_h').value, 8);
+      g_cfg.tz_offset_ms = tzH * 3600000;
+
+      const d = g_cfg.daily[0];
+      d.en = $('cfg_d_en').checked;
+      d.open_en = $('cfg_d_open_en').checked;
+      d.close_en = $('cfg_d_close_en').checked;
+      d.open_ms = hhmmToMs($('cfg_d_open').value || '08:00');
+      d.close_ms = hhmmToMs($('cfg_d_close').value || '09:00');
+
+      const c = g_cfg.cycle[0];
+      c.en = $('cfg_c_en').checked;
+      const h1 = Math.max(0, num($('cfg_c_open_h').value, 8));
+      const m1 = clamp(num($('cfg_c_open_m').value, 0), 0, 59);
+      const h2 = Math.max(0, num($('cfg_c_close_h').value, 3));
+      const m2 = clamp(num($('cfg_c_close_m').value, 0), 0, 59);
+      const openDur = Math.max(1, (h1*3600 + m1*60) * 1000);
+      const closeDur = Math.max(1, (h2*3600 + m2*60) * 1000);
+
+      let steps = Array.isArray(c.steps) ? c.steps : [];
+      const upsertFirst = (state, dur_ms) => {
+        const idx = steps.findIndex(s => s && s.state === state);
+        if(idx >= 0){
+          steps[idx].dur_ms = dur_ms;
+        }else{
+          steps.push({state, dur_ms});
+        }
+      };
+      upsertFirst('open', openDur);
+      upsertFirst('close', closeDur);
+      c.steps = steps;
+
+      const l = g_cfg.leveldiff[0];
+      l.en = $('cfg_l_en').checked;
+      l.open_mm = num($('cfg_l_open').value, -60);
+      l.close_mm = num($('cfg_l_close').value, -20);
+
+      cfgSetChip('CFG 修改中', 'warn');
+      cfgSetMsg('');
+      return g_cfg;
+    }
+
+    async function cfgLoad(){
+      cfgBusySet(true);
+      cfgSetChip('CFG 加载中', '');
+      cfgSetMsg('加载中…');
+      try{
+        const r = await fetch('/api/config', {cache:'no-store'});
+        const tx = await r.text();
+        if(!r.ok){
+          cfgSetChip('CFG ERR', 'bad');
+          cfgSetMsg(r.status === 401 ? '加载失败：未授权（需要面板密码）' : ('加载失败：HTTP ' + r.status + ' ' + tx));
+          return;
+        }
+        g_cfg = cfgMigrate(JSON.parse(tx || '{}'));
+        cfgRender();
+      }catch(e){
+        cfgSetChip('CFG ERR', 'bad');
+        cfgSetMsg('加载失败：网络错误或配置 JSON 解析失败');
+      }finally{
+        cfgBusySet(false);
+      }
+    }
+
+    async function cfgSave(){
+      cfgBusySet(true);
+      cfgSetChip('CFG 保存中', '');
+      cfgSetMsg('保存中…');
+      try{
+        cfgCollect();
+        const body = JSON.stringify(g_cfg, null, 2);
+        const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body});
+        const tx = await r.text();
+        if(!r.ok){
+          cfgSetChip('CFG ERR', 'bad');
+          cfgSetMsg(r.status === 401 ? '保存失败：未授权（需要面板密码）' : ('保存失败：HTTP ' + r.status + ' ' + tx));
+          return;
+        }
+        cfgSetChip('CFG 已保存', 'good');
+        cfgSetMsg('已保存');
+      }catch(e){
+        cfgSetChip('CFG ERR', 'bad');
+        cfgSetMsg('保存失败：网络错误');
+      }finally{
+        cfgBusySet(false);
+      }
+    }
+
+    window.cfgLoad = cfgLoad;
+    window.cfgSave = cfgSave;
+
+    // keep tz label reactive
+    if($('cfg_tz_h')){
+      $('cfg_tz_h').addEventListener('input', ()=> $('cfg_tz_label').textContent = tzLabelFromHours($('cfg_tz_h').value));
+    }
+
+    function tick(){
+      const d = (g_gateTarget - g_gateRatio);
+      if(Math.abs(d) > 0.0005){
+        setGateRatio(g_gateRatio + d * 0.14);
+      }
+
+      // Update channel water + flow according to the animated gate ratio.
+      const t = g_lastTelemetry;
+      if(t){
+        const s1=t.sensor1||{}, s2=t.sensor2||{};
+        const innerOk=!!s1.valid, outerOk=!!s2.valid;
+        const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
+        const deltaOk = innerOk && outerOk;
+        const deltaMm = innerMm - outerMm;
+
+        const connected = (g_gateRatio > 0.12) && deltaOk;
+        $('chipFlow').textContent = connected ? '连通 ON' : '连通 OFF';
+        $('chipFlow').className = 'chip ' + (connected ? 'good' : '');
+
+        const dir = (deltaOk && Math.abs(deltaMm) >= 20) ? (deltaMm > 0 ? 'left' : 'right') : null;
+        setFlowFx(connected && !!dir, dir);
+
+        if(g_chan){
+          const chanMm = deltaOk ? Math.min(innerMm, outerMm) : 0;
+          setChannelWater(g_chan, g_surfC, chanMm, connected, g_gateRatio);
+        }
+
+        $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+      }
+
+      if(g_lastOkAt && (Date.now() - g_lastOkAt) >= 4500){
+        setStatus('数据超时（将重试）', 'bad');
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    loadSchematic().then(()=>{
+      setGateRatio(0);
+      cfgLoad();
+      refreshOnce();
+      setInterval(refreshOnce, 1000);
+      requestAnimationFrame(tick);
+    });
+  </script>
+</body>
+</html>

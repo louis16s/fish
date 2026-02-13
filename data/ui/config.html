@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>配置</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--line:#e5e7eb;--text:#0f172a;--muted:#475569;--accent:#0ea5e9;--bad:#dc2626;--font:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);padding:18px}
+    .wrap{max-width:980px;margin:0 auto}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer;min-height:44px;text-decoration:none;display:inline-grid;place-items:center}
+    .btn.primary{border-color:#0284c7;background:var(--accent);color:#fff}
+    .btn.danger{border-color:#dc2626;background:#fef2f2;color:#7f1d1d}
+    .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:14px;box-shadow:0 12px 30px rgba(15,23,42,.08)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .sec{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}
+    .sec-title{font-weight:900;margin-bottom:10px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{font-size:12px;color:var(--muted);font-weight:900}
+    input,select{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:900;min-height:44px;background:#fff;color:var(--text)}
+    input[type="number"]{width:120px}
+    input[type="time"]{width:140px}
+    select{min-width:160px}
+    .list{display:grid;gap:10px}
+    .item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+    .item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .item-title{font-weight:900}
+    .mini{font-size:12px;color:var(--muted);font-weight:900}
+    .btn.small{min-height:36px;padding:8px 10px;border-radius:999px}
+    textarea{width:100%;min-height:260px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+    details{margin-top:12px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="btn" href="/">返回面板</a>
+      <div class="row">
+        <button class="btn" onclick="loadCfg()">重新加载</button>
+        <button class="btn primary" onclick="saveCfg()">保存</button>
+        <span class="mini" id="verLine">UI --</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">控制配置（时间单位统一为 ms）</div>
+
+      <div class="grid">
+        <div class="sec">
+          <div class="sec-title">基本</div>
+          <div class="row">
+            <label>模式</label>
+            <select id="mode">
+              <option value="mixed">混合(推荐)</option>
+              <option value="daily">仅定时</option>
+              <option value="cycle">仅循环</option>
+              <option value="leveldiff">仅水位差</option>
+            </select>
+            <label>时区</label>
+            <input id="tz_h" type="number" min="-12" max="14" step="1" value="8" aria-label="时区小时偏移">
+            <span class="mini" id="tz_label">UTC+8 Shanghai</span>
+          </div>
+          <div class="hint">混合模式：若任意循环启用，则优先循环；否则触发定时；最后用水位差作为持续兜底。</div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">说明</div>
+          <div class="hint">定时 open_ms/close_ms：当天从 00:00 起的毫秒数。</div>
+          <div class="hint">循环 steps.dur_ms：该步骤持续毫秒数。</div>
+          <div class="hint">页面会自动兼容旧配置并转换为 ms。</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">定时规则</div>
+            <div class="mini">例如：08:00 开，09:00 关（开/关可分离启用）。</div>
+          </div>
+          <button class="btn small" onclick="addDaily()">添加定时</button>
+        </div>
+        <div class="list" id="dailyList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">循环规则</div>
+            <div class="mini">例如：开 8小时，关 3小时，再开 5小时（支持多段）。</div>
+          </div>
+          <button class="btn small" onclick="addCycleRule()">添加一组循环</button>
+        </div>
+        <div class="list" id="cycleList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">水位差规则</div>
+            <div class="mini">当 delta &lt;= 打开阈值 时开闸；当 delta &gt;= 关闭阈值 时关闸。</div>
+          </div>
+          <button class="btn small" onclick="addLevelDiff()">添加水位差</button>
+        </div>
+        <div class="list" id="ldList"></div>
+      </div>
+
+      <details>
+        <summary class="mini">高级：查看/编辑原始 JSON</summary>
+        <textarea id="cfgRaw"></textarea>
+      </details>
+
+      <div class="hint">配置文件存储在设备 LittleFS：`/ctrl.json`。保存后立即生效。</div>
+      <div class="hint" id="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const UI_VERSION = 'ui-2026.02.13-01';
+    const $=(id)=>document.getElementById(id);
+    const num=(v,def)=>{ const n=parseInt(v,10); return Number.isFinite(n)?n:def; };
+    const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+
+    async function fetchTelemetry(){
+      try{
+        const r = await fetch('/api/state', {cache:'no-store'});
+        const j = await r.json();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return j.telemetry || j;
+      }catch(e){
+        const r2 = await fetch('/getData', {cache:'no-store'});
+        const j2 = await r2.json();
+        if(!r2.ok) throw new Error('HTTP ' + r2.status);
+        return j2;
+      }
+    }
+
+    async function loadVerLine(){
+      try{
+        const t = await fetchTelemetry();
+        const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
+        $('verLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + ' | UI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+      }catch(e){
+        $('verLine').textContent = 'UI ' + UI_VERSION;
+      }
+    }
+
+    function hhmmToMs(s){
+      if(!s || s.length<4) return 0;
+      const parts = s.split(':');
+      if(parts.length<2) return 0;
+      const h = clamp(num(parts[0],0),0,23);
+      const m = clamp(num(parts[1],0),0,59);
+      return (h*3600 + m*60) * 1000;
+    }
+
+    function msToHHMM(ms){
+      const day = 24*3600*1000;
+      let v = num(ms,0);
+      v = ((v%day)+day)%day;
+      const h = Math.floor(v/3600000);
+      const m = Math.floor((v%3600000)/60000);
+      const pad=(x)=> (x<10?('0'+x):(''+x));
+      return pad(h)+':'+pad(m);
+    }
+
+    function migrate(raw){
+      const out = Object.assign({tz_offset_ms:28800000, mode:'mixed', daily:[], cycle:[], leveldiff:[]}, raw||{});
+
+      // tz
+      if(out.tz_offset_ms == null && out.tz_offset_s != null){
+        out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
+      }
+      if(out.tz_offset_ms == null) out.tz_offset_ms = 28800000;
+
+      // daily
+      out.daily = Array.isArray(out.daily) ? out.daily : [];
+      out.daily = out.daily.slice(0,8).map((r)=>{
+        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:28800000, close_ms:32400000}, r||{});
+        if(rr.open_ms == null && rr.open) rr.open_ms = hhmmToMs(rr.open);
+        if(rr.close_ms == null && rr.close) rr.close_ms = hhmmToMs(rr.close);
+        rr.open_ms = num(rr.open_ms, 0);
+        rr.close_ms = num(rr.close_ms, 0);
+        return rr;
+      });
+
+      // cycle
+      out.cycle = Array.isArray(out.cycle) ? out.cycle : [];
+      out.cycle = out.cycle.slice(0,2).map((r)=>{
+        const rr = Object.assign({en:false, steps:[]}, r||{});
+        rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
+        rr.steps = rr.steps.slice(0,10).map((st)=>{
+          const s = Object.assign({state:'open', dur_ms:3600000}, st||{});
+          if(s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
+          if(s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
+          s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+          s.state = (s.state === 'close') ? 'close' : 'open';
+          return s;
+        });
+        return rr;
+      });
+
+      // leveldiff
+      out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
+      out.leveldiff = out.leveldiff.slice(0,4).map((r)=>{
+        const rr = Object.assign({en:false, open_mm:-1, close_mm:0}, r||{});
+        rr.open_mm = num(rr.open_mm, -1);
+        rr.close_mm = num(rr.close_mm, 0);
+        return rr;
+      });
+
+      return out;
+    }
+
+    let model = migrate({});
+
+    function dailyTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">定时 #${i+1}</div>
+            <button class="btn small danger" onclick="delDaily(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="d_en_${i}"> 启用</label>
+            <label><input type="checkbox" id="d_open_en_${i}"> 开闸</label>
+            <input type="time" id="d_open_${i}">
+            <label><input type="checkbox" id="d_close_en_${i}"> 关闸</label>
+            <input type="time" id="d_close_${i}">
+          </div>
+        </div>`;
+    }
+
+    function cycleRuleTpl(ri){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">循环组 #${ri+1}</div>
+            <div class="row">
+              <button class="btn small" onclick="addCycleStep(${ri})">添加步骤</button>
+              <button class="btn small danger" onclick="delCycleRule(${ri})">删除本组</button>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <label><input type="checkbox" id="c_en_${ri}"> 启用本组</label>
+            <span class="mini">提示：自动控制只取第一组启用的循环。</span>
+          </div>
+          <div class="list" id="cycleSteps_${ri}"></div>
+        </div>`;
+    }
+
+    function cycleStepTpl(ri, si){
+      return `
+        <div class="item" style="background:#f8fafc">
+          <div class="item-top">
+            <div class="mini">步骤 #${si+1}</div>
+            <button class="btn small danger" onclick="delCycleStep(${ri},${si})">删除步骤</button>
+          </div>
+          <div class="row">
+            <label>动作</label>
+            <select id="c_${ri}_state_${si}">
+              <option value="open">开闸</option>
+              <option value="close">关闸</option>
+            </select>
+            <label>时长</label>
+            <input id="c_${ri}_h_${si}" type="number" min="0" max="999" step="1" value="0"><span class="mini">小时</span>
+            <input id="c_${ri}_m_${si}" type="number" min="0" max="59" step="1" value="0"><span class="mini">分钟</span>
+          </div>
+        </div>`;
+    }
+
+    function ldTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">水位差 #${i+1}</div>
+            <button class="btn small danger" onclick="delLevelDiff(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="l_en_${i}"> 启用</label>
+            <label>打开阈值(mm)</label>
+            <input id="l_open_${i}" type="number" step="1" value="-1">
+            <label>关闭阈值(mm)</label>
+            <input id="l_close_${i}" type="number" step="1" value="0">
+          </div>
+        </div>`;
+    }
+
+    function render(){
+      $('mode').value = model.mode || 'mixed';
+      $('tz_h').value = Math.round(num(model.tz_offset_ms,28800000)/3600000);
+
+      const daily = (model.daily||[]).slice(0,8);
+      $('dailyList').innerHTML = daily.map((_,i)=>dailyTpl(i)).join('');
+      daily.forEach((r,i)=>{
+        $('d_en_'+i).checked = !!r.en;
+        $('d_open_en_'+i).checked = (r.open_en!==false);
+        $('d_close_en_'+i).checked = (r.close_en!==false);
+        $('d_open_'+i).value = msToHHMM(r.open_ms);
+        $('d_close_'+i).value = msToHHMM(r.close_ms);
+      });
+
+      const cycle = (model.cycle||[]).slice(0,2);
+      $('cycleList').innerHTML = cycle.map((_,ri)=>cycleRuleTpl(ri)).join('');
+      cycle.forEach((r,ri)=>{
+        $('c_en_'+ri).checked = !!r.en;
+        const steps = (r.steps||[]).slice(0,10);
+        $('cycleSteps_'+ri).innerHTML = steps.map((_,si)=>cycleStepTpl(ri,si)).join('');
+        steps.forEach((st,si)=>{
+          const ms = Math.max(1, num(st.dur_ms, 60000));
+          const min = Math.floor(ms/60000);
+          const h = Math.floor(min/60);
+          const m = min%60;
+          $('c_'+ri+'_state_'+si).value = (st.state==='close') ? 'close' : 'open';
+          $('c_'+ri+'_h_'+si).value = h;
+          $('c_'+ri+'_m_'+si).value = m;
+        });
+      });
+
+      const ld = (model.leveldiff||[]).slice(0,4);
+      $('ldList').innerHTML = ld.map((_,i)=>ldTpl(i)).join('');
+      ld.forEach((r,i)=>{
+        $('l_en_'+i).checked = !!r.en;
+        $('l_open_'+i).value = num(r.open_mm, -1);
+        $('l_close_'+i).value = num(r.close_mm, 0);
+      });
+
+      $('cfgRaw').value = JSON.stringify(model, null, 2);
+    }
+
+    function collect(){
+      const tzH = num($('tz_h').value, 8);
+      const mode = $('mode').value || 'mixed';
+
+      const daily=[];
+      for(let i=0;i<$('dailyList').children.length;i++){
+        daily.push({
+          en: $('d_en_'+i).checked,
+          open_en: $('d_open_en_'+i).checked,
+          open_ms: hhmmToMs($('d_open_'+i).value),
+          close_en: $('d_close_en_'+i).checked,
+          close_ms: hhmmToMs($('d_close_'+i).value),
+        });
+      }
+
+      const cycle=[];
+      for(let ri=0;ri<$('cycleList').children.length;ri++){
+        const steps=[];
+        for(let si=0;si<$('cycleSteps_'+ri).children.length;si++){
+          const state = $('c_'+ri+'_state_'+si).value === 'close' ? 'close' : 'open';
+          const h = Math.max(0, num($('c_'+ri+'_h_'+si).value, 0));
+          const m = Math.max(0, Math.min(59, num($('c_'+ri+'_m_'+si).value, 0)));
+          const dur_ms = Math.max(1, (h*3600 + m*60) * 1000);
+          steps.push({state, dur_ms});
+        }
+        cycle.push({en:$('c_en_'+ri).checked, steps});
+      }
+
+      const leveldiff=[];
+      for(let i=0;i<$('ldList').children.length;i++){
+        leveldiff.push({
+          en: $('l_en_'+i).checked,
+          open_mm: num($('l_open_'+i).value, -1),
+          close_mm: num($('l_close_'+i).value, 0),
+        });
+      }
+
+      return {tz_offset_ms: tzH*3600000, mode, daily, cycle, leveldiff};
+    }
+
+    function addDaily(){
+      model.daily = model.daily || [];
+      if(model.daily.length>=8){ $('msg').textContent='定时最多 8 组'; return; }
+      model.daily.push({en:true, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00')});
+      render();
+    }
+    function delDaily(i){ model.daily.splice(i,1); render(); }
+
+    function addCycleRule(){
+      model.cycle = model.cycle || [];
+      if(model.cycle.length>=2){ $('msg').textContent='循环最多 2 组'; return; }
+      model.cycle.push({en:false, steps:[{state:'open',dur_ms:8*3600000},{state:'close',dur_ms:3*3600000},{state:'open',dur_ms:5*3600000}]});
+      render();
+    }
+    function delCycleRule(i){ model.cycle.splice(i,1); render(); }
+    function addCycleStep(ri){
+      const r = model.cycle[ri];
+      r.steps = r.steps || [];
+      if(r.steps.length>=10){ $('msg').textContent='每组最多 10 段'; return; }
+      r.steps.push({state:'open',dur_ms:3600000});
+      render();
+    }
+    function delCycleStep(ri,si){ model.cycle[ri].steps.splice(si,1); render(); }
+
+    function addLevelDiff(){
+      model.leveldiff = model.leveldiff || [];
+      if(model.leveldiff.length>=4){ $('msg').textContent='水位差最多 4 组'; return; }
+      model.leveldiff.push({en:true, open_mm:-1, close_mm:0});
+      render();
+    }
+    function delLevelDiff(i){ model.leveldiff.splice(i,1); render(); }
+
+    function tzLabelFromHours(h){
+      const hh = num(h, 8);
+      const sign = hh >= 0 ? '+' : '';
+      if (hh === 8) return 'UTC+8 Shanghai';
+      return 'UTC' + sign + hh;
+    }
+
+    function updateTzLabel(){
+      $('tz_label').textContent = tzLabelFromHours($('tz_h').value);
+    }
+
+    async function loadCfg(){
+      $('msg').textContent='加载中…';
+      try{
+        const r = await fetch('/api/config', {cache:'no-store'});
+        const t = await r.text();
+        if (!r.ok) {
+          $('msg').textContent = (r.status === 401) ? '加载失败：未授权（需要面板密码）' : ('加载失败：HTTP ' + r.status + ' ' + t);
+          return;
+        }
+        model = migrate(JSON.parse(t));
+        render();
+        updateTzLabel();
+        $('msg').textContent='';
+      }catch(e){
+        $('msg').textContent='加载失败：网络错误或配置 JSON 解析失败';
+      }
+    }
+
+    async function saveCfg(){
+      const btns = document.querySelectorAll('button');
+      btns.forEach(b=>b.disabled=true);
+      try{
+        let bodyObj;
+        try{
+          bodyObj = migrate(JSON.parse($('cfgRaw').value || ''));
+        }catch(e){
+          bodyObj = collect();
+        }
+        const body = JSON.stringify(bodyObj, null, 2);
+        const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body});
+        const tx = await r.text();
+        if (!r.ok) {
+          $('msg').textContent = (r.status === 401) ? '保存失败：未授权（需要面板密码）' : ('保存失败：HTTP ' + r.status + ' ' + tx);
+          return;
+        }
+        $('msg').textContent = '已保存';
+        model = bodyObj;
+        render();
+        updateTzLabel();
+      }catch(e){
+        $('msg').textContent='保存失败：网络错误';
+      }finally{
+        btns.forEach(b=>b.disabled=false);
+      }
+    }
+
+    window.addDaily=addDaily; window.delDaily=delDaily;
+    window.addCycleRule=addCycleRule; window.delCycleRule=delCycleRule;
+    window.addCycleStep=addCycleStep; window.delCycleStep=delCycleStep;
+    window.addLevelDiff=addLevelDiff; window.delLevelDiff=delLevelDiff;
+    window.loadCfg=loadCfg; window.saveCfg=saveCfg;
+
+    $('tz_h').addEventListener('input', updateTzLabel);
+    updateTzLabel();
+    loadVerLine();
+    loadCfg();
+  </script>
+</body>
+</html>

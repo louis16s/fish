@@ -13,32 +13,31 @@ static const char* kCtrlPath = "/ctrl.json";
 static WiFiUDP g_udp;
 static NTPClient g_ntp(g_udp, "pool.ntp.org");
 static bool g_timeValid = false;
-static uint32_t g_tzOffsetS = 8 * 3600UL;
+static int32_t g_tzOffsetMs = 8 * 3600L * 1000L;
 static uint32_t g_lastTimeOkEpoch = 0;
+static bool g_ntpStarted = false;
 
 static void SetDefaults(WS_ControlConfig& cfg)
 {
-  cfg.tz_offset_s = 8 * 3600UL;
+  cfg.tz_offset_ms = 8 * 3600L * 1000L;
   cfg.mode = WS_CTRL_MIXED;
 
   cfg.daily_count = 1;
   cfg.daily[0].enabled = true;
   cfg.daily[0].open_enabled = true;
-  cfg.daily[0].open_h = 8;
-  cfg.daily[0].open_m = 0;
+  cfg.daily[0].open_ms = 8UL * 3600UL * 1000UL;
   cfg.daily[0].close_enabled = true;
-  cfg.daily[0].close_h = 9;
-  cfg.daily[0].close_m = 0;
+  cfg.daily[0].close_ms = 9UL * 3600UL * 1000UL;
 
   cfg.cycle_count = 1;
   cfg.cycle[0].enabled = false;
   cfg.cycle[0].step_count = 3;
   cfg.cycle[0].steps[0].open = true;
-  cfg.cycle[0].steps[0].duration_min = 8 * 60;
+  cfg.cycle[0].steps[0].duration_ms = 8UL * 3600UL * 1000UL;
   cfg.cycle[0].steps[1].open = false;
-  cfg.cycle[0].steps[1].duration_min = 3 * 60;
+  cfg.cycle[0].steps[1].duration_ms = 3UL * 3600UL * 1000UL;
   cfg.cycle[0].steps[2].open = true;
-  cfg.cycle[0].steps[2].duration_min = 5 * 60;
+  cfg.cycle[0].steps[2].duration_ms = 5UL * 3600UL * 1000UL;
 
   cfg.leveldiff_count = 1;
   cfg.leveldiff[0].enabled = true;
@@ -104,7 +103,7 @@ bool WS_Control_SaveRawJson(const char* json)
 bool WS_Control_Save(const WS_ControlConfig& cfg)
 {
   JsonDocument doc;
-  doc["tz_offset_s"] = cfg.tz_offset_s;
+  doc["tz_offset_ms"] = cfg.tz_offset_ms;
   doc["mode"] = ModeToStr(cfg.mode);
 
   JsonArray daily = doc["daily"].to<JsonArray>();
@@ -112,9 +111,9 @@ bool WS_Control_Save(const WS_ControlConfig& cfg)
     JsonObject o = daily.add<JsonObject>();
     o["en"] = cfg.daily[i].enabled;
     o["open_en"] = cfg.daily[i].open_enabled;
-    o["open"] = String(cfg.daily[i].open_h) + ":" + (cfg.daily[i].open_m < 10 ? "0" : "") + String(cfg.daily[i].open_m);
+    o["open_ms"] = cfg.daily[i].open_ms;
     o["close_en"] = cfg.daily[i].close_enabled;
-    o["close"] = String(cfg.daily[i].close_h) + ":" + (cfg.daily[i].close_m < 10 ? "0" : "") + String(cfg.daily[i].close_m);
+    o["close_ms"] = cfg.daily[i].close_ms;
   }
 
   JsonArray cycle = doc["cycle"].to<JsonArray>();
@@ -125,7 +124,7 @@ bool WS_Control_Save(const WS_ControlConfig& cfg)
     for (uint8_t j = 0; j < cfg.cycle[i].step_count && j < 10; j++) {
       JsonObject st = steps.add<JsonObject>();
       st["state"] = cfg.cycle[i].steps[j].open ? "open" : "close";
-      st["min"] = cfg.cycle[i].steps[j].duration_min;
+      st["dur_ms"] = cfg.cycle[i].steps[j].duration_ms;
     }
   }
 
@@ -142,14 +141,14 @@ bool WS_Control_Save(const WS_ControlConfig& cfg)
   return SaveToFS(out);
 }
 
-static bool ParseTimeHHMM(const char* s, uint8_t& h, uint8_t& m)
+static bool ParseTimeHHMMToMs(const char* s, uint32_t& outMs)
 {
+  outMs = 0;
   if (!s) return false;
   int hh = -1, mm = -1;
   if (sscanf(s, "%d:%d", &hh, &mm) != 2) return false;
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
-  h = (uint8_t)hh;
-  m = (uint8_t)mm;
+  outMs = (uint32_t)((hh * 3600L + mm * 60L) * 1000L);
   return true;
 }
 
@@ -170,7 +169,12 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
     return false;
   }
 
-  outCfg.tz_offset_s = doc["tz_offset_s"] | outCfg.tz_offset_s;
+  if (!doc["tz_offset_ms"].isNull()) {
+    outCfg.tz_offset_ms = doc["tz_offset_ms"] | outCfg.tz_offset_ms;
+  } else if (!doc["tz_offset_s"].isNull()) {
+    const uint32_t s = doc["tz_offset_s"] | (uint32_t)(outCfg.tz_offset_ms / 1000L);
+    outCfg.tz_offset_ms = (int32_t)(s * 1000UL);
+  }
   const char* mode = doc["mode"];
   (void)ParseMode(mode, outCfg.mode);
 
@@ -182,8 +186,17 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
       r.enabled = o["en"] | false;
       r.open_enabled = o["open_en"] | true;
       r.close_enabled = o["close_en"] | true;
-      (void)ParseTimeHHMM(o["open"] | "08:00", r.open_h, r.open_m);
-      (void)ParseTimeHHMM(o["close"] | "09:00", r.close_h, r.close_m);
+      // New schema: open_ms/close_ms. Backward compat: "open":"HH:MM" / "close":"HH:MM".
+      r.open_ms = o["open_ms"] | r.open_ms;
+      r.close_ms = o["close_ms"] | r.close_ms;
+      if (o["open_ms"].isNull()) {
+        uint32_t tmp = 0;
+        if (ParseTimeHHMMToMs(o["open"] | "08:00", tmp)) r.open_ms = tmp;
+      }
+      if (o["close_ms"].isNull()) {
+        uint32_t tmp = 0;
+        if (ParseTimeHHMMToMs(o["close"] | "09:00", tmp)) r.close_ms = tmp;
+      }
     }
   }
 
@@ -200,8 +213,15 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
           const char* state = st["state"] | "open";
           WS_CycleStep& step = rule.steps[rule.step_count++];
           step.open = (strcmp(state, "close") != 0);
-          step.duration_min = st["min"] | 60;
-          if (step.duration_min == 0) step.duration_min = 1;
+          if (!st["dur_ms"].isNull()) {
+            step.duration_ms = st["dur_ms"] | step.duration_ms;
+          } else if (!st["min"].isNull()) {
+            const uint32_t min = st["min"] | 60;
+            step.duration_ms = min * 60UL * 1000UL;
+          } else if (!st["ms"].isNull()) {
+            step.duration_ms = st["ms"] | step.duration_ms;
+          }
+          if (step.duration_ms == 0) step.duration_ms = 1000UL;
         }
       }
     }
@@ -219,8 +239,8 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
   }
 
   // Apply tz to NTP module
-  g_tzOffsetS = outCfg.tz_offset_s;
-  g_ntp.setTimeOffset((long)g_tzOffsetS);
+  g_tzOffsetMs = outCfg.tz_offset_ms;
+  g_ntp.setTimeOffset((long)(g_tzOffsetMs / 1000L));
   return true;
 }
 
@@ -234,18 +254,19 @@ uint32_t WS_Time_NowEpoch()
   return g_ntp.getEpochTime();
 }
 
-void WS_Time_SetTzOffset(uint32_t offset_s)
+void WS_Time_SetTzOffsetMs(int32_t offset_ms)
 {
-  g_tzOffsetS = offset_s;
-  g_ntp.setTimeOffset((long)g_tzOffsetS);
+  g_tzOffsetMs = offset_ms;
+  g_ntp.setTimeOffset((long)(g_tzOffsetMs / 1000L));
 }
 
 void WS_Time_OnWiFiConnected()
 {
   g_ntp.begin();
-  g_ntp.setTimeOffset((long)g_tzOffsetS);
+  g_ntp.setTimeOffset((long)(g_tzOffsetMs / 1000L));
   g_timeValid = false;
   g_lastTimeOkEpoch = 0;
+  g_ntpStarted = true;
 }
 
 void WS_Time_Loop()
@@ -253,6 +274,14 @@ void WS_Time_Loop()
   if (WiFi.status() != WL_CONNECTED) {
     g_timeValid = false;
     return;
+  }
+
+  // In case the caller didn't notify connection (or Wi-Fi reconnected),
+  // ensure NTP client is started.
+  if (!g_ntpStarted) {
+    g_ntp.begin();
+    g_ntp.setTimeOffset((long)(g_tzOffsetMs / 1000L));
+    g_ntpStarted = true;
   }
 
   if (!g_ntp.update()) {

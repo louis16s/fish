@@ -5,10 +5,8 @@
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 #include "WS_MQTT.h"
-#include "WS_Bluetooth.h"
 #include "WS_GPIO.h"
 #include "WS_Serial.h"
-#include "WS_RTC.h"
 #include "WS_Information.h"
 #include "WS_Control.h"
 #include "WS_Log.h"
@@ -29,7 +27,6 @@ extern bool WIFI_Connection;
 extern HardwareSerial lidarSerial;
 
 bool Relay_Flag[6] = {0};       // Relay current status flag
-uint16_t Simulated_time=0;      // Analog time counting
 
 // Gate control mapping: Relay1=OPEN, Relay2=CLOSE
 const uint8_t GATE_STATE_STOPPED = 0;
@@ -254,7 +251,7 @@ static void Ctrl_LoadIfNeeded()
     return;
   }
   CtrlCfgLoaded = WS_Control_Load(CtrlCfg);
-  WS_Time_SetTzOffset(CtrlCfg.tz_offset_s);
+  WS_Time_SetTzOffsetMs(CtrlCfg.tz_offset_ms);
 }
 
 static int32_t DayKeyFromEpoch(uint32_t epoch)
@@ -263,25 +260,32 @@ static int32_t DayKeyFromEpoch(uint32_t epoch)
   return (int32_t)(epoch / 86400UL);
 }
 
-static void Ctrl_Daily_Loop(uint32_t epoch, uint8_t hh, uint8_t mm, int32_t dayKey)
+static void Ctrl_Daily_Loop(uint32_t curMinOfDay, int32_t dayKey)
 {
   if (CtrlCfg.daily_count == 0) return;
   for (uint8_t i = 0; i < CtrlCfg.daily_count && i < 8; i++) {
     const WS_DailyRule& r = CtrlCfg.daily[i];
     if (!r.enabled) continue;
 
-    if (r.open_enabled && hh == r.open_h && mm == r.open_m) {
+    const uint32_t openMin = (uint32_t)(r.open_ms / 60000UL);
+    const uint32_t closeMin = (uint32_t)(r.close_ms / 60000UL);
+
+    if (r.open_enabled && curMinOfDay == openMin) {
       if (Daily_Last_Fired_DayKey_Open[i] != dayKey) {
         Daily_Last_Fired_DayKey_Open[i] = dayKey;
-        WS_Log_Action("daily[%u] fire open %02u:%02u", (unsigned)i, (unsigned)hh, (unsigned)mm);
+        const uint32_t hh = openMin / 60UL;
+        const uint32_t mm = openMin % 60UL;
+        WS_Log_Action("daily[%u] fire open %02lu:%02lu", (unsigned)i, (unsigned long)hh, (unsigned long)mm);
         Gate_Open();
       }
     }
 
-    if (r.close_enabled && hh == r.close_h && mm == r.close_m) {
+    if (r.close_enabled && curMinOfDay == closeMin) {
       if (Daily_Last_Fired_DayKey_Close[i] != dayKey) {
         Daily_Last_Fired_DayKey_Close[i] = dayKey;
-        WS_Log_Action("daily[%u] fire close %02u:%02u", (unsigned)i, (unsigned)hh, (unsigned)mm);
+        const uint32_t hh = closeMin / 60UL;
+        const uint32_t mm = closeMin % 60UL;
+        WS_Log_Action("daily[%u] fire close %02lu:%02lu", (unsigned)i, (unsigned long)hh, (unsigned long)mm);
         Gate_Close();
       }
     }
@@ -316,9 +320,9 @@ static void Ctrl_Cycle_Loop()
   if (Cycle_StepEndMs == 0) {
     Cycle_StepIndex = 0;
     const WS_CycleStep& st = rule->steps[Cycle_StepIndex];
-    WS_Log_Action("cycle start step=%u state=%s min=%lu", (unsigned)Cycle_StepIndex, st.open ? "open" : "close", (unsigned long)st.duration_min);
+    WS_Log_Action("cycle start step=%u state=%s dur_ms=%lu", (unsigned)Cycle_StepIndex, st.open ? "open" : "close", (unsigned long)st.duration_ms);
     (st.open ? Gate_Open() : Gate_Close());
-    Cycle_StepEndMs = now + st.duration_min * 60UL * 1000UL;
+    Cycle_StepEndMs = now + st.duration_ms;
     return;
   }
 
@@ -328,9 +332,9 @@ static void Ctrl_Cycle_Loop()
 
   Cycle_StepIndex = (uint8_t)((Cycle_StepIndex + 1U) % rule->step_count);
   const WS_CycleStep& st = rule->steps[Cycle_StepIndex];
-  WS_Log_Action("cycle next step=%u state=%s min=%lu", (unsigned)Cycle_StepIndex, st.open ? "open" : "close", (unsigned long)st.duration_min);
+  WS_Log_Action("cycle next step=%u state=%s dur_ms=%lu", (unsigned)Cycle_StepIndex, st.open ? "open" : "close", (unsigned long)st.duration_ms);
   (st.open ? Gate_Open() : Gate_Close());
-  Cycle_StepEndMs = now + st.duration_min * 60UL * 1000UL;
+  Cycle_StepEndMs = now + st.duration_ms;
 }
 
 static void Ctrl_LevelDiff_Loop()
@@ -341,10 +345,19 @@ static void Ctrl_LevelDiff_Loop()
   if (CtrlCfg.leveldiff_count == 0) {
     return;
   }
-  const WS_LevelDiffRule& r = CtrlCfg.leveldiff[0];
-  if (!r.enabled) {
-    return;
+
+  // Support multiple level-diff rule groups: pick the first enabled rule (in order).
+  const WS_LevelDiffRule* pr = nullptr;
+  uint8_t ridx = 0;
+  for (uint8_t i = 0; i < CtrlCfg.leveldiff_count && i < 4; i++) {
+    if (CtrlCfg.leveldiff[i].enabled) {
+      pr = &CtrlCfg.leveldiff[i];
+      ridx = i;
+      break;
+    }
   }
+  if (!pr) return;
+  const WS_LevelDiffRule& r = *pr;
   if (Gate_Action_Active) {
     return;
   }
@@ -352,7 +365,7 @@ static void Ctrl_LevelDiff_Loop()
   const int32_t delta = (int32_t)Sensor_Level_mm_1 - (int32_t)Sensor_Level_mm_2;
   if (delta <= r.open_threshold_mm) {
     if (!Gate_Position_Open) {
-      WS_Log_Action("leveldiff open delta=%ld <= %ld", (long)delta, (long)r.open_threshold_mm);
+      WS_Log_Action("leveldiff[%u] open delta=%ld <= %ld", (unsigned)ridx, (long)delta, (long)r.open_threshold_mm);
       Gate_Open();
     }
     return;
@@ -360,7 +373,7 @@ static void Ctrl_LevelDiff_Loop()
 
   if (delta >= r.close_threshold_mm) {
     if (Gate_Position_Open) {
-      WS_Log_Action("leveldiff close delta=%ld >= %ld", (long)delta, (long)r.close_threshold_mm);
+      WS_Log_Action("leveldiff[%u] close delta=%ld >= %ld", (unsigned)ridx, (long)delta, (long)r.close_threshold_mm);
       Gate_Close();
     }
   }
@@ -386,10 +399,9 @@ static void Ctrl_Automation_Loop()
   if (CtrlCfg.mode == WS_CTRL_DAILY) {
     if (WS_Time_IsValid()) {
       const uint32_t e = WS_Time_NowEpoch();
-      const uint8_t hh = (uint8_t)((e % 86400UL) / 3600UL);
-      const uint8_t mm = (uint8_t)((e % 3600UL) / 60UL);
+      const uint32_t minOfDay = (uint32_t)((e % 86400UL) / 60UL);
       const int32_t dayKey = DayKeyFromEpoch(e);
-      Ctrl_Daily_Loop(e, hh, mm, dayKey);
+      Ctrl_Daily_Loop(minOfDay, dayKey);
     }
     return;
   }
@@ -405,10 +417,9 @@ static void Ctrl_Automation_Loop()
   }
   if (WS_Time_IsValid()) {
     const uint32_t e = WS_Time_NowEpoch();
-    const uint8_t hh = (uint8_t)((e % 86400UL) / 3600UL);
-    const uint8_t mm = (uint8_t)((e % 3600UL) / 60UL);
+    const uint32_t minOfDay = (uint32_t)((e % 86400UL) / 60UL);
     const int32_t dayKey = DayKeyFromEpoch(e);
-    Ctrl_Daily_Loop(e, hh, mm, dayKey);
+    Ctrl_Daily_Loop(minOfDay, dayKey);
   }
   Ctrl_LevelDiff_Loop();
 }
@@ -720,9 +731,7 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
 {
   const bool isGateCommand = (buf[0] == GATE_STOP || buf[0] == CH1 || buf[0] == CH2);
   if (!isGateCommand) {
-    if (Mode_Flag == Bluetooth_Mode) {
-      printf("Bluetooth Data :");
-    } else if (Mode_Flag == MQTT_Mode) {
+    if (Mode_Flag == MQTT_Mode) {
       printf("WIFI Data :");
     } else {
       printf("RS485 Data :");
@@ -875,26 +884,11 @@ void setup() {
   Update_Alarm_Status();
   Alarm_LogTransitions();
   Ctrl_LoadIfNeeded();
-  
-// RTC
-  if(RTC_Enable)
-  {
-    RTC_Init();
-  }
-
-
-// Bluetooth
-  Bluetooth_Init();
 
 // WIFI
   MQTT_Init();
   if (WIFI_Connection == 1 && WiFi.status() == WL_CONNECTED) {
     WS_Time_OnWiFiConnected();
-  }
-
-// Obtain and synchronize network time
-  if(WIFI_Connection == 1 && RTC_Enable == 1){
-    Acquisition_time();
   }
 }
 
@@ -912,24 +906,8 @@ void loop() {
 
 // WIFI
   MQTT_Loop();
-
-// Bluetooth
-  Bluetooth_Loop();
   Air780E_Loop();
   Offline_Network_RGB_Loop();
-
-  Simulated_time++;
-
-// RTC
-  if(RTC_Enable)
-  {
-    if(Simulated_time ==1000){
-      RTC_Loop();
-    }
-  }
-  if(Simulated_time ==1000)
-    Simulated_time = 0;
-  
 }
 
 

@@ -4,6 +4,7 @@
 #include <LittleFS.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
 
 static uint32_t (*g_nowEpoch)() = nullptr;
 
@@ -11,6 +12,27 @@ static const char* kErrorPath = "/log_error.txt";
 static const char* kMeasurePath = "/log_measure.txt";
 static const char* kActionPath = "/log_action.txt";
 static const size_t kMaxBytes = 256U * 1024U;
+
+static bool FormatEpochTs(uint32_t epoch, char* out, size_t outSize)
+{
+  if (!out || outSize == 0) return false;
+  // epoch here is expected to be "local epoch" (already offset applied by NTP client),
+  // so gmtime_r will format it as local wall time.
+  time_t tt = (time_t)epoch;
+  struct tm tmv;
+  if (!gmtime_r(&tt, &tmv)) {
+    out[0] = '\0';
+    return false;
+  }
+  snprintf(out, outSize, "%04d-%02d-%02d %02d:%02d:%02d",
+           tmv.tm_year + 1900,
+           tmv.tm_mon + 1,
+           tmv.tm_mday,
+           tmv.tm_hour,
+           tmv.tm_min,
+           tmv.tm_sec);
+  return true;
+}
 
 static void RotateIfNeeded(const char* path)
 {
@@ -48,7 +70,17 @@ static void AppendLine(const char* path, const char* tag, const char* fmt, va_li
   char line[320];
   if (g_nowEpoch) {
     const uint32_t ts = g_nowEpoch();
-    snprintf(line, sizeof(line), "%lu [%s] %s\r\n", (unsigned long)ts, tag, msg);
+    char tsStr[32];
+    // If time isn't valid yet, avoid logging "1970..." by falling back to millis().
+    if (ts >= 1609459200UL) {
+      if (FormatEpochTs(ts, tsStr, sizeof(tsStr))) {
+        snprintf(line, sizeof(line), "%s [%s] %s\r\n", tsStr, tag, msg);
+      } else {
+        snprintf(line, sizeof(line), "%lu [%s] %s\r\n", (unsigned long)ts, tag, msg);
+      }
+    } else {
+      snprintf(line, sizeof(line), "ms=%lu [%s] %s\r\n", (unsigned long)millis(), tag, msg);
+    }
   } else {
     snprintf(line, sizeof(line), "ms=%lu [%s] %s\r\n", (unsigned long)millis(), tag, msg);
   }
@@ -94,4 +126,3 @@ void WS_Log_Action(const char* fmt, ...)
   AppendLine(kActionPath, "ACT", fmt, ap);
   va_end(ap);
 }
-

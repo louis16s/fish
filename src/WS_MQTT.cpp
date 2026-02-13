@@ -7,6 +7,7 @@
 
 #include "WS_Control.h"
 #include "WS_Log.h"
+#include "WS_FS.h"
 
 // The name and password of the WiFi access point
 const char* ssid = STASSID;
@@ -229,7 +230,65 @@ static void MQTT_PublishState(bool force)
   }
 }
 
+// ===================== UI Files On LittleFS =====================
+// Front-end pages are served from LittleFS to keep C++ code small and allow UI updates via uploadfs.
+static const char* kUiIndexPath = "/ui/index.html";
+static const char* kUiConfigPath = "/ui/config.html";
+static const char* kUiLogsPath = "/ui/logs.html";
+
+static bool WS_HTTP_StreamFileFromLittleFS(const char* path, const String& contentType)
+{
+  if (!WS_FS_EnsureMounted()) return false;
+  if (!LittleFS.exists(path)) return false;
+  File f = LittleFS.open(path, "r");
+  if (!f) return false;
+  server.sendHeader("Cache-Control", "no-store");
+  server.streamFile(f, contentType);
+  f.close();
+  return true;
+}
+
+static void WS_HTTP_SendUiMissingHint(const char* wanted)
+{
+  String html;
+  html.reserve(700);
+  html += "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">";
+  html += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  html += "<title>UI 缺失</title></head>";
+  html += "<body style=\"font-family:system-ui,-apple-system,Segoe UI,Roboto,PingFang SC,Microsoft YaHei,sans-serif;padding:18px\">";
+  html += "<h2>UI 文件缺失</h2>";
+  html += "<p>未找到：<code>";
+  html += wanted;
+  html += "</code></p>";
+  html += "<p>请在 PlatformIO 执行：<b>Upload Filesystem Image</b>（LittleFS），把 <code>data/</code>（包含 <code>data/ui/</code>）上传到设备。</p>";
+  html += "<p>上传后刷新本页即可。</p>";
+  html += "</body></html>";
+  server.send(200, "text/html; charset=utf-8", html);
+}
+
+static void WS_HTTP_SendUiPage(const char* path)
+{
+  if (!Http_Auth()) return;
+  if (WS_HTTP_StreamFileFromLittleFS(path, "text/html; charset=utf-8")) return;
+  WS_HTTP_SendUiMissingHint(path);
+}
+
+static String WS_HTTP_GuessContentType(const String& path)
+{
+  if (path.endsWith(".html")) return "text/html; charset=utf-8";
+  if (path.endsWith(".css")) return "text/css; charset=utf-8";
+  if (path.endsWith(".js")) return "application/javascript; charset=utf-8";
+  if (path.endsWith(".json")) return "application/json; charset=utf-8";
+  if (path.endsWith(".png")) return "image/png";
+  if (path.endsWith(".ico")) return "image/x-icon";
+  if (path.endsWith(".svg")) return "image/svg+xml";
+  return "application/octet-stream";
+}
+
 void handleRoot() {
+  WS_HTTP_SendUiPage(kUiIndexPath);
+  return;
+#if 0
   if (!Http_Auth()) {
     return;
   }
@@ -250,6 +309,7 @@ void handleRoot() {
     .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(14,165,233,.15)}
     .title{font-weight:900;letter-spacing:.2px}
     .sub{color:var(--muted);font-size:12px;margin-top:2px}
+    .top-actions{display:flex;gap:10px;align-items:center}
     .grid{max-width:980px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:14px;box-shadow:0 12px 30px rgba(15,23,42,.08)}
     .card-title{font-size:13px;color:var(--muted);font-weight:800;margin-bottom:10px;letter-spacing:.2px}
@@ -268,8 +328,18 @@ void handleRoot() {
     .hint{margin-top:10px;color:var(--muted);font-size:12px}
     .alarm{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#f8fafc;font-weight:900}
     .alarm-on{border-color:#fecaca;background:#fef2f2}
+
+    .bars{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .barbox{position:relative;height:220px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#ffffff 0%, #f8fafc 100%);overflow:hidden}
+    .barfill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,#22c55e 0%, #0ea5e9 100%);transition:height .45s ease}
+    .barfill.offline{background:linear-gradient(180deg,#fecaca 0%, #fb7185 100%)}
+    .scale{position:absolute;inset:0;pointer-events:none}
+    .scale i{position:absolute;left:0;right:0;border-top:1px dashed rgba(15,23,42,.12)}
+    .scale b{position:absolute;right:8px;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:900}
+    .barlabel{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted);font-weight:900}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:520px){.controls{grid-template-columns:1fr 1fr}}
+    @media (max-width:520px){.bars{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -281,16 +351,50 @@ void handleRoot() {
         <div class="sub" id="statusLine">连接中…</div>
       </div>
     </div>
-    <a class="btn" href="/config" style="text-decoration:none;display:inline-grid;place-items:center">配置</a>
+    <div class="top-actions">
+      <a class="btn" href="/logs" style="text-decoration:none;display:inline-grid;place-items:center">日志</a>
+      <a class="btn" href="/config" style="text-decoration:none;display:inline-grid;place-items:center">配置</a>
+    </div>
   </header>
 
   <main class="grid">
     <section class="card">
-      <div class="card-title">水位</div>
+      <div class="card-title">水位（绝对比例 0-5m）</div>
       <div class="kv">
         <div class="k">内塘</div><div class="v" id="innerLevel">--</div>
         <div class="k">外塘</div><div class="v" id="outerLevel">--</div>
         <div class="k">水位差</div><div class="v" id="delta">--</div>
+      </div>
+
+      <div class="bars">
+        <div>
+          <div class="barbox">
+            <div class="barfill" id="barInner"></div>
+            <div class="scale">
+              <i style="top:0%"></i><b style="top:0%">5m</b>
+              <i style="top:20%"></i><b style="top:20%">4</b>
+              <i style="top:40%"></i><b style="top:40%">3</b>
+              <i style="top:60%"></i><b style="top:60%">2</b>
+              <i style="top:80%"></i><b style="top:80%">1</b>
+              <i style="top:100%"></i><b style="top:100%">0</b>
+            </div>
+          </div>
+          <div class="barlabel"><span>内塘</span><span id="innerM">--</span></div>
+        </div>
+        <div>
+          <div class="barbox">
+            <div class="barfill" id="barOuter"></div>
+            <div class="scale">
+              <i style="top:0%"></i><b style="top:0%">5m</b>
+              <i style="top:20%"></i><b style="top:20%">4</b>
+              <i style="top:40%"></i><b style="top:40%">3</b>
+              <i style="top:60%"></i><b style="top:60%">2</b>
+              <i style="top:80%"></i><b style="top:80%">1</b>
+              <i style="top:100%"></i><b style="top:100%">0</b>
+            </div>
+          </div>
+          <div class="barlabel"><span>外塘</span><span id="outerM">--</span></div>
+        </div>
       </div>
       <div class="row">
         <div class="pill" id="innerOnline">内塘：--</div>
@@ -319,7 +423,7 @@ void handleRoot() {
     <section class="card">
       <div class="card-title">告警</div>
       <div class="alarm" id="alarmLine">--</div>
-      <div class="hint" id="metaLine">FW __FW_VERSION__</div>
+      <div class="hint" id="metaLine">固件版本 __FW_VERSION__</div>
     </section>
   </main>
 
@@ -327,12 +431,30 @@ void handleRoot() {
     const $ = (id) => document.getElementById(id);
     function setStatus(t){ $('statusLine').textContent=t; }
     function gateStateText(s){ if(s===1) return '开闸中'; if(s===2) return '关闸中'; return '待机'; }
+    function clamp(n, a, b){ return Math.min(b, Math.max(a, n)); }
+    function setBar(id, mm, valid){
+      const el = $(id);
+      if(!el) return;
+      const maxMm = 5000;
+      const v = valid ? clamp(mm, 0, maxMm) : 0;
+      const pct = (v / maxMm) * 100;
+      el.style.height = pct.toFixed(1) + '%';
+      el.className = valid ? 'barfill' : 'barfill offline';
+    }
     function render(t){
       if(!t){ return; }
       const s1=t.sensor1||{}, s2=t.sensor2||{};
-      $('innerLevel').textContent = s1.valid ? (s1.mm+' mm') : '离线';
-      $('outerLevel').textContent = s2.valid ? (s2.mm+' mm') : '离线';
-      $('delta').textContent = (s1.valid && s2.valid) ? ((s1.mm-s2.mm)+' mm') : '--';
+      const innerOk=!!s1.valid, outerOk=!!s2.valid;
+      const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
+      const innerM = innerOk ? (innerMm/1000.0) : null;
+      const outerM = outerOk ? (outerMm/1000.0) : null;
+      $('innerLevel').textContent = innerOk ? (innerMm+' mm ('+innerM.toFixed(3)+' m)') : '离线';
+      $('outerLevel').textContent = outerOk ? (outerMm+' mm ('+outerM.toFixed(3)+' m)') : '离线';
+      $('innerM').textContent = innerOk ? (innerM.toFixed(3)+' m') : '--';
+      $('outerM').textContent = outerOk ? (outerM.toFixed(3)+' m') : '--';
+      setBar('barInner', innerMm, innerOk);
+      setBar('barOuter', outerMm, outerOk);
+      $('delta').textContent = (innerOk && outerOk) ? ((innerMm-outerMm)+' mm') : '--';
       $('innerOnline').textContent = '内塘：'+(s1.online?'在线':'离线');
       $('outerOnline').textContent = '外塘：'+(s2.online?'在线':'离线');
       $('gateState').textContent = gateStateText(t.gate_state);
@@ -377,7 +499,200 @@ void handleRoot() {
 
   server.send(200, "text/html", myhtmlPage);
   printf("The user visited the home page\r\n");
+#endif
 }
+
+static const char* kLogErrorPath = "/log_error.txt";
+static const char* kLogMeasurePath = "/log_measure.txt";
+static const char* kLogActionPath = "/log_action.txt";
+
+static const char* LogPathFromName(const String& name)
+{
+  if (name == "error") return kLogErrorPath;
+  if (name == "measure") return kLogMeasurePath;
+  if (name == "action") return kLogActionPath;
+  return nullptr;
+}
+
+static bool ReadFileTailToString(const char* path, size_t tailBytes, String& out)
+{
+  out = "";
+  if (!WS_FS_EnsureMounted()) return false;
+  if (!LittleFS.exists(path)) return true; // empty
+  File f = LittleFS.open(path, "r");
+  if (!f) return false;
+  const size_t sz = (size_t)f.size();
+  size_t start = 0;
+  if (tailBytes > 0 && sz > tailBytes) start = sz - tailBytes;
+  if (start > 0) (void)f.seek(start, SeekSet);
+  out.reserve((tailBytes > 0) ? tailBytes : sz);
+  while (f.available()) {
+    out += (char)f.read();
+  }
+  f.close();
+  return true;
+}
+
+static bool TruncateFile(const char* path)
+{
+  if (!WS_FS_EnsureMounted()) return false;
+  File f = LittleFS.open(path, "w");
+  if (!f) return false;
+  f.close();
+  return true;
+}
+
+void handleLogsPage()
+{
+  WS_HTTP_SendUiPage(kUiLogsPath);
+  return;
+#if 0
+  if (!Http_Auth()) {
+    return;
+  }
+  const char* page = R"HTML(
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>日志</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--line:#e5e7eb;--text:#0f172a;--muted:#475569;--accent:#0ea5e9;--warn:#d97706;--bad:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);padding:18px}
+    .wrap{max-width:980px;margin:0 auto}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer;min-height:44px;text-decoration:none;display:inline-grid;place-items:center}
+    .btn.danger{border-color:#dc2626;background:#fef2f2;color:#7f1d1d}
+    .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:14px;box-shadow:0 12px 30px rgba(15,23,42,.08)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .tab{appearance:none;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:8px 10px;font-weight:900;cursor:pointer}
+    .tab.on{border-color:#0284c7;background:rgba(14,165,233,.10);color:var(--text)}
+    pre{margin:0;border:1px solid var(--line);border-radius:12px;background:#0b1020;color:#e2e8f0;padding:12px;min-height:520px;max-height:70vh;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.5}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="btn" href="/">返回面板</a>
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="refresh()">刷新</button>
+        <button class="btn danger" onclick="clearCur()">清空当前日志</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="tabs">
+        <button class="tab on" id="t_error" onclick="setTab('error')">错误日志</button>
+        <button class="tab" id="t_measure" onclick="setTab('measure')">测量日志</button>
+        <button class="tab" id="t_action" onclick="setTab('action')">动作日志</button>
+      </div>
+      <pre id="logBox">加载中…</pre>
+      <div class="hint">说明：日志存储在设备 LittleFS。默认只读取末尾 16KB，可用于快速排查。</div>
+      <div class="hint" id="msg"></div>
+    </div>
+  </div>
+  <script>
+    let cur='error';
+    const $=(id)=>document.getElementById(id);
+    function setTab(t){
+      cur=t;
+      ['error','measure','action'].forEach(k=>{
+        $('t_'+k).className = (k===t) ? 'tab on' : 'tab';
+      });
+      refresh();
+    }
+    async function refresh(){
+      try{
+        const r = await fetch('/api/log?name='+encodeURIComponent(cur)+'&tail=16384');
+        const tx = await r.text();
+        $('logBox').textContent = tx.length ? tx : '(空)';
+        $('msg').textContent = r.ok ? '' : ('读取失败: '+tx);
+        $('logBox').scrollTop = $('logBox').scrollHeight;
+      }catch(e){
+        $('msg').textContent = '读取失败';
+      }
+    }
+    async function clearCur(){
+      if(!confirm('确认清空当前日志？')) return;
+      try{
+        const r = await fetch('/api/log/clear', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:cur})});
+        $('msg').textContent = r.ok ? '已清空' : ('清空失败: '+(await r.text()));
+      }catch(e){
+        $('msg').textContent = '清空失败';
+      }
+      refresh();
+    }
+    setInterval(refresh, 2000);
+    refresh();
+  </script>
+</body>
+</html>
+)HTML";
+  server.send(200, "text/html", page);
+#endif
+}
+
+void handleApiLogGet()
+{
+  if (!Http_Auth()) {
+    return;
+  }
+  String name = server.hasArg("name") ? server.arg("name") : "";
+  name.toLowerCase();
+  const char* path = LogPathFromName(name);
+  if (!path) {
+    server.send(400, "text/plain", "bad name");
+    return;
+  }
+  long tailL = server.hasArg("tail") ? server.arg("tail").toInt() : 16384;
+  if (tailL < 0) tailL = 0;
+  if (tailL > 65536) tailL = 65536;
+  const size_t tail = (size_t)tailL;
+  String out;
+  if (!ReadFileTailToString(path, tail, out)) {
+    server.send(500, "text/plain", "read failed");
+    return;
+  }
+  server.send(200, "text/plain; charset=utf-8", out);
+}
+
+static bool ParseNameFromJsonBody(String& outName)
+{
+  outName = "";
+  if (!server.hasArg("plain")) return false;
+  JsonDocument doc;
+  const String body = server.arg("plain");
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) return false;
+  outName = String((const char*)(doc["name"] | ""));
+  outName.toLowerCase();
+  return outName.length() > 0;
+}
+
+void handleApiLogClear()
+{
+  if (!Http_Auth()) {
+    return;
+  }
+  String name;
+  if (!ParseNameFromJsonBody(name)) {
+    server.send(400, "text/plain", "invalid json");
+    return;
+  }
+  const char* path = LogPathFromName(name);
+  if (!path) {
+    server.send(400, "text/plain", "bad name");
+    return;
+  }
+  if (!TruncateFile(path)) {
+    server.send(500, "text/plain", "clear failed");
+    return;
+  }
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+
 void handleGetData() {
   if (!Http_Auth()) {
     return;
@@ -427,6 +742,9 @@ void handleApiCmd()
 
 void handleConfigPage()
 {
+  WS_HTTP_SendUiPage(kUiConfigPath);
+  return;
+#if 0
   if (!Http_Auth()) {
     return;
   }
@@ -438,49 +756,361 @@ void handleConfigPage()
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>配置</title>
   <style>
-    :root{--bg:#f6f7fb;--card:#fff;--line:#e5e7eb;--text:#0f172a;--muted:#475569;--accent:#0ea5e9}
+    :root{--bg:#f6f7fb;--card:#fff;--line:#e5e7eb;--text:#0f172a;--muted:#475569;--accent:#0ea5e9;--bad:#dc2626}
     *{box-sizing:border-box}
     body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);padding:18px}
     .wrap{max-width:980px;margin:0 auto}
     .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
     .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer;min-height:44px;text-decoration:none;display:inline-grid;place-items:center}
     .btn.primary{border-color:#0284c7;background:var(--accent);color:#fff}
+    .btn.danger{border-color:#dc2626;background:#fef2f2;color:#7f1d1d}
     .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:14px;box-shadow:0 12px 30px rgba(15,23,42,.08)}
-    textarea{width:100%;min-height:420px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .sec{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}
+    .sec-title{font-weight:900;margin-bottom:10px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{font-size:12px;color:var(--muted);font-weight:900}
+    input,select{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:900;min-height:44px;background:#fff;color:var(--text)}
+    input[type="number"]{width:120px}
+    input[type="time"]{width:140px}
+    select{min-width:160px}
+    .list{display:grid;gap:10px}
+    .item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+    .item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .item-title{font-weight:900}
+    .mini{font-size:12px;color:var(--muted);font-weight:900}
+    .btn.small{min-height:36px;padding:8px 10px;border-radius:999px}
+    textarea{width:100%;min-height:260px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
     .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+    details{margin-top:12px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
       <a class="btn" href="/">返回面板</a>
-      <button class="btn primary" onclick="save()">保存</button>
-    </div>
-    <div class="card">
-      <div style="font-weight:900;margin-bottom:8px">控制配置（存储在 ESP32 LittleFS: /ctrl.json）</div>
-      <textarea id="cfg"></textarea>
-      <div class="hint">
-        mode: mixed/daily/cycle/leveldiff。daily 支持多组 open/close 时间；cycle 支持 steps 多段；leveldiff 按水位差控制。
+      <div class="row">
+        <button class="btn" onclick="loadCfg()">重新加载</button>
+        <button class="btn primary" onclick="saveCfg()">保存</button>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">控制配置</div>
+
+      <div class="grid">
+        <div class="sec">
+          <div class="sec-title">基本</div>
+          <div class="row">
+            <label>模式</label>
+            <select id="mode">
+              <option value="mixed">混合(推荐)</option>
+              <option value="daily">仅定时</option>
+              <option value="cycle">仅循环</option>
+              <option value="leveldiff">仅水位差</option>
+            </select>
+            <label>时区(小时)</label>
+            <input id="tz_h" type="number" min="-12" max="14" step="1" value="8">
+          </div>
+          <div class="hint">混合模式：如果任意循环规则启用，则优先循环；否则触发定时；最后用水位差作为持续兜底。</div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">说明</div>
+          <div class="hint">
+            1. 定时：多组，开与关可分离启用。
+            <br>2. 循环：多段间隔，支持多组(最多2组，按顺序取第一组启用的)。
+            <br>3. 水位差：delta = 内塘(mm) - 外塘(mm)。
+          </div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">定时规则</div>
+            <div class="mini">例如：08:00 开，09:00 关。</div>
+          </div>
+          <button class="btn small" onclick="addDaily()">添加定时</button>
+        </div>
+        <div class="list" id="dailyList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">循环规则</div>
+            <div class="mini">例如：开 8小时，关 3小时，再开 5小时。</div>
+          </div>
+          <button class="btn small" onclick="addCycleRule()">添加一组循环</button>
+        </div>
+        <div class="list" id="cycleList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">水位差规则</div>
+            <div class="mini">当 delta <= 打开阈值 时开闸；当 delta >= 关闭阈值 时关闸。</div>
+          </div>
+          <button class="btn small" onclick="addLevelDiff()">添加水位差</button>
+        </div>
+        <div class="list" id="ldList"></div>
+      </div>
+
+      <details>
+        <summary class="mini">高级：查看/编辑原始 JSON</summary>
+        <textarea id="cfgRaw"></textarea>
+      </details>
+
+      <div class="hint">配置文件存储在设备 LittleFS：`/ctrl.json`。保存后立即生效。</div>
       <div class="hint" id="msg"></div>
     </div>
   </div>
+
   <script>
-    async function load(){
-      const t = await (await fetch('/api/config')).text();
-      document.getElementById('cfg').value = t;
+    const $=(id)=>document.getElementById(id);
+    const num=(v,def)=>{ const n=parseInt(v,10); return Number.isFinite(n)?n:def; };
+    const timeToStr=(t)=> (t && t.length===5) ? t : '08:00';
+
+    let model = {tz_offset_s:28800, mode:'mixed', daily:[], cycle:[], leveldiff:[]};
+
+    function dailyTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">定时 #${i+1}</div>
+            <button class="btn small danger" onclick="delDaily(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="d_en_${i}"> 启用</label>
+            <label><input type="checkbox" id="d_open_en_${i}"> 开闸</label>
+            <input type="time" id="d_open_${i}">
+            <label><input type="checkbox" id="d_close_en_${i}"> 关闸</label>
+            <input type="time" id="d_close_${i}">
+          </div>
+        </div>`;
     }
-    async function save(){
-      const body = document.getElementById('cfg').value;
-      const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body});
-      document.getElementById('msg').textContent = r.ok ? '已保存' : ('保存失败: '+(await r.text()));
+
+    function cycleRuleTpl(ri){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">循环组 #${ri+1}</div>
+            <div class="row">
+              <button class="btn small" onclick="addCycleStep(${ri})">添加步骤</button>
+              <button class="btn small danger" onclick="delCycleRule(${ri})">删除本组</button>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <label><input type="checkbox" id="c_en_${ri}"> 启用本组</label>
+            <span class="mini">提示：只取第一组启用的循环。</span>
+          </div>
+          <div class="list" id="cycleSteps_${ri}"></div>
+        </div>`;
     }
-    load();
+
+    function cycleStepTpl(ri, si){
+      return `
+        <div class="item" style="background:#f8fafc">
+          <div class="item-top">
+            <div class="mini">步骤 #${si+1}</div>
+            <button class="btn small danger" onclick="delCycleStep(${ri},${si})">删除步骤</button>
+          </div>
+          <div class="row">
+            <label>动作</label>
+            <select id="c_${ri}_state_${si}">
+              <option value="open">开闸</option>
+              <option value="close">关闸</option>
+            </select>
+            <label>时长</label>
+            <input id="c_${ri}_h_${si}" type="number" min="0" max="999" step="1" value="0"><span class="mini">小时</span>
+            <input id="c_${ri}_m_${si}" type="number" min="0" max="59" step="1" value="0"><span class="mini">分钟</span>
+          </div>
+        </div>`;
+    }
+
+    function ldTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">水位差 #${i+1}</div>
+            <button class="btn small danger" onclick="delLevelDiff(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="l_en_${i}"> 启用</label>
+            <label>打开阈值(mm)</label>
+            <input id="l_open_${i}" type="number" step="1" value="-1">
+            <label>关闭阈值(mm)</label>
+            <input id="l_close_${i}" type="number" step="1" value="0">
+            <span class="mini">默认：-1/0 表示 内塘低于外塘开闸，内塘高于或等于外塘关闸。</span>
+          </div>
+        </div>`;
+    }
+
+    function render(){
+      $('mode').value = model.mode || 'mixed';
+      $('tz_h').value = Math.round((model.tz_offset_s||28800)/3600);
+
+      const daily = (model.daily||[]).slice(0,8);
+      $('dailyList').innerHTML = daily.map((_,i)=>dailyTpl(i)).join('');
+      daily.forEach((r,i)=>{
+        $('d_en_'+i).checked = !!r.en;
+        $('d_open_en_'+i).checked = (r.open_en!==false);
+        $('d_close_en_'+i).checked = (r.close_en!==false);
+        $('d_open_'+i).value = timeToStr(r.open||'08:00');
+        $('d_close_'+i).value = timeToStr(r.close||'09:00');
+      });
+
+      const cycle = (model.cycle||[]).slice(0,2);
+      $('cycleList').innerHTML = cycle.map((_,ri)=>cycleRuleTpl(ri)).join('');
+      cycle.forEach((r,ri)=>{
+        $('c_en_'+ri).checked = !!r.en;
+        const steps = (r.steps||[]).slice(0,10);
+        $('cycleSteps_'+ri).innerHTML = steps.map((_,si)=>cycleStepTpl(ri,si)).join('');
+        steps.forEach((st,si)=>{
+          const min = num(st.min, 60);
+          const h = Math.floor(min/60), m = min%60;
+          $('c_'+ri+'_state_'+si).value = (st.state==='close') ? 'close' : 'open';
+          $('c_'+ri+'_h_'+si).value = h;
+          $('c_'+ri+'_m_'+si).value = m;
+        });
+      });
+
+      const ld = (model.leveldiff||[]).slice(0,4);
+      $('ldList').innerHTML = ld.map((_,i)=>ldTpl(i)).join('');
+      ld.forEach((r,i)=>{
+        $('l_en_'+i).checked = !!r.en;
+        $('l_open_'+i).value = num(r.open_mm, -1);
+        $('l_close_'+i).value = num(r.close_mm, 0);
+      });
+
+      $('cfgRaw').value = JSON.stringify(model, null, 2);
+    }
+
+    function collect(){
+      const tzH = num($('tz_h').value, 8);
+      const mode = $('mode').value || 'mixed';
+
+      const daily=[];
+      for(let i=0;i<$('dailyList').children.length;i++){
+        daily.push({
+          en: $('d_en_'+i).checked,
+          open_en: $('d_open_en_'+i).checked,
+          open: timeToStr($('d_open_'+i).value),
+          close_en: $('d_close_en_'+i).checked,
+          close: timeToStr($('d_close_'+i).value),
+        });
+      }
+
+      const cycle=[];
+      for(let ri=0;ri<$('cycleList').children.length;ri++){
+        const steps=[];
+        for(let si=0;si<$('cycleSteps_'+ri).children.length;si++){
+          const state = $('c_'+ri+'_state_'+si).value === 'close' ? 'close' : 'open';
+          const h = Math.max(0, num($('c_'+ri+'_h_'+si).value, 0));
+          const m = Math.max(0, Math.min(59, num($('c_'+ri+'_m_'+si).value, 0)));
+          const min = Math.max(1, h*60+m);
+          steps.push({state, min});
+        }
+        cycle.push({en:$('c_en_'+ri).checked, steps});
+      }
+
+      const leveldiff=[];
+      for(let i=0;i<$('ldList').children.length;i++){
+        leveldiff.push({
+          en: $('l_en_'+i).checked,
+          open_mm: num($('l_open_'+i).value, -1),
+          close_mm: num($('l_close_'+i).value, 0),
+        });
+      }
+
+      return {tz_offset_s: tzH*3600, mode, daily, cycle, leveldiff};
+    }
+
+    // UI actions
+    function addDaily(){
+      model.daily = model.daily || [];
+      if(model.daily.length>=8){ $('msg').textContent='定时最多 8 组'; return; }
+      model.daily.push({en:true, open_en:true, open:'08:00', close_en:true, close:'09:00'});
+      render();
+    }
+    function delDaily(i){ model.daily.splice(i,1); render(); }
+
+    function addCycleRule(){
+      model.cycle = model.cycle || [];
+      if(model.cycle.length>=2){ $('msg').textContent='循环最多 2 组'; return; }
+      model.cycle.push({en:false, steps:[{state:'open',min:480},{state:'close',min:180},{state:'open',min:300}]});
+      render();
+    }
+    function delCycleRule(i){ model.cycle.splice(i,1); render(); }
+    function addCycleStep(ri){
+      const r = model.cycle[ri];
+      r.steps = r.steps || [];
+      if(r.steps.length>=10){ $('msg').textContent='每组最多 10 段'; return; }
+      r.steps.push({state:'open',min:60});
+      render();
+    }
+    function delCycleStep(ri,si){ model.cycle[ri].steps.splice(si,1); render(); }
+
+    function addLevelDiff(){
+      model.leveldiff = model.leveldiff || [];
+      if(model.leveldiff.length>=4){ $('msg').textContent='水位差最多 4 组'; return; }
+      model.leveldiff.push({en:true, open_mm:-1, close_mm:0});
+      render();
+    }
+    function delLevelDiff(i){ model.leveldiff.splice(i,1); render(); }
+
+    async function loadCfg(){
+      $('msg').textContent='加载中…';
+      try{
+        const t = await (await fetch('/api/config')).text();
+        model = JSON.parse(t);
+        render();
+        $('msg').textContent='';
+      }catch(e){
+        $('msg').textContent='加载失败：配置 JSON 解析失败';
+      }
+    }
+
+    async function saveCfg(){
+      try{
+        let bodyObj;
+        try{
+          bodyObj = JSON.parse($('cfgRaw').value || '');
+        }catch(e){
+          bodyObj = collect();
+        }
+        const body = JSON.stringify(bodyObj, null, 2);
+        const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body});
+        $('msg').textContent = r.ok ? '已保存' : ('保存失败: '+(await r.text()));
+        if(r.ok){ model=bodyObj; render(); }
+      }catch(e){
+        $('msg').textContent='保存失败';
+      }
+    }
+
+    // expose for inline onclick
+    window.addDaily=addDaily; window.delDaily=delDaily;
+    window.addCycleRule=addCycleRule; window.delCycleRule=delCycleRule;
+    window.addCycleStep=addCycleStep; window.delCycleStep=delCycleStep;
+    window.addLevelDiff=addLevelDiff; window.delLevelDiff=delLevelDiff;
+    window.loadCfg=loadCfg; window.saveCfg=saveCfg;
+
+    loadCfg();
   </script>
 </body>
 </html>
 )HTML";
   server.send(200, "text/html", page);
+#endif
 }
 
 void handleApiConfigGet()
@@ -683,25 +1313,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 static const char* WIFI_CFG_FILE = "/wifi.cfg";
 
-static bool EnsureWiFiConfigFS()
-{
-  static bool fsReady = false;
-  static bool fsTried = false;
-  if (!fsTried) {
-    fsTried = true;
-    fsReady = LittleFS.begin(false);
-    if (!fsReady) {
-      printf("warning: LittleFS mount failed, wifi config file disabled.\r\n");
-    }
-  }
-  return fsReady;
-}
-
 static bool LoadWiFiConfigFromFile(String& outSsid, String& outPass)
 {
   outSsid = "";
   outPass = "";
-  if (!EnsureWiFiConfigFS()) {
+  if (!WS_FS_EnsureMounted()) {
     return false;
   }
   if (!LittleFS.exists(WIFI_CFG_FILE)) {
@@ -723,7 +1339,7 @@ static bool LoadWiFiConfigFromFile(String& outSsid, String& outPass)
 
 static bool SaveWiFiConfigToFile(const String& ssidIn, const String& passIn)
 {
-  if (!EnsureWiFiConfigFS()) {
+  if (!WS_FS_EnsureMounted()) {
     return false;
   }
   String ss = ssidIn;
@@ -837,6 +1453,9 @@ void setup_wifi() {
   server.on("/getData", handleGetData);
   server.on("/api/state", handleApiState);
   server.on("/api/cmd", HTTP_POST, handleApiCmd);
+  server.on("/logs", handleLogsPage);
+  server.on("/api/log", HTTP_GET, handleApiLogGet);
+  server.on("/api/log/clear", HTTP_POST, handleApiLogClear);
   server.on("/config", handleConfigPage);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigPost);
@@ -855,7 +1474,19 @@ void setup_wifi() {
   server.on("/AutoGateOff", handleAutoGateOff);
   server.on("/AutoGateLatchOff", handleAutoGateLatchOff);
   server.on("/ManualEnd", handleManualEnd);
-  server.onNotFound([](){ server.send(404, "text/plain", "404 Not Found"); });
+  server.onNotFound([](){
+    const String uri = server.uri();
+    if (uri.startsWith("/ui/")) {
+      if (!Http_Auth()) {
+        return;
+      }
+      const String ct = WS_HTTP_GuessContentType(uri);
+      if (WS_HTTP_StreamFileFromLittleFS(uri.c_str(), ct)) {
+        return;
+      }
+    }
+    server.send(404, "text/plain", "404 Not Found");
+  });
   if (ELEGANT_OTA_Enable) {
     ElegantOTA.begin(&server);
   }

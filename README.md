@@ -33,18 +33,21 @@
 - 主流程：传感器采集、自动闸门、告警、循环调度
 
 2. `src/WS_MQTT.cpp`
-- Wi-Fi连接、WebServer、网页渲染、MQTT控制、OTA入口
+- Wi-Fi连接、WebServer、面板静态文件服务（LittleFS）、MQTT控制、OTA入口
 
-3. `src/WS_Serial.cpp`
+3. `data/ui/`
+- 面板前端静态文件（`index.html/config.html/logs.html`），通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`）
+
+4. `src/WS_Serial.cpp`
 - RS485串口初始化、Air780E AT状态轮询
 
-4. `src/WS_GPIO.cpp`
+5. `src/WS_GPIO.cpp`
 - 继电器、RGB、蜂鸣器控制
 
-5. `src/WS_Information.h`
+6. `src/WS_Information.h`
 - 核心配置中心（建议统一在此修改）
 
-6. `sensor_doc/`
+7. `doc/`
 - 传感器资料与协议文档
 
 
@@ -81,19 +84,16 @@
 
 ### 4.1 功能开关
 
-1. `RTC_Enable`
-- `1` 启用 DS3231 定时控制
-
-2. `MQTT_CLOUD_Enable`
+1. `MQTT_CLOUD_Enable`
 - `true` 启用 MQTT 云连接
 
-3. `WIFI_FallbackPortal_Enable`
+2. `WIFI_FallbackPortal_Enable`
 - `true` 启用 WiFiManager AP 配网回退
 
-4. `ELEGANT_OTA_Enable`
+3. `ELEGANT_OTA_Enable`
 - `true` 启用 `/update` OTA 页面
 
-5. `AIR780E_Enable`
+4. `AIR780E_Enable`
 - 4G 总开关
 - `false` 时：
 - 不初始化 Air780E 串口状态轮询
@@ -191,12 +191,24 @@
 1. `GET /`
 2. `GET /getData`
 3. `GET /config`（控制策略配置页，存储在 LittleFS `/ctrl.json`）
-4. `GET /api/state`（统一状态接口，结构与 VPS 面板一致）
-5. `POST /api/cmd`（统一命令接口，`{"cmd":"gate_open"}`）
-6. `GET /api/config`（读取控制策略 JSON）
-7. `POST /api/config`（写入控制策略 JSON）
-3. `GET /update`
-4. `GET /favicon.ico`
+4. `GET /logs`（日志查看页）
+5. `GET /api/state`（统一状态接口，结构与 VPS 面板一致）
+6. `POST /api/cmd`（统一命令接口，`{"cmd":"gate_open"}`）
+7. `GET /api/config`（读取控制策略 JSON）
+8. `POST /api/config`（写入控制策略 JSON）
+9. `GET /api/log?name=error|measure|action&tail=16384`（读取日志末尾）
+10. `POST /api/log/clear`（清空日志，JSON：`{"name":"error"}`）
+11. `GET /update`
+12. `GET /favicon.ico`
+
+说明：
+
+1. 面板前端已从固件代码中分离，页面文件存放在工程 `data/ui/`，上传到设备 LittleFS 后路径为：
+- `/ui/index.html`
+- `/ui/config.html`
+- `/ui/logs.html`
+- `/ui/pond_gate.svg`（水位/水闸示意图）
+2. 若未上传 LittleFS（文件系统镜像），访问 `/` 会提示 UI 文件缺失。请在 PlatformIO 执行 `Upload Filesystem Image`（或命令行 `pio run -t uploadfs`）。
 
 ### 7.2 闸门控制接口
 
@@ -323,6 +335,12 @@ JSON 示例：
 
 模式 `mode` 支持：`mixed/daily/cycle/leveldiff`。
 
+时间单位：
+
+1. `tz_offset_ms`：时区偏移毫秒（例如 UTC+8 => `28800000`）
+2. `daily.open_ms` / `daily.close_ms`：当天从 00:00 起的毫秒数（页面以 HH:MM 方式编辑）
+3. `cycle.steps.dur_ms`：每段持续毫秒数
+
 ## 9.6 日志（新增）
 
 日志写入 LittleFS（自动轮转）：
@@ -330,6 +348,11 @@ JSON 示例：
 1. 错误日志：`/log_error.txt`
 2. 测量日志：`/log_measure.txt`
 3. 动作日志：`/log_action.txt`
+
+日志格式：
+
+1. 已同步时间：`YYYY-MM-DD HH:MM:SS [TAG] message`
+2. 未同步时间：`ms=<millis> [TAG] message`
 
 ## 10. OTA 说明
 
@@ -367,7 +390,7 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 3. 分区：`default_16MB.csv`
 4. 监视器波特率：`115200`
 5. 版本脚本：`scripts/auto_version.py`
-6. 构建过滤：当前编译包含 `WS_Bluetooth.cpp`（通过 `BLUETOOTH_Enable` 控制启用/禁用）
+6. 文件系统：`board_build.filesystem = littlefs`（用于上传 `data/` 前端静态文件）
 
 ## 13. 常见问题排查
 
@@ -390,5 +413,5 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 
 ## 14. 当前代码边界（避免误解）
 
-1. 蓝牙调试功能，默认由 `BLUETOOTH_Enable=false` 关闭，需要时改为 `true` 即可启用。
+1. 面板前端文件位于 `data/ui/`，需要上传到设备 LittleFS（未上传时访问 `/` 会提示 UI 缺失）。
 2. MQTT 遥测上报未启用，当前以下行控制为主。

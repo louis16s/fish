@@ -19,16 +19,15 @@ enum WS_CtrlMode : uint8_t {
 struct WS_DailyRule {
   bool enabled = false;
   bool open_enabled = true;
-  uint8_t open_h = 8;
-  uint8_t open_m = 0;
+  // Milliseconds since 00:00 (local time). UI typically uses minute precision.
+  uint32_t open_ms = 8UL * 3600UL * 1000UL;
   bool close_enabled = true;
-  uint8_t close_h = 9;
-  uint8_t close_m = 0;
+  uint32_t close_ms = 9UL * 3600UL * 1000UL;
 };
 
 struct WS_CycleStep {
   bool open = true;          // true=open gate, false=close gate
-  uint32_t duration_min = 60;
+  uint32_t duration_ms = 60UL * 60UL * 1000UL;
 };
 
 struct WS_CycleRule {
@@ -46,7 +45,8 @@ struct WS_LevelDiffRule {
 };
 
 struct WS_ControlConfig {
-  uint32_t tz_offset_s = 8 * 3600UL;
+  // Timezone offset in milliseconds. Example: UTC+8 => 28800000.
+  int32_t tz_offset_ms = 8 * 3600L * 1000L;
   WS_CtrlMode mode = WS_CTRL_MIXED;
   uint8_t daily_count = 0;
   WS_DailyRule daily[8];
@@ -65,7 +65,7 @@ String WS_Control_LoadRawJson();
 // Runtime helpers
 bool WS_Time_IsValid();
 uint32_t WS_Time_NowEpoch();
-void WS_Time_SetTzOffset(uint32_t offset_s);
+void WS_Time_SetTzOffsetMs(int32_t offset_ms);
 void WS_Time_OnWiFiConnected();   // call after Wi-Fi connects
 void WS_Time_Loop();              // call in main loop
 
