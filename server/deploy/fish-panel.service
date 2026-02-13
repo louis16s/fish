@@ -1,0 +1,16 @@
+[Unit]
+Description=Fish MQTT Control Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fish-panel
+EnvironmentFile=/opt/fish-panel/.env
+ExecStart=/usr/bin/node /opt/fish-panel/index.js
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

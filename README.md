@@ -1,0 +1,394 @@
+# ESP32-S3 双水位计闸门控制项目
+
+![屏幕截图 2026-02-13 194808.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/13/698f0ff780f47.webp)
+
+## 1. 项目功能概览
+
+1. 通过 RS485 读取两个超声波液位计
+- `ID001`：内塘
+- `ID002`：外塘
+
+2. 自动闸门控制
+- 继电器1：开闸
+- 继电器2：关闸
+- 含滞回、最小动作间隔、超时保护、互锁保护
+
+3. 中文网页控制面板
+- 实时水位可视化
+- 水位/温度/水位差/在线状态
+- 自动模式与手动接管
+- 闸门开关控制
+
+4. OTA 升级
+- `ElegantOTA` 页面升级：`http://<设备IP>/update`
+![屏幕截图 2026-02-13 194838.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/13/698f0ff43e637.webp)
+
+5. Air780E 4G 状态监测（AT）
+- 周期检测在线、SIM、附着、信号
+- 可通过配置总开关彻底关闭
+
+## 2. 目录说明
+
+1. `src/MAIN_ALL.ino`
+- 主流程：传感器采集、自动闸门、告警、循环调度
+
+2. `src/WS_MQTT.cpp`
+- Wi-Fi连接、WebServer、网页渲染、MQTT控制、OTA入口
+
+3. `src/WS_Serial.cpp`
+- RS485串口初始化、Air780E AT状态轮询
+
+4. `src/WS_GPIO.cpp`
+- 继电器、RGB、蜂鸣器控制
+
+5. `src/WS_Information.h`
+- 核心配置中心（建议统一在此修改）
+
+6. `sensor_doc/`
+- 传感器资料与协议文档
+
+
+
+## 3. 引脚定义
+
+定义文件：`src/WS_GPIO.h`
+
+1. RS485 传感器串口
+- `TXD1 = GPIO17`
+- `RXD1 = GPIO18`
+
+2. 4G 模块 Air780E 串口
+- `AIR780E_RXD = GPIO39`（ESP32接收）
+- `AIR780E_TXD = GPIO40`（ESP32发送）
+
+3. 继电器与外设
+- `GPIO1`：继电器1（开闸）
+- `GPIO2`：继电器2（关闸）
+- `GPIO41`：继电器3
+- `GPIO42`：继电器4
+- `GPIO45`：继电器5
+- `GPIO46`：继电器6
+- `GPIO38`：RGB
+- `GPIO21`：蜂鸣器
+
+## 4. 配置说明（WS_Information.h）
+
+### 4.0 重要：机密信息不要提交到 GitHub
+
+请在提交前确认 `src/WS_Information.h` 中的 Wi-Fi/MQTT/面板密码不是你的真实密码。
+
+仓库提供了示例文件：`src/WS_Information.example.h`。
+
+### 4.1 功能开关
+
+1. `RTC_Enable`
+- `1` 启用 DS3231 定时控制
+
+2. `MQTT_CLOUD_Enable`
+- `true` 启用 MQTT 云连接
+
+3. `WIFI_FallbackPortal_Enable`
+- `true` 启用 WiFiManager AP 配网回退
+
+4. `ELEGANT_OTA_Enable`
+- `true` 启用 `/update` OTA 页面
+
+5. `AIR780E_Enable`
+- 4G 总开关
+- `false` 时：
+- 不初始化 Air780E 串口状态轮询
+- 网页“设备信息”不显示 4G 项
+
+### 4.2 Wi-Fi 相关
+
+1. 预设网络
+- `STASSID`
+- `STAPSK`
+
+2. 配网门户
+- `WIFI_PORTAL_SSID`
+- `WIFI_PORTAL_PASSWORD`
+- `WIFI_PORTAL_TIMEOUT_S`
+
+3. 本地持久化
+- 固件会保存/读取 `LittleFS:/wifi.cfg`
+
+### 4.3 自动闸门参数
+
+1. 传感器映射
+- `INNER_POND_SENSOR_ID`
+- `OUTER_POND_SENSOR_ID`
+
+2. 控制参数
+- `GATE_OPEN_DELTA_THRESHOLD_MM`
+- `GATE_CLOSE_DELTA_THRESHOLD_MM`
+- `GATE_RELAY_ACTION_SECONDS`
+- `GATE_MIN_ACTION_INTERVAL_S`
+- `GATE_MAX_CONTINUOUS_RUN_S`
+- `MANUAL_TAKEOVER_RECOVER_S`
+
+### 4.4 采集与安全
+
+1. `SENSOR_DATA_TIMEOUT_MS`
+2. `LEVEL_JUMP_THRESHOLD_MM_PER_S`
+3. `LEVEL_MIN_MM`
+4. `LEVEL_MAX_MM`
+
+### 4.5 日志与指示
+
+1. `SERIAL_LEVEL_LOG_Enable`
+2. `SERIAL_LEVEL_LOG_INTERVAL_MS`
+3. `SERIAL_GATE_LOG_Enable`
+4. `STARTUP_BUZZER_Enable`
+5. `STARTUP_BUZZER_DURATION_MS`
+6. `WIFI_OFFLINE_RGB_BLINK_Enable`
+7. `WIFI_OFFLINE_RGB_BLINK_INTERVAL_MS`
+
+## 5. Wi-Fi连接流程
+
+`setup_wifi()` 的连接顺序：
+
+1. 读取 `LittleFS:/wifi.cfg`
+2. 尝试 NVS 已存 Wi-Fi（`WiFi.begin()` 无参数）
+3. 尝试预设 `STASSID/STAPSK`
+4. 若仍失败且启用回退，进入 WiFiManager 配网门户
+
+连接成功后：
+
+1. 写回当前 SSID/PSK 到 `wifi.cfg`
+2. 启动 WebServer
+
+## 6. 网页面板功能
+
+访问：`http://<设备IP>/`
+
+显示内容：
+
+1. 内塘/外塘水位
+2. 内塘/外塘温度
+3. 水位差（内-外）
+4. 闸门状态
+5. 传感器在线状态（分两行）
+6. 自动模式、手动接管状态
+7. 互锁状态
+8. 网络状态、设备信息、固件信息
+
+控制按钮：
+
+1. 开闸（继电器1）
+2. 关闸（继电器2）
+3. 停止动作
+4. 开启自动闸门
+5. 手动接管/恢复自动
+6. 关闭自动（锁定关闭）
+7. 单位切换（mm / m）
+8. 打开 OTA 升级页
+
+## 7. HTTP 接口
+
+### 7.1 页面与数据
+
+1. `GET /`
+2. `GET /getData`
+3. `GET /config`（控制策略配置页，存储在 LittleFS `/ctrl.json`）
+4. `GET /api/state`（统一状态接口，结构与 VPS 面板一致）
+5. `POST /api/cmd`（统一命令接口，`{"cmd":"gate_open"}`）
+6. `GET /api/config`（读取控制策略 JSON）
+7. `POST /api/config`（写入控制策略 JSON）
+3. `GET /update`
+4. `GET /favicon.ico`
+
+### 7.2 闸门控制接口
+
+1. `GET /GateOpen`
+2. `GET /GateClose`
+3. `GET /GateStop`
+4. `GET /AutoGateOn`
+5. `GET /AutoGateOff`
+6. `GET /AutoGateLatchOff`
+7. `GET /ManualEnd`
+
+### 7.3 继电器兼容接口
+
+1. `GET /Switch1` 到 `GET /Switch6`
+2. `GET /AllOn`
+3. `GET /AllOff`
+
+
+## 8. /getData 字段说明
+
+典型结构：
+
+```json
+{
+  "sensor1": {"mm": 1234, "valid": true, "online": true, "temp_x10": 251, "temp_valid": true},
+  "sensor2": {"mm": 1567, "valid": true, "online": true, "temp_x10": 248, "temp_valid": true},
+  "gate_state": 0,
+  "gate_position_open": false,
+  "auto_gate": true,
+  "auto_latched": false,
+  "manual": {"active": false, "remain_s": 0},
+  "relay1": 0,
+  "relay2": 0,
+  "net": {"wifi": true, "mqtt": true, "http": true, "ip": "192.168.1.5", "rssi": -57},
+  "cell": {"enabled": true, "online": true, "sim_ready": true, "attached": true, "csq": 20, "rssi_dbm": -73, "last_rx_age_s": 2},
+  "ctrl": {"open_allowed": true, "close_allowed": true, "reason": ""},
+  "alarm": {"active": false, "severity": 0, "text": "normal"},
+  "fw": {"current": "v2026...", "latest": "ElegantOTA", "last_check": "25s", "last_result": "ready_update_page"}
+}
+```
+
+状态说明：
+
+1. `gate_state`
+- `0`：待机
+- `1`：开闸执行中
+- `2`：关闸执行中
+
+2. `cell.enabled`
+- 由 `AIR780E_Enable` 决定
+
+## 9. MQTT 使用说明
+
+### 9.1 当前实现范围
+
+1. 已实现
+- MQTT连接
+- 下行控制解析
+- 周期遥测上报（默认 `3s`）
+- 状态变更触发上报（默认启用）
+
+### 9.2 下行控制格式
+
+主题：`MQTT_Sub`
+
+JSON 示例：
+
+```json
+{"data":{"CH1":1}}
+```
+
+支持键：
+
+1. `CH1` 到 `CH6`
+2. `ALL`
+
+取值：
+
+1. `1`
+- 执行动作
+
+2. `0`
+- 关闭或恢复
+
+### 9.3 简化命令格式（新增）
+
+主题：`MQTT_Sub`
+
+JSON 示例：
+
+```json
+{"cmd":"gate_open"}
+```
+
+支持值：
+
+1. `gate_open`
+2. `gate_close`
+3. `gate_stop`
+4. `auto_on`
+5. `auto_off`
+6. `auto_latch_off`
+7. `manual_end`
+
+### 9.4 遥测上报格式
+
+主题：`MQTT_Pub`
+
+数据结构与 `GET /getData` 基本一致，示例：
+
+```json
+{"sensor1":{"mm":1234,"valid":true},"sensor2":{"mm":1567,"valid":true},"gate_state":0,"auto_gate":true}
+```
+
+## 9.5 控制策略（新增）
+
+控制配置文件存储在 ESP32 LittleFS：`/ctrl.json`，可通过内网页面 `GET /config` 编辑。
+
+支持三种机制（可配置多组）：
+
+1. 定时（daily）：例如 08:00 开、09:00 关（开关可独立启用）
+2. 循环（cycle）：例如 开 8h、关 3h、开 5h（支持 steps 多段循环）
+3. 水位差（leveldiff）：内塘低于外塘开闸；内塘>=外塘关闸（阈值可配置）
+
+模式 `mode` 支持：`mixed/daily/cycle/leveldiff`。
+
+## 9.6 日志（新增）
+
+日志写入 LittleFS（自动轮转）：
+
+1. 错误日志：`/log_error.txt`
+2. 测量日志：`/log_measure.txt`
+3. 动作日志：`/log_action.txt`
+
+## 10. OTA 说明
+
+当前固件采用 `ElegantOTA` 网页升级模式：
+
+1. 访问 `http://<设备IP>/update`
+2. 上传固件并执行升级
+
+
+## 11. Air780E 说明
+
+Air780E 状态轮询在 `src/WS_Serial.cpp`：
+
+1. 轮询命令
+- `AT`
+- `AT+CPIN?`
+- `AT+CSQ`
+- `AT+CGATT?`
+
+2. 状态字段
+- 在线：`Air780E_Online`
+- SIM就绪：`Air780E_SIMReady`
+- 附着：`Air780E_Attached`
+- 信号：`Air780E_CSQ` / `Air780E_RSSI_dBm`
+
+3. 关闭方式
+- `AIR780E_Enable false`
+
+## 12. 构建配置
+
+文件：`platformio.ini`
+
+1. 板卡：`esp32-s3-devkitm-1`
+2. Flash：`16MB`
+3. 分区：`default_16MB.csv`
+4. 监视器波特率：`115200`
+5. 版本脚本：`scripts/auto_version.py`
+6. 构建过滤：当前编译包含 `WS_Bluetooth.cpp`（通过 `BLUETOOTH_Enable` 控制启用/禁用）
+
+## 13. 常见问题排查
+
+1. 网页 404
+- 确认串口有 `Web server started`
+- 确认使用的是 `Web panel: http://<ip>/`
+
+2. 传感器离线
+- 检查 RS485 A/B 线和供电
+- 检查地址冲突（001/002）
+- 检查终端电阻和线缆长度
+
+3. 4G信息不显示
+- 检查 `AIR780E_Enable` 是否为 `true`
+- 若为 `false`，网页设备信息会自动隐藏 4G字段
+
+4. OTA 页面打不开
+- 直接访问 `http://<设备IP>/update`
+
+
+## 14. 当前代码边界（避免误解）
+
+1. 蓝牙调试功能，默认由 `BLUETOOTH_Enable=false` 关闭，需要时改为 `true` 即可启用。
+2. MQTT 遥测上报未启用，当前以下行控制为主。
