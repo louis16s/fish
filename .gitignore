@@ -12,4 +12,5 @@ src/auto_fw_version.h
 src/WS_Secrets.h
 server/.env
 server/node_modules/
+server/config.txt
 src/WS_Information.h

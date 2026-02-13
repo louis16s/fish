@@ -21,19 +21,52 @@ SRC_DIR="$(cd "${HERE}/.." && pwd)"
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+print_mosquitto_diag() {
+  echo
+  echo "---- mosquitto status ----"
+  sudo systemctl status mosquitto --no-pager || true
+  echo
+  echo "---- mosquitto journal (last 200) ----"
+  sudo journalctl -u mosquitto -n 200 --no-pager || true
+  echo
+  echo "---- ports (1883) ----"
+  ss -lntup | egrep '(:1883\\b)' || true
+  echo
+  echo "---- /etc/mosquitto/conf.d ----"
+  sudo ls -la /etc/mosquitto/conf.d || true
+  if [[ -f "${MOSQ_CONF}" ]]; then
+    echo
+    echo "---- ${MOSQ_CONF} ----"
+    sudo sed -n '1,160p' "${MOSQ_CONF}" || true
+  fi
+  echo
+}
+
 if ! need_cmd sudo; then
-  echo "sudo not found"
-  exit 1
+  die "sudo not found"
 fi
 
 if ! need_cmd apt-get; then
-  echo "This script currently supports Debian/Ubuntu (apt-get)."
-  exit 1
+  die "This script currently supports Debian/Ubuntu (apt-get)."
 fi
 
 echo "[1/7] Install packages"
 sudo apt-get update
 sudo apt-get install -y nginx mosquitto mosquitto-clients rsync nodejs npm curl
+
+echo "[1b/7] Check Node.js version (panel requires Node >= 18)"
+NODE_VER="$(node -v 2>/dev/null || true)"
+NODE_MAJOR="$(echo "${NODE_VER}" | sed -E 's/^v([0-9]+).*/\\1/' || true)"
+if [[ -z "${NODE_MAJOR}" || "${NODE_MAJOR}" -lt 18 ]]; then
+  echo "Detected node=${NODE_VER} (too old)."
+  echo "Fix (recommended): install Node.js 20 from NodeSource:"
+  echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
+  echo "  sudo apt-get install -y nodejs"
+  echo "Then re-run this script."
+  exit 3
+fi
 
 echo "[2/7] Setup Mosquitto (if needed)"
 sudo mkdir -p /etc/mosquitto/conf.d
@@ -56,8 +89,13 @@ else
   echo "Mosquitto conf exists, skip: ${MOSQ_CONF}"
 fi
 
-sudo systemctl enable --now mosquitto
-sudo systemctl restart mosquitto
+sudo systemctl enable mosquitto >/dev/null 2>&1 || true
+if ! sudo systemctl restart mosquitto; then
+  echo "Mosquitto failed to start/restart."
+  print_mosquitto_diag
+  exit 4
+fi
+sudo systemctl start mosquitto >/dev/null 2>&1 || true
 
 echo "[3/7] Sync panel to ${APP_DST}"
 sudo mkdir -p "${APP_DST}"
@@ -148,4 +186,3 @@ echo "Health:"
 curl -fsS "http://127.0.0.1:3000/healthz" | head -c 400 || true
 echo
 echo "Done. Open: http://${DOMAIN}/"
-
