@@ -23,6 +23,7 @@ const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const SESSION_SECRET = mustEnv('SESSION_SECRET', 'CHANGE_ME');
 const ADMIN_USER = (process.env.ADMIN_USER ?? 'admin').toString();
 const ADMIN_PASS = mustEnv('ADMIN_PASS', 'CHANGE_ME');
+const SESSION_COOKIE_SECURE = (process.env.SESSION_COOKIE_SECURE ?? '').toString().toLowerCase() === 'true';
 
 const MQTT_URL = mustEnv('MQTT_URL', 'mqtt://127.0.0.1:1883');
 const MQTT_USERNAME = (process.env.MQTT_USERNAME ?? '').toString();
@@ -45,7 +46,8 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      // Keep HTTP workable by default; enable after HTTPS is configured.
+      secure: SESSION_COOKIE_SECURE
     }
   })
 );
