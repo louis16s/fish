@@ -31,6 +31,7 @@
     .btn.small{min-height:36px;padding:8px 10px;border-radius:999px}
     textarea{width:100%;min-height:260px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
     .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+    #verLine{white-space:pre-line;display:inline-block}
     details{margin-top:12px}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
@@ -47,7 +48,7 @@
     </div>
 
     <div class="card">
-      <div class="sec-title">控制配置（时间单位统一为 ms）</div>
+      <div class="sec-title">控制配置（保存后写入 /ctrl.json 并立即生效）</div>
 
       <div class="grid">
         <div class="sec">
@@ -61,17 +62,21 @@
               <option value="leveldiff">仅水位差</option>
             </select>
             <label>时区</label>
-            <input id="tz_h" type="number" min="-12" max="14" step="1" value="8" aria-label="时区小时偏移">
+            <select id="tz_h" aria-label="时区小时偏移"></select>
             <span class="mini" id="tz_label">UTC+8 Shanghai</span>
           </div>
           <div class="hint">混合模式：若任意循环启用，则优先循环；否则触发定时；最后用水位差作为持续兜底。</div>
+          <div class="hint">定时 open_ms/close_ms：本地时区当天从 00:00 起的毫秒数（页面输入时间会自动换算）。</div>
+          <div class="hint">水位差阈值建议：打开阈值应 &lt;= 关闭阈值，避免频繁开关。</div>
         </div>
 
         <div class="sec">
           <div class="sec-title">说明</div>
-          <div class="hint">定时 open_ms/close_ms：当天从 00:00 起的毫秒数。</div>
-          <div class="hint">循环 steps.dur_ms：该步骤持续毫秒数。</div>
-          <div class="hint">页面会自动兼容旧配置并转换为 ms。</div>
+          <div class="hint">时区 tz_offset_ms：例如 UTC+8 = 8*3600*1000 = 28800000。</div>
+          <div class="hint">循环 steps：按顺序执行 state(open/close) + dur_ms（持续毫秒）。</div>
+          <div class="hint">水位差：delta = 内塘 - 外塘（mm）。当 delta &lt;= 打开阈值 开闸；当 delta &gt;= 关闭阈值 关闸。</div>
+          <div class="hint">页面会自动兼容旧配置字段并转换为 ms。</div>
+          <div class="hint">若提示“未授权”，说明设备启用了面板密码，需要先完成授权。</div>
         </div>
       </div>
 
@@ -125,7 +130,7 @@
   </div>
 
   <script>
-    const UI_VERSION = 'ui-2026.02.13-01';
+    const UI_VERSION = 'ui-2026.02.14-01';
     const $=(id)=>document.getElementById(id);
     const num=(v,def)=>{ const n=parseInt(v,10); return Number.isFinite(n)?n:def; };
     const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -148,7 +153,7 @@
       try{
         const t = await fetchTelemetry();
         const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
-        $('verLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + ' | UI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+        $('verLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + '\nUI ' + UI_VERSION) : ('UI ' + UI_VERSION);
       }catch(e){
         $('verLine').textContent = 'UI ' + UI_VERSION;
       }
@@ -420,6 +425,20 @@
       $('tz_label').textContent = tzLabelFromHours($('tz_h').value);
     }
 
+    function initTzSelect(){
+      const sel = $('tz_h');
+      if(!sel) return;
+      sel.innerHTML = '';
+      for(let h=-12; h<=14; h++){
+        const opt = document.createElement('option');
+        const sign = h >= 0 ? '+' : '';
+        opt.value = String(h);
+        opt.textContent = (h === 8) ? ('UTC+8 Shanghai (默认)') : ('UTC' + sign + h);
+        sel.appendChild(opt);
+      }
+      if(!sel.value) sel.value = '8';
+    }
+
     async function loadCfg(){
       $('msg').textContent='加载中…';
       try{
@@ -472,7 +491,8 @@
     window.addLevelDiff=addLevelDiff; window.delLevelDiff=delLevelDiff;
     window.loadCfg=loadCfg; window.saveCfg=saveCfg;
 
-    $('tz_h').addEventListener('input', updateTzLabel);
+    initTzSelect();
+    $('tz_h').addEventListener('change', updateTzLabel);
     updateTzLabel();
     loadVerLine();
     loadCfg();

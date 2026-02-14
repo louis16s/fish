@@ -3,25 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>水闸面板</title>
+  <title>控制面板</title>
   <style>
     :root{
-      --bg0:#070a13;
-      --bg1:#0b1630;
-      --card:rgba(255,255,255,.06);
-      --card2:rgba(255,255,255,.08);
-      --stroke:rgba(148,163,184,.22);
-      --stroke2:rgba(148,163,184,.32);
-      --text:#e7eefc;
-      --muted:#a5b4cf;
-      --muted2:#7c8db4;
-      --aqua:#38bdf8;
+      --bg0:#060812;
+      --bg1:#0b1730;
+      --text:rgba(231,238,252,.96);
+      --muted:rgba(165,180,207,.78);
+      --muted2:rgba(124,141,180,.68);
+
+      /* Global tokens (single source of truth) */
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+      --surface:rgba(255,255,255,.06);
+      --surface2:rgba(2,6,23,.32);
+      --shadow1:0 16px 50px rgba(0,0,0,.46);
+
+      --radius-panel:20px;
+      --radius-card:16px;
+      --radius-btn:14px;
+      --radius-pill:999px;
+
       --cyan:#22d3ee;
       --good:#22c55e;
       --warn:#f59e0b;
       --bad:#fb7185;
-      --shadow:0 18px 55px rgba(0,0,0,.45);
-      --r:18px;
       --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
       --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
@@ -32,9 +38,7 @@
       font-family:var(--font);
       color:var(--text);
       background:
-        radial-gradient(1200px 800px at 18% 12%, rgba(34,211,238,.25), transparent 55%),
-        radial-gradient(900px 700px at 85% 18%, rgba(56,189,248,.18), transparent 55%),
-        radial-gradient(1100px 900px at 70% 88%, rgba(59,130,246,.16), transparent 60%),
+        radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1));
       padding:18px 14px 28px;
       overflow-x:hidden;
@@ -46,10 +50,10 @@
       display:flex;align-items:center;justify-content:space-between;gap:14px;
       padding:14px 14px;
       border:1px solid var(--stroke);
-      border-radius:22px;
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter:blur(8px);
     }
     .brand{display:flex;align-items:center;gap:12px;min-width:0}
     .statusDot{
@@ -62,8 +66,8 @@
     .statusDot.bad{background:var(--bad);box-shadow:0 0 0 6px rgba(251,113,133,.12), 0 0 26px rgba(251,113,133,.20)}
     .brandTxt{min-width:0}
     .brandTitle{
-      font-weight:950;letter-spacing:.3px;
-      font-size:15px;line-height:1.15;
+      font-weight:850;letter-spacing:.2px;
+      font-size:18px;line-height:1.15;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .brandSub{
@@ -71,14 +75,16 @@
       margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .quickLinks{justify-content:flex-start}
     .navbtn{
       display:inline-grid;place-items:center;
-      min-height:44px;padding:10px 12px;border-radius:999px;
+      min-height:44px;padding:10px 12px;border-radius:var(--radius-pill);
       border:1px solid var(--stroke);
       text-decoration:none;
       color:var(--text);
       background:rgba(255,255,255,.04);
       font-weight:900;
+      font-size:13px;
       transition:background .18s ease,border-color .18s ease,transform .06s ease;
     }
     .navbtn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
@@ -90,28 +96,30 @@
       gap:14px;
       margin-top:14px;
     }
+    #cfgPanel{grid-column:1 / -1}
+    #logPanel{grid-column:1 / -1}
     .panel{
       border:1px solid var(--stroke);
-      border-radius:var(--r);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter: blur(8px);
       overflow:hidden;
     }
     .panelHd{
       display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
       padding:14px 14px 12px;
-      border-bottom:1px solid rgba(148,163,184,.16);
+      border-bottom:1px solid rgba(255,255,255,.06);
     }
-    .panelTitle{font-weight:950;letter-spacing:.25px}
-    .panelSub{margin-top:3px;color:var(--muted2);font-size:12px;line-height:1.55}
+    .panelTitle{font-size:16px;font-weight:850;letter-spacing:.2px}
+    .panelSub{margin-top:4px;color:var(--muted2);font-size:12px;line-height:1.6}
 
     .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .chip{
-      border:1px solid rgba(148,163,184,.20);
+      border:1px solid var(--stroke);
       background:rgba(255,255,255,.04);
       color:var(--muted);
-      border-radius:999px;
+      border-radius:var(--radius-pill);
       padding:7px 10px;
       font-size:12px;
       font-weight:900;
@@ -121,24 +129,34 @@
     .chip.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
     .chip.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
 
+    .segs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .seg{
+      appearance:none;
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:var(--radius-pill);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      font-weight:950;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .seg:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .seg:active{transform:translateY(1px)}
+    .seg.on{border-color:rgba(34,211,238,.34);background:rgba(34,211,238,.14);color:var(--text)}
+
     .vizBody{padding:14px}
     .vizWrap{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:
-        radial-gradient(900px 520px at 22% 28%, rgba(56,189,248,.14), transparent 60%),
-        radial-gradient(800px 600px at 70% 55%, rgba(34,211,238,.10), transparent 58%),
-        linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border-radius:var(--radius-card);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(2,6,23,.22));
       overflow:hidden;
     }
     .vizHud{
-      display:grid;
-      grid-template-columns: 1fr 240px;
-      align-items:start;
-      gap:12px;
       padding:12px;
-      border-bottom:1px solid rgba(148,163,184,.16);
-      background:linear-gradient(180deg, rgba(2,6,23,.34), rgba(2,6,23,.18));
+      border-top:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
     }
     .vizMain{padding:12px}
     .schem{display:block}
@@ -151,38 +169,31 @@
     .schem svg{display:block;width:100%;height:auto}
     .readouts{display:grid;grid-template-columns: 1fr 1fr;gap:10px;align-content:start}
     .metric{
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.35);
-      border-radius:14px;
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
       padding:10px 10px;
-      box-shadow:0 10px 24px rgba(0,0,0,.25);
     }
-    .mk{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .mk{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+    .swatch{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+    .swatch.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 4px rgba(37,99,235,.10)}
+    .swatch.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 4px rgba(6,182,212,.10)}
     .mv{margin-top:6px;font-size:18px;font-weight:980;letter-spacing:.2px}
     .ms{margin-top:2px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 
-    .meter{
-      min-width:210px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.35);
-      border-radius:14px;
-      padding:10px 10px;
-      box-shadow:0 10px 24px rgba(0,0,0,.25);
-    }
     .meterRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
     .meterK{font-size:12px;color:var(--muted2);font-weight:950}
     .meterV{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
     .bar{
       margin-top:8px;height:10px;border-radius:999px;
-      background:rgba(148,163,184,.12);
-      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
       overflow:hidden;
     }
     .bar > i{
       display:block;height:100%;
       width:0%;
       background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(56,189,248,.95), rgba(34,197,94,.95));
-      box-shadow:0 0 22px rgba(34,211,238,.26);
       transition:width .20s ease;
     }
     .meterHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.4}
@@ -193,6 +204,7 @@
     .k{color:var(--muted2);font-size:12px;font-weight:950}
     .v{font-size:18px;font-weight:980}
     .v.small{font-size:14px;font-family:var(--mono);color:var(--muted)}
+    .preline{white-space:pre-line}
 
     .formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .field{display:grid;gap:6px}
@@ -201,8 +213,8 @@
     .fieldNote{
       min-height:44px;
       display:flex;align-items:center;justify-content:center;
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:12px;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-btn);
       padding:0 10px;
       color:var(--muted);
       background:rgba(255,255,255,.04);
@@ -213,16 +225,16 @@
     .inp{
       width:100%;
       min-height:44px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.28);
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.22);
       color:var(--text);
       padding:10px 12px;
       font-weight:950;
       font-family:var(--font);
       transition:border-color .18s ease, background .18s ease;
     }
-    .inp:hover{border-color:rgba(148,163,184,.32)}
+    .inp:hover{border-color:var(--stroke2)}
     .inp:disabled{opacity:.6}
     .inp[type="number"]{text-align:right}
     .check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:950;user-select:none}
@@ -230,9 +242,9 @@
 
     .rule{
       margin-top:12px;
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:14px;
-      background:rgba(2,6,23,.28);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius-card);
+      background:rgba(2,6,23,.22);
       padding:12px;
     }
     .ruleHd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
@@ -245,53 +257,133 @@
     .miniLbl{font-size:12px;color:var(--muted2);font-weight:950}
     .miniHint{font-size:12px;color:var(--muted2);line-height:1.5}
     .btnRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+    .cfgTop{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:end;
+      padding-bottom:12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .cfgTop .btnRow{margin-top:0}
+    .rulesRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+    .rulesRow .rule{margin-top:0}
+    /* Rules: make the "基本" card a full-width horizontal bar. */
+    .ruleBasic{grid-column:1 / -1}
+    .ruleBasic .roList{grid-template-columns:1fr 1fr}
 
-    .controls{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin-top:12px}
+    .ctlGroup{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+    .kv + .ctlGroup{margin-top:12px;padding-top:0;border-top:none}
+    .kv + .ctlGroup.quickLinksGroup{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+    .ctlTitle{font-size:12px;color:var(--muted2);font-weight:850;letter-spacing:.2px}
+    .controls{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin-top:10px}
+    /* Force 2-up even on small screens (used by Auto Control). */
+    .controls.two{grid-template-columns: 1fr 1fr}
+    .span2{grid-column:1 / -1}
     .btn{
       appearance:none;
       min-height:48px;
       padding:12px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
       background:rgba(255,255,255,.04);
       color:var(--text);
-      font-weight:980;
+      font-weight:900;
       cursor:pointer;
       transition:background .18s ease,border-color .18s ease,transform .06s ease;
     }
-    .btn:hover{background:rgba(255,255,255,.08);border-color:rgba(148,163,184,.32)}
+    .btn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
     .btn:active{transform:translateY(1px)}
-    .btn.primary{border-color:rgba(34,211,238,.34);background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(56,189,248,.14))}
-    .btn.danger{border-color:rgba(251,113,133,.35);background:linear-gradient(180deg, rgba(251,113,133,.18), rgba(2,6,23,.02))}
-    .btn.warn{border-color:rgba(245,158,11,.35);background:linear-gradient(180deg, rgba(245,158,11,.16), rgba(2,6,23,.02))}
+    .btn.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.16)}
+    .btn.danger{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.14)}
     .btn:disabled{opacity:.55;cursor:not-allowed}
 
-    .alarmBox{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      border-radius:14px;
-      padding:12px 12px;
-      font-weight:950;
+    .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:12px}
+    pre.logPre{
+      margin:0;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:var(--radius-card);
+      background:rgba(2,6,23,.55);
+      color:#e2e8f0;
+      padding:12px;
+      min-height:360px;
+      max-height:70vh;
+      overflow:auto;
       font-family:var(--mono);
-      min-height:48px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      font-size:12px;
+      line-height:1.55;
+      box-shadow:0 10px 24px rgba(0,0,0,.25) inset;
     }
-    .alarmBox.on{border-color:rgba(251,113,133,.34);background:rgba(251,113,133,.08)}
+
+    .roList{display:grid;gap:10px;margin-top:10px}
+    .roItem{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:10px 10px;
+    }
+    .roItemTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .roItemTitle{font-size:12px;color:var(--muted2);font-weight:950}
+    .roItemVal{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+
+    .statusCard{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+      margin-top:12px;
+    }
+    .statusCard.on{border-color:rgba(251,113,133,.34);background:rgba(251,113,133,.08)}
+    .statusTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .statusTop .title{font-size:12px;color:var(--muted2);font-weight:950}
+    .statusTop .value{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+    .divider{height:1px;background:rgba(255,255,255,.06);margin:10px 0}
+    .alarmRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
     .alarmTag{font-size:12px;color:var(--muted2);font-family:var(--font);font-weight:980}
+    .alarmText{font-family:var(--mono);font-weight:950}
     .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
 
+    .timerCard{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+      margin-bottom:12px;
+    }
+    .timerCard.good{border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.06)}
+    .timerCard.warn{border-color:rgba(245,158,11,.26);background:rgba(245,158,11,.06)}
+    .timerCard.bad{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.07)}
+    .bar.cooldown > i{background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(34,211,238,.88), rgba(34,197,94,.90))}
+    .timerHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+
+
+    .rule.active{
+      border-color:rgba(34,211,238,.18);
+      background:linear-gradient(180deg, rgba(34,211,238,.10), rgba(2,6,23,.22));
+    }
+    .rule.active .ruleTitle{color:rgba(231,238,252,.98)}
+
     :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
-    @media (max-width:980px){ .layout{grid-template-columns:1fr} .meter{min-width:unset} }
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .rulesRow{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:680px){
+      .rulesRow{grid-template-columns:1fr}
+    }
     @media (max-width:520px){
       .readouts{grid-template-columns:1fr}
       .controls{grid-template-columns:1fr}
       .nav{gap:8px}
-      .vizHud{grid-template-columns:1fr}
       .formGrid{grid-template-columns:1fr}
       .ruleCols{grid-template-columns:1fr}
       .btnRow{grid-template-columns:1fr}
+      .cfgTop{grid-template-columns:1fr}
+      .rulesRow{grid-template-columns:1fr}
       .durRow{grid-template-columns:1fr 1fr}
       .durRow .miniLbl{grid-column:1 / -1}
+      .actions{justify-content:stretch}
+      .actions .btn{flex:1}
     }
     @media (prefers-reduced-motion: reduce){
       *{scroll-behavior:auto !important;transition:none !important;animation:none !important}
@@ -304,15 +396,10 @@
       <div class="brand">
         <span class="statusDot" id="statusDot" aria-hidden="true"></span>
         <div class="brandTxt">
-          <div class="brandTitle">水闸面板</div>
+          <div class="brandTitle">控制面板</div>
           <div class="brandSub" id="statusLine">连接中…</div>
         </div>
       </div>
-      <nav class="nav" aria-label="快捷入口">
-        <a class="navbtn" href="/update">升级</a>
-        <a class="navbtn" href="/logs">日志</a>
-        <a class="navbtn" href="/config">配置</a>
-      </nav>
     </header>
 
     <main class="layout">
@@ -320,7 +407,7 @@
         <div class="panelHd">
           <div>
             <div class="panelTitle">水闸可视化</div>
-            <div class="panelSub">水位范围 0-5m。闸门开度会以“闸板上下移动”显示，开闸后两侧水体连通并出现流向动画。</div>
+            <div class="panelSub">水位范围 0-5m。闸门开度会以“闸板上下移动”显示，开闸后两侧水体连通并出现流向。</div>
           </div>
           <div class="chips">
             <span class="chip" id="chipDelta">Δ --</span>
@@ -329,43 +416,49 @@
         </div>
         <div class="vizBody">
           <div class="vizWrap">
+            <div class="vizMain">
+              <div class="schem" id="schemWrap">
+                <div class="ph" id="schemMsg">示意图加载中…</div>
+              </div>
+            </div>
             <div class="vizHud" aria-label="实时读数">
               <div class="readouts" aria-hidden="true">
                 <div class="metric">
-                  <div class="mk">外塘水位</div>
+                  <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘水位</div>
                   <div class="mv" id="outerLevelM">--</div>
                   <div class="ms" id="outerLevelMm">--</div>
                 </div>
                 <div class="metric">
-                  <div class="mk">内塘水位</div>
+                  <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘水位</div>
                   <div class="mv" id="innerLevelM">--</div>
                   <div class="ms" id="innerLevelMm">--</div>
                 </div>
                 <div class="metric">
-                  <div class="mk">外塘传感器</div>
+                  <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘传感器ID002</div>
                   <div class="mv" id="outerOnline">--</div>
                   <div class="ms" id="outerTemp">--</div>
                 </div>
                 <div class="metric">
-                  <div class="mk">内塘传感器</div>
+                  <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘传感器ID001</div>
                   <div class="mv" id="innerOnline">--</div>
                   <div class="ms" id="innerTemp">--</div>
                 </div>
               </div>
-              <div class="meter" aria-label="闸门开度">
-                <div class="meterRow">
-                  <div class="meterK">闸门开度</div>
-                  <div class="meterV" id="gatePct">--%</div>
+
+              <div class="statusCard" id="alarmBox" aria-label="闸门与告警">
+                <div class="statusTop">
+                  <div class="title">闸门开度</div>
+                  <div class="value" id="gatePct">--%</div>
                 </div>
                 <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="闸门开度进度条">
                   <i id="gateBar" style="width:0%"></i>
                 </div>
-                <div class="meterHint" id="gateState">状态：--</div>
-              </div>
-            </div>
-            <div class="vizMain">
-              <div class="schem" id="schemWrap">
-                <div class="ph" id="schemMsg">示意图加载中…</div>
+                <div class="hint" id="gateState">状态：--</div>
+                <div class="divider"></div>
+              <div class="alarmRow">
+                  <div class="alarmTag">告警</div>
+                  <div class="alarmText" id="alarmLine">--</div>
+                </div>
               </div>
             </div>
           </div>
@@ -378,54 +471,109 @@
           <div class="panelHd">
             <div>
               <div class="panelTitle">控制</div>
-              <div class="panelSub">按钮会调用 POST /api/cmd</div>
+              <div class="panelSub">按钮调用 POST</div>
+            </div>
+            <div class="chips">
+              <span class="chip" id="autoState">自动 --</span>
             </div>
           </div>
           <div class="panelBody">
-            <div class="kv">
-              <div class="k">自动</div><div class="v" id="autoState">--</div>
-              <div class="k">网络</div><div class="v small" id="netLine">--</div>
+            <div class="timerCard" id="timerCard" aria-label="保护倒计时">
+              <div class="statusTop">
+                <div class="title" id="timerTitle">保护</div>
+                <div class="value" id="timerValue">--</div>
+              </div>
+              <div class="bar cooldown" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="保护倒计时进度条">
+                <i id="timerBar" style="width:100%"></i>
+              </div>
+              <div class="timerHint" id="timerHint">--</div>
             </div>
-            <div class="controls" role="group" aria-label="闸门操作">
-              <button class="btn primary" id="btnOpen" onclick="cmd('gate_open')">开闸</button>
-              <button class="btn primary" id="btnClose" onclick="cmd('gate_close')">关闸</button>
-              <button class="btn danger" id="btnStop" onclick="cmd('gate_stop')">停止</button>
-              <button class="btn" id="btnAutoOn" onclick="cmd('auto_on')">开启自动</button>
-              <button class="btn" id="btnAutoOff" onclick="cmd('auto_off')">手动接管(暂停)</button>
-              <button class="btn" id="btnManualEnd" onclick="cmd('manual_end')">恢复自动</button>
-              <button class="btn warn" id="btnLatch" onclick="confirmLatch()">关闭自动(锁定)</button>
-              <button class="btn" id="btnRefresh" onclick="refreshOnce()">刷新</button>
+
+            <div class="ctlGroup">
+              <div class="ctlTitle">阀门控制</div>
+              <div class="controls two" role="group" aria-label="阀门控制">
+                <button class="btn primary" id="btnOpen" onclick="gateCmd('gate_open')">开闸</button>
+                <button class="btn" id="btnClose" onclick="gateCmd('gate_close')">关闸</button>
+                <button class="btn danger" id="btnStop" onclick="gateCmd('gate_stop')">停止</button>
+                <button class="btn" id="btnManualToggle" onclick="manualToggle()">手动接管</button>
+              </div>
             </div>
-            <div class="hint" id="metaLine">固件版本 --</div>
+
+            <div class="ctlGroup">
+              <div class="ctlTitle">自动</div>
+              <div class="controls" role="group" aria-label="自动控制">
+                <button class="btn span2" id="btnLatch" onclick="confirmLatch()">锁定关闭自动</button>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section class="panel" id="cfgPanel">
+        <section class="panel" id="infoPanel">
           <div class="panelHd">
             <div>
-              <div class="panelTitle">规则</div>
-              <div class="panelSub">快速配置：定时 / 循环 / 水位差（保存后写入 /ctrl.json）</div>
-            </div>
-            <div class="chips">
-              <span class="chip" id="cfgChip">CFG --</span>
+              <div class="panelTitle">信息</div>
+              <div class="panelSub">网络 / 刷新 / 版本</div>
             </div>
           </div>
           <div class="panelBody">
-            <div class="formGrid">
-              <div class="field">
-                <div class="fieldK">模式</div>
-                <select id="cfg_mode" class="inp">
-                  <option value="mixed">混合(推荐)</option>
-                  <option value="daily">仅定时</option>
-                  <option value="cycle">仅循环</option>
-                  <option value="leveldiff">仅水位差</option>
-                </select>
+            <div class="kv" aria-label="设备信息">
+              <div class="k">网络</div>
+              <div class="v small">
+                <div>Wi-Fi <span id="infoWifi">--</span></div>
+                <div>RSSI <span id="infoRssi">--</span></div>
+                <div>IP <span id="infoIp">--</span></div>
+                <div>MQTT <span id="infoMqtt">--</span></div>
               </div>
-              <div class="field">
-                <div class="fieldK">时区</div>
-                <div class="rowInline">
-                  <input id="cfg_tz_h" class="inp" type="number" min="-12" max="14" step="1" value="8" aria-label="时区小时偏移">
-                  <div class="fieldNote" id="cfg_tz_label">UTC+8</div>
+              <div class="k" id="infoCellRowK" style="display:none">4G</div>
+              <div class="v small" id="infoCellRowV" style="display:none"><span id="infoCell">--</span></div>
+              <div class="k">最后刷新</div><div class="v small" id="infoLastSeen">--</div>
+              <div class="k">版本</div><div class="v small preline" id="infoVer">--</div>
+            </div>
+
+            <div class="ctlGroup quickLinksGroup">
+              <div class="ctlTitle">快捷入口</div>
+              <nav class="nav quickLinks" aria-label="快捷入口">
+                <a class="navbtn" href="/update">升级</a>
+                <a class="navbtn" href="/config">配置</a>
+                <a class="navbtn" href="http://67.209.185.215:18083/#/login?to=/authentication" target="_blank" rel="noopener noreferrer">MQTT平台</a>
+                <a class="navbtn" href="https://github.com/louis16s/fish" target="_blank" rel="noopener noreferrer">GitHub</a>
+              </nav>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel" id="cfgPanel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">规则</div>
+            <div class="panelSub">主页只展示当前 /ctrl.json。如需修改请到「配置」页。</div>
+          </div>
+          <div class="chips">
+            <span class="chip" id="cfgChip">CFG --</span>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="rulesRow" aria-label="规则只读展示">
+            <div class="rule ruleBasic">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">基本</div>
+                  <div class="ruleSub">模式 / 时区</div>
+                </div>
+              </div>
+              <div class="roList">
+                <div class="roItem">
+                  <div class="roItemTop">
+                    <div class="roItemTitle">模式</div>
+                    <div class="roItemVal" id="roMode">--</div>
+                  </div>
+                </div>
+                <div class="roItem">
+                  <div class="roItemTop">
+                    <div class="roItemTitle">时区</div>
+                    <div class="roItemVal" id="roTz">--</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -436,37 +584,18 @@
                   <div class="ruleTitle">定时</div>
                   <div class="ruleSub">每天固定时间开/关闸</div>
                 </div>
-                <label class="check"><input id="cfg_d_en" type="checkbox"><span>启用</span></label>
               </div>
-              <div class="ruleGrid">
-                <label class="check"><input id="cfg_d_open_en" type="checkbox"><span>开闸</span></label>
-                <input id="cfg_d_open" class="inp" type="time" value="08:00" aria-label="定时开闸时间">
-                <label class="check"><input id="cfg_d_close_en" type="checkbox"><span>关闸</span></label>
-                <input id="cfg_d_close" class="inp" type="time" value="09:00" aria-label="定时关闸时间">
-              </div>
+              <div class="roList" id="roDailyList"></div>
             </div>
 
             <div class="rule">
               <div class="ruleHd">
                 <div>
                   <div class="ruleTitle">循环</div>
-                  <div class="ruleSub">按时长循环开/关（仅编辑第一组）</div>
+                  <div class="ruleSub">按时长循环开/关</div>
                 </div>
-                <label class="check"><input id="cfg_c_en" type="checkbox"><span>启用</span></label>
               </div>
-              <div class="ruleGrid3">
-                <div class="durRow">
-                  <div class="miniLbl">开闸时长</div>
-                  <input id="cfg_c_open_h" class="inp" type="number" min="0" max="999" step="1" value="8" aria-label="循环开闸小时">
-                  <input id="cfg_c_open_m" class="inp" type="number" min="0" max="59" step="1" value="0" aria-label="循环开闸分钟">
-                </div>
-                <div class="durRow">
-                  <div class="miniLbl">关闸时长</div>
-                  <input id="cfg_c_close_h" class="inp" type="number" min="0" max="999" step="1" value="3" aria-label="循环关闸小时">
-                  <input id="cfg_c_close_m" class="inp" type="number" min="0" max="59" step="1" value="0" aria-label="循环关闸分钟">
-                </div>
-                <div class="miniHint">说明：保存时会更新 cycle[0] 的首个 open/close 步骤，其余步骤会保留。</div>
-              </div>
+              <div class="roList" id="roCycleList"></div>
             </div>
 
             <div class="rule">
@@ -475,45 +604,36 @@
                   <div class="ruleTitle">水位差</div>
                   <div class="ruleSub">delta = 内塘 - 外塘（mm）</div>
                 </div>
-                <label class="check"><input id="cfg_l_en" type="checkbox"><span>启用</span></label>
               </div>
-              <div class="ruleCols">
-                <div class="field">
-                  <div class="miniLbl">打开阈值(mm)</div>
-                  <input id="cfg_l_open" class="inp" type="number" step="1" value="-60" aria-label="水位差打开阈值">
-                </div>
-                <div class="field">
-                  <div class="miniLbl">关闭阈值(mm)</div>
-                  <input id="cfg_l_close" class="inp" type="number" step="1" value="-20" aria-label="水位差关闭阈值">
-                </div>
-              </div>
+              <div class="roList" id="roLdList"></div>
             </div>
+          </div>
 
-            <div class="btnRow">
-              <button class="btn" id="cfgReload" onclick="cfgLoad()">重新加载</button>
-              <button class="btn primary" id="cfgSave" onclick="cfgSave()">保存规则</button>
-              <a class="btn" href="/config" style="text-decoration:none;display:inline-grid;place-items:center">高级配置</a>
-            </div>
-            <div class="hint" id="cfgMsg"></div>
-          </div>
-        </section>
+          <div class="hint" id="cfgMsg"></div>
+        </div>
+      </section>
 
-        <section class="panel">
-          <div class="panelHd">
-            <div>
-              <div class="panelTitle">告警</div>
-              <div class="panelSub">设备侧告警文本来自 /api/state</div>
-            </div>
+      <section class="panel" id="logPanel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">日志</div>
+            <div class="panelSub">默认读取末尾 16KB（LittleFS）。</div>
           </div>
-          <div class="panelBody">
-            <div class="alarmBox" id="alarmBox">
-              <span class="alarmTag">状态</span>
-              <span id="alarmLine">--</span>
-            </div>
-            <div class="hint" id="lastSeen">最后刷新 --</div>
+          <div class="segs" role="tablist" aria-label="日志类型">
+            <button class="seg on" id="logTab_error" role="tab" aria-selected="true" onclick="logSetTab('error')">错误</button>
+            <button class="seg" id="logTab_measure" role="tab" aria-selected="false" onclick="logSetTab('measure')">测量</button>
+            <button class="seg" id="logTab_action" role="tab" aria-selected="false" onclick="logSetTab('action')">动作</button>
           </div>
-        </section>
-      </aside>
+        </div>
+        <div class="panelBody">
+          <div class="actions">
+            <button class="btn" id="logRefreshBtn" onclick="logRefreshNow()">刷新</button>
+            <button class="btn danger" id="logClearBtn" onclick="logClearCur()">清空当前日志</button>
+          </div>
+          <pre id="logBox" class="logPre">加载中…</pre>
+          <div class="hint" id="logMsg"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -521,7 +641,18 @@
     const $ = (id) => document.getElementById(id);
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
-    const UI_VERSION = 'ui-2026.02.13-01';
+    const UI_VERSION = 'ui-2026.02.14-03';
+    const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const fmtHHMMSS = (sec) => {
+      const s = Math.max(0, Math.round(sec || 0));
+      const pad = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      if (h > 0) return h + ':' + pad(m) + ':' + pad(ss);
+      return pad(m) + ':' + pad(ss);
+    };
 
     const nowHHMMSS = () => {
       const d = new Date();
@@ -543,21 +674,179 @@
       return '已停止(半开)';
     }
 
+    function cnInterlockReason(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'Interlock: close relay is active':'关闸继电器已吸合',
+        'Interlock: open relay is active':'开闸继电器已吸合',
+        'Interlock: both relays cannot be active':'开闸/关闸继电器不可同时吸合',
+        'Gate is already opening':'闸门已在开闸中',
+        'Gate is already closing':'闸门已在关闸中',
+        'Gate is running, repeat action blocked':'闸门运行中，重复动作已禁止',
+        'Cooldown active: wait before next action':'冷却中，请稍后再试',
+        'Cooldown active: min action interval':'冷却中（最小动作间隔）',
+      };
+      return map[v] || v;
+    }
+
+    function cnAlarmText(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'normal':'正常',
+        'Alarm: relay interlock triggered':'严重：继电器互锁触发',
+        'Alarm: gate execution timeout':'严重：闸门动作超时',
+        'Alarm: gate runtime timeout, stopped':'严重：闸门运行超时，已停止',
+        'Alarm: sensor offline or data timeout':'严重：传感器离线或数据超时',
+        'Warning: abnormal level jump':'警告：水位突变异常',
+        'Warning: level out of safe range':'警告：水位超出安全范围',
+      };
+      return map[v] || v;
+    }
+
     // SVG handles
     let g_svg=null;
     let g_waterL=null, g_waterR=null, g_chan=null;
     let g_surfL=null, g_surfR=null, g_surfC=null;
     let g_gatePlateGroup=null, g_gateBadgeText=null;
     let g_flowFx=null, g_flowLeft=null, g_flowRight=null;
+    let g_flowRowsL=[], g_flowRowsR=[];
 
     // animation state
     let g_gateRatio=0; // 0..1
     let g_gateTarget=0;
+    let g_gateTravelS=10;
     let g_lastTelemetry=null;
     let g_lastOkAt=0;
     let g_reqBusy=0;
     let g_polling=0;
     let g_cfg=null;
+    let g_lastFrameTs=0;
+    let g_ruleBound=0;
+    let g_ctlUiLastMs=0;
+
+    // UI-only safety lock: after pressing Open/Close, lock both buttons for 120s.
+    const GATE_BTN_LOCK_S = 120;
+    let g_gateBtnLockUntilMs = 0;
+
+    // Countdown bar state (manual takeover > cooldown > ready).
+    const g_timer = {kind:'ready', untilMs:0, totalS:0, lastRemainS:0, reason:''};
+
+    function updateTimerFromTelemetry(t){
+      const now = Date.now();
+      const manual = t && t.manual ? t.manual : null;
+      const ctrl = t && t.ctrl ? t.ctrl : null;
+      const manualRemain = manual && typeof manual.remain_s === 'number' ? manual.remain_s : 0;
+      const manualTotal = manual && typeof manual.total_s === 'number' ? manual.total_s : 0;
+      const coolRemain = ctrl && typeof ctrl.cooldown_remain_s === 'number' ? ctrl.cooldown_remain_s : 0;
+      const coolTotal = ctrl && typeof ctrl.min_interval_s === 'number' ? ctrl.min_interval_s : 0;
+      const reason = ctrl && typeof ctrl.reason === 'string' ? ctrl.reason : '';
+
+      if(manual && manual.active && manualRemain > 0){
+        const restarting = (g_timer.kind === 'manual') && (manualRemain > (g_timer.lastRemainS + 1.2));
+        const entering = (g_timer.kind !== 'manual') || restarting;
+        g_timer.kind = 'manual';
+        g_timer.untilMs = now + manualRemain * 1000;
+        if(manualTotal > 0) g_timer.totalS = manualTotal;
+        else if(entering || !g_timer.totalS) g_timer.totalS = manualRemain;
+        else g_timer.totalS = Math.max(g_timer.totalS, manualRemain);
+        g_timer.lastRemainS = manualRemain;
+        g_timer.reason = '';
+        return;
+      }
+      if(coolRemain > 0){
+        const restarting = (g_timer.kind === 'cooldown') && (coolRemain > (g_timer.lastRemainS + 1.2));
+        const entering = (g_timer.kind !== 'cooldown') || restarting;
+        g_timer.kind = 'cooldown';
+        g_timer.untilMs = now + coolRemain * 1000;
+        if(coolTotal > 0) g_timer.totalS = coolTotal;
+        else if(entering || !g_timer.totalS) g_timer.totalS = coolRemain;
+        else g_timer.totalS = Math.max(g_timer.totalS, coolRemain);
+        g_timer.lastRemainS = coolRemain;
+        g_timer.reason = '';
+        return;
+      }
+      g_timer.kind = 'ready';
+      g_timer.untilMs = now;
+      g_timer.totalS = 0;
+      g_timer.lastRemainS = 0;
+      g_timer.reason = reason || '';
+    }
+
+    function renderTimerNow(){
+      const card = $('timerCard');
+      if(!card) return;
+      const now = Date.now();
+      const remainS = Math.max(0, (g_timer.untilMs - now) / 1000);
+      const done = (g_timer.kind !== 'ready') && (remainS <= 0.01);
+
+      let title='保护';
+      let value='就绪';
+      let hint='可动作';
+      let klass='timerCard good';
+      let progress=1;
+
+      if(g_timer.kind === 'manual' && !done){
+        title='手动接管';
+        value=fmtHHMMSS(remainS);
+        hint='倒计时结束后将自动恢复规则控制';
+        klass='timerCard warn';
+        const total = Math.max(1, g_timer.totalS || 1);
+        progress = clamp((remainS / total), 0, 1);
+      }else if(g_timer.kind === 'cooldown' && !done){
+        title='最小动作间隔';
+        value=fmtHHMMSS(remainS);
+        hint='冷却中：倒计时结束后才允许再次开/关闸';
+        klass='timerCard warn';
+        const total = Math.max(1, g_timer.totalS || 1);
+        progress = clamp((remainS / total), 0, 1);
+      }else{
+        const r = (g_timer.reason || '').trim();
+        if(r && r !== 'normal'){
+          hint = '状态：' + (cnInterlockReason(r) || r);
+          klass = 'timerCard warn';
+        }
+      }
+
+      $('timerTitle').textContent = title;
+      $('timerValue').textContent = value;
+      $('timerHint').textContent = hint;
+      card.className = klass;
+
+      const w = (progress * 100);
+      const bar = $('timerBar');
+      if(bar) bar.style.width = w.toFixed(1) + '%';
+      const pb = bar && bar.parentElement;
+      if(pb) pb.setAttribute('aria-valuenow', String(Math.round(w)));
+    }
+
+    function gateBtnLockRemainS(){
+      return Math.max(0, (g_gateBtnLockUntilMs - Date.now()) / 1000);
+    }
+
+    function applyControlDisabledState(){
+      const lock = gateBtnLockRemainS() > 0.05;
+      const remain = lock ? Math.ceil(gateBtnLockRemainS()) : 0;
+
+      const open = $('btnOpen');
+      const close = $('btnClose');
+      const stop = $('btnStop');
+      const manual = $('btnManualToggle');
+      const latch = $('btnLatch');
+
+      if(open){
+        open.disabled = !!g_reqBusy || lock;
+        open.title = lock ? ('冷却中：' + remain + 's') : '';
+      }
+      if(close){
+        close.disabled = !!g_reqBusy || lock;
+        close.title = lock ? ('冷却中：' + remain + 's') : '';
+      }
+      if(stop) stop.disabled = !!g_reqBusy;
+      if(manual) manual.disabled = !!g_reqBusy;
+      if(latch) latch.disabled = !!g_reqBusy;
+    }
 
     async function loadSchematic(){
       try{
@@ -576,6 +865,8 @@
         g_flowFx = g_svg && g_svg.querySelector('#flow_fx');
         g_flowLeft = g_svg && g_svg.querySelector('#flow_dir_left');
         g_flowRight = g_svg && g_svg.querySelector('#flow_dir_right');
+        g_flowRowsL = g_flowLeft ? Array.from(g_flowLeft.querySelectorAll('.flow-row')) : [];
+        g_flowRowsR = g_flowRight ? Array.from(g_flowRight.querySelectorAll('.flow-row')) : [];
       }catch(e){
         $('schemMsg').textContent = '示意图加载失败';
       }
@@ -620,12 +911,14 @@
         el.setAttribute('height', h.toFixed(2));
       }
 
-      if(!surf) return;
-      surf.style.display = show ? '' : 'none';
-      if(show){
-        const sy = Math.max(baseY, y - 4);
-        surf.setAttribute('y', sy.toFixed(2));
+      if(surf){
+        surf.style.display = show ? '' : 'none';
+        if(show){
+          const sy = Math.max(baseY, y - 4);
+          surf.setAttribute('y', sy.toFixed(2));
+        }
       }
+      return {show, y, h, baseY, baseH};
     }
 
     function setGateRatio(ratio){
@@ -650,6 +943,37 @@
       g_flowFx.setAttribute('data-on', on ? '1' : '0');
       if(g_flowLeft) g_flowLeft.style.display = (on && dir === 'left') ? '' : 'none';
       if(g_flowRight) g_flowRight.style.display = (on && dir === 'right') ? '' : 'none';
+    }
+
+    function layoutFlowRows(chan){
+      const rowsL = g_flowRowsL || [];
+      const rowsR = g_flowRowsR || [];
+      if(!rowsL.length && !rowsR.length) return;
+
+      // Reset to SVG defaults when the channel water is not shown.
+      if(!chan || !chan.show || !(chan.h > 1.5)){
+        rowsL.forEach((row)=> row && row.setAttribute('transform',''));
+        rowsR.forEach((row)=> row && row.setAttribute('transform',''));
+        return;
+      }
+
+      const margin = 22; // keep arrowheads away from top/bottom edges
+      const y0 = chan.y + margin;
+      const y1 = chan.y + chan.h - margin;
+      const span = Math.max(0, y1 - y0);
+
+      const layout = (rows)=>{
+        const n = rows.length;
+        rows.forEach((row, i)=>{
+          if(!row) return;
+          const baseY = parseFloat(row.getAttribute('data-base-y') || '0');
+          const targetY = (span >= 8) ? (y0 + span * ((i+1)/(n+1))) : (chan.y + chan.h/2);
+          const dy = targetY - baseY;
+          row.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
+        });
+      };
+      layout(rowsL);
+      layout(rowsR);
     }
 
     function deriveGateTarget(t){
@@ -694,36 +1018,101 @@
       $('chipDelta').textContent = deltaOk ? ('Δ ' + deltaMm + ' mm') : 'Δ --';
       $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
 
+      if(t && t.ctrl && typeof t.ctrl.action_s === 'number' && t.ctrl.action_s > 0){
+        g_gateTravelS = t.ctrl.action_s;
+      }
       g_gateTarget = deriveGateTarget(t);
 
       setWaterRect(g_waterL, g_surfL, outerMm, outerOk);
       setWaterRect(g_waterR, g_surfR, innerMm, innerOk);
 
       $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
-      $('autoState').textContent = t.auto_latched ? '锁定关闭' : (t.auto_gate ? '已启用' : '已关闭');
+      const autoText = t.auto_latched ? '锁定关闭' : (t.auto_gate ? '已启用' : '已关闭');
+      const autoEl = $('autoState');
+      if(autoEl){
+        autoEl.textContent = '自动 ' + autoText;
+        autoEl.className = 'chip' + (t.auto_latched ? ' bad' : (t.auto_gate ? ' good' : ''));
+      }
 
       const reason=(t.ctrl&&t.ctrl.reason)?t.ctrl.reason:'';
-      $('interlock').textContent = '互锁：' + (reason || '正常');
+      $('interlock').textContent = '互锁：' + (cnInterlockReason(reason) || '正常');
 
-      if(t.net){
-        const ip = t.net.ip || '--';
-        const rssi = (typeof t.net.rssi === 'number') ? (t.net.rssi + ' dBm') : '--';
-        $('netLine').textContent = `Wi-Fi ${t.net.wifi?'在线':'离线'} | MQTT ${t.net.mqtt?'在线':'离线'} | IP ${ip} | RSSI ${rssi}`;
-        setStatus(`IP ${ip} | Wi-Fi ${t.net.wifi?'在线':'离线'} | MQTT ${t.net.mqtt?'在线':'离线'}`, 'on');
+      // Timer strip (hysteresis / minimum action interval) - at top of control panel.
+      updateTimerFromTelemetry(t);
+      renderTimerNow();
+
+      // Auto control: merge manual takeover + resume into a single toggle button.
+      const mb = $('btnManualToggle');
+      if(mb){
+        const manual = t && t.manual ? t.manual : null;
+        const active = !!(manual && manual.active);
+        const autoGate = !!t.auto_gate;
+        // "开启自动" and "恢复自动" are conceptually the same action: go back to auto mode.
+        mb.textContent = active ? '恢复自动' : (autoGate ? '手动接管' : '恢复自动');
+        mb.className = (active || !autoGate) ? 'btn primary' : 'btn';
+      }
+
+      // Info panel (network / 4G / firmware)
+      const net = t.net || null;
+      if(net){
+        const wifiOn = !!net.wifi;
+        const mqttOn = !!net.mqtt;
+        const ip = net.ip || '--';
+        const rssiNum = (typeof net.rssi === 'number' && isFinite(net.rssi)) ? net.rssi : null;
+        const rssi = (rssiNum != null) ? (rssiNum + ' dBm') : '--';
+
+        $('infoWifi').textContent = wifiOn ? '在线' : '离线';
+        $('infoRssi').textContent = rssi;
+        $('infoIp').textContent = ip;
+        $('infoMqtt').textContent = mqttOn ? '在线' : '离线';
+
+        setStatus('在线', 'on');
       }else{
+        if($('infoWifi')) $('infoWifi').textContent = '--';
+        if($('infoRssi')) $('infoRssi').textContent = '--';
+        if($('infoIp')) $('infoIp').textContent = '--';
+        if($('infoMqtt')) $('infoMqtt').textContent = '--';
         setStatus('在线', 'on');
       }
 
-      if(t.alarm && t.alarm.active){
-        $('alarmLine').textContent = t.alarm.text || '告警';
-        $('alarmBox').className = 'alarmBox on';
+      const cell = t.cell || null;
+      const cellEnabled = !!(cell && cell.enabled);
+      const kCell = $('infoCellRowK');
+      const vCellRow = $('infoCellRowV');
+      const vCell = $('infoCell');
+      if(cellEnabled){
+        if(kCell) kCell.style.display = '';
+        if(vCellRow) vCellRow.style.display = '';
+
+        const online = !!cell.online;
+        const sim = !!cell.sim_ready;
+        const attached = !!cell.attached;
+        const csq = (typeof cell.csq === 'number' && isFinite(cell.csq)) ? cell.csq : null;
+        const rdbm = (typeof cell.rssi_dbm === 'number' && isFinite(cell.rssi_dbm)) ? cell.rssi_dbm : null;
+        const age = (typeof cell.last_rx_age_s === 'number' && isFinite(cell.last_rx_age_s)) ? cell.last_rx_age_s : null;
+        const parts = [];
+        parts.push(online ? '在线' : '离线');
+        parts.push(sim ? 'SIM OK' : 'SIM --');
+        parts.push(attached ? 'ATT' : 'NO-ATT');
+        if(rdbm != null) parts.push(rdbm + ' dBm');
+        if(csq != null) parts.push('CSQ ' + csq);
+        if(age != null) parts.push('RX ' + age + 's');
+        if(vCell) vCell.textContent = parts.join(' | ');
       }else{
-        $('alarmLine').textContent = 'normal';
-        $('alarmBox').className = 'alarmBox';
+        if(kCell) kCell.style.display = 'none';
+        if(vCellRow) vCellRow.style.display = 'none';
+        if(vCell) vCell.textContent = '--';
       }
 
+      const alarmActive = !!(t.alarm && t.alarm.active);
+      const alarmTextRaw = (t.alarm && t.alarm.text) ? t.alarm.text : '';
+      $('alarmLine').textContent = alarmActive ? (cnAlarmText(alarmTextRaw) || '告警') : '正常';
+      const ab = $('alarmBox');
+      if(ab) ab.className = 'statusCard' + (alarmActive ? ' on' : '');
+
       const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
-      $('metaLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + ' | UI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+      const ver = 'UI ' + UI_VERSION + '\n固件 ' + ((fw && fw !== '--') ? fw : '--');
+      $('infoVer').textContent = ver;
     }
 
     async function fetchTelemetry(){
@@ -742,16 +1131,14 @@
 
     function setBusy(b){
       g_reqBusy = b ? 1 : 0;
-      const ids = ['btnOpen','btnClose','btnStop','btnAutoOn','btnAutoOff','btnManualEnd','btnLatch','btnRefresh'];
-      ids.forEach(id => { const el = $(id); if(el) el.disabled = !!g_reqBusy; });
+      applyControlDisabledState();
     }
 
-    async function cmd(c){
-      if(g_reqBusy) return;
-      setBusy(true);
+    async function sendCmdOnce(c){
       try{
         const r = await fetch('/api/cmd', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cmd:c})});
         if(!r.ok) throw new Error('HTTP ' + r.status);
+        return;
       }catch(e){
         const map = {
           gate_open:'/GateOpen',
@@ -766,6 +1153,24 @@
         if(url){
           try{ await fetch(url, {cache:'no-store'}); }catch(e2){}
         }
+      }
+    }
+
+    async function cmd(c, opts){
+      if(g_reqBusy) return;
+      setBusy(true);
+      try{
+        await sendCmdOnce(c);
+
+        // Keep manual takeover alive while operating the gate.
+        // Only the "恢复自动" button should end manual takeover.
+        const keepManual = !!(opts && opts.keepManual);
+        const t = g_lastTelemetry;
+        const manual = t && t.manual ? t.manual : null;
+        const manualActive = !!(manual && manual.active);
+        if(keepManual && manualActive && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+          await sendCmdOnce('auto_off');
+        }
       }finally{
         setTimeout(()=>setBusy(false), 260);
       }
@@ -773,8 +1178,30 @@
     }
 
     function confirmLatch(){ if(confirm('确认关闭自动(锁定)？')) cmd('auto_latch_off'); }
+    function gateCmd(c){
+      if(c === 'gate_open' || c === 'gate_close'){
+        g_gateBtnLockUntilMs = Math.max(g_gateBtnLockUntilMs, Date.now() + GATE_BTN_LOCK_S * 1000);
+        applyControlDisabledState();
+      }
+      cmd(c, {keepManual:true});
+    }
+    function manualToggle(){
+      const t = g_lastTelemetry;
+      if(!t) return;
+      const manual = t && t.manual ? t.manual : null;
+      const active = !!(manual && manual.active);
+      if(active){
+        cmd('manual_end');
+      }else if(!!t.auto_gate){
+        cmd('auto_off'); // manual takeover
+      }else{
+        cmd('auto_on'); // go back to auto mode (also used to clear latch, if any)
+      }
+    }
     window.cmd = cmd;
+    window.gateCmd = gateCmd;
     window.confirmLatch = confirmLatch;
+    window.manualToggle = manualToggle;
 
     async function refreshOnce(){
       if(g_polling) return;
@@ -782,31 +1209,24 @@
       try{
         const t = await fetchTelemetry();
         g_lastOkAt = Date.now();
-        $('lastSeen').textContent = '最后刷新 ' + nowHHMMSS();
+        const ls = $('infoLastSeen');
+        if(ls) ls.textContent = nowHHMMSS();
         renderTelemetry(t);
       }catch(e){
         setStatus('连接失败（将重试）', 'bad');
-        $('lastSeen').textContent = '最后刷新失败 ' + nowHHMMSS();
+        const ls = $('infoLastSeen');
+        if(ls) ls.textContent = '失败 ' + nowHHMMSS();
       }finally{
         g_polling = 0;
       }
     }
     window.refreshOnce = refreshOnce;
 
-    // --- Control Rules (Quick Config) ---
+    // --- Control Rules (Read-only on Home) ---
     const num = (v, def) => {
       const n = parseInt(v, 10);
       return Number.isFinite(n) ? n : def;
     };
-
-    function hhmmToMs(s){
-      if(!s || s.length < 4) return 0;
-      const parts = String(s).split(':');
-      if(parts.length < 2) return 0;
-      const h = clamp(num(parts[0], 0), 0, 23);
-      const m = clamp(num(parts[1], 0), 0, 59);
-      return (h*3600 + m*60) * 1000;
-    }
 
     function msToHHMM(ms){
       const day = 24*3600*1000;
@@ -818,11 +1238,32 @@
       return pad(h) + ':' + pad(m);
     }
 
+    function msToHHMMMaybe(ms){
+      if(typeof ms !== 'number' || !isFinite(ms)) return '--';
+      return msToHHMM(ms);
+    }
+
     function tzLabelFromHours(h){
       const hh = num(h, 8);
       const sign = hh >= 0 ? '+' : '';
       if(hh === 8) return 'UTC+8 Shanghai';
       return 'UTC' + sign + hh;
+    }
+
+    function modeLabel(m){
+      if(m === 'daily') return '仅定时';
+      if(m === 'cycle') return '仅循环';
+      if(m === 'leveldiff') return '仅水位差';
+      return '混合(推荐)';
+    }
+
+    function durHM(ms){
+      const v = Math.max(0, num(ms, 0));
+      const min = Math.round(v / 60000);
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      const pad = (x) => (x < 10 ? ('0'+x) : (''+x));
+      return h + 'h' + pad(m) + 'm';
     }
 
     function cfgSetChip(text, kind){
@@ -838,12 +1279,6 @@
       el.textContent = text || '';
     }
 
-    function cfgBusySet(b){
-      const busy = !!b;
-      const ids = ['cfgReload', 'cfgSave', 'cfg_mode', 'cfg_tz_h', 'cfg_d_en', 'cfg_d_open_en', 'cfg_d_open', 'cfg_d_close_en', 'cfg_d_close', 'cfg_c_en', 'cfg_c_open_h', 'cfg_c_open_m', 'cfg_c_close_h', 'cfg_c_close_m', 'cfg_l_en', 'cfg_l_open', 'cfg_l_close'];
-      ids.forEach(id => { const el = $(id); if(el) el.disabled = busy; });
-    }
-
     function cfgMigrate(raw){
       const out = Object.assign({tz_offset_ms:28800000, mode:'mixed', daily:[], cycle:[], leveldiff:[]}, raw || {});
 
@@ -851,16 +1286,21 @@
         out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
       }
       if(out.tz_offset_ms == null) out.tz_offset_ms = 28800000;
-
       if(!out.mode) out.mode = 'mixed';
 
       out.daily = Array.isArray(out.daily) ? out.daily : [];
       out.daily = out.daily.map((r)=>{
-        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00')}, r || {});
-        if(rr.open_ms == null && rr.open) rr.open_ms = hhmmToMs(rr.open);
-        if(rr.close_ms == null && rr.close) rr.close_ms = hhmmToMs(rr.close);
-        rr.open_ms = num(rr.open_ms, hhmmToMs('08:00'));
-        rr.close_ms = num(rr.close_ms, hhmmToMs('09:00'));
+        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:null, close_ms:null}, r || {});
+        if(rr.open_ms == null && typeof rr.open === 'string'){
+          const parts = rr.open.split(':');
+          if(parts.length >= 2) rr.open_ms = (clamp(num(parts[0],0),0,23)*3600 + clamp(num(parts[1],0),0,59)*60) * 1000;
+        }
+        if(rr.close_ms == null && typeof rr.close === 'string'){
+          const parts = rr.close.split(':');
+          if(parts.length >= 2) rr.close_ms = (clamp(num(parts[0],0),0,23)*3600 + clamp(num(parts[1],0),0,59)*60) * 1000;
+        }
+        if(rr.open_ms != null) rr.open_ms = num(rr.open_ms, null);
+        if(rr.close_ms != null) rr.close_ms = num(rr.close_ms, null);
         return rr;
       });
 
@@ -869,10 +1309,10 @@
         const rr = Object.assign({en:false, steps:[]}, r || {});
         rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
         rr.steps = rr.steps.map((st)=>{
-          const s = Object.assign({state:'open', dur_ms:3600000}, st || {});
+          const s = Object.assign({state:'open', dur_ms:null}, st || {});
           if(s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
           if(s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
-          s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+          if(s.dur_ms != null) s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
           s.state = (s.state === 'close') ? 'close' : 'open';
           return s;
         });
@@ -881,112 +1321,108 @@
 
       out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
       out.leveldiff = out.leveldiff.map((r)=>{
-        const rr = Object.assign({en:false, open_mm:-60, close_mm:-20}, r || {});
-        rr.open_mm = num(rr.open_mm, -60);
-        rr.close_mm = num(rr.close_mm, -20);
+        const rr = Object.assign({en:false, open_mm:null, close_mm:null}, r || {});
+        if(rr.open_mm != null) rr.open_mm = num(rr.open_mm, null);
+        if(rr.close_mm != null) rr.close_mm = num(rr.close_mm, null);
         return rr;
       });
 
       return out;
     }
 
-    function cfgEnsure(){
-      if(!g_cfg) g_cfg = cfgMigrate({});
-      if(!Array.isArray(g_cfg.daily)) g_cfg.daily = [];
-      if(!Array.isArray(g_cfg.cycle)) g_cfg.cycle = [];
-      if(!Array.isArray(g_cfg.leveldiff)) g_cfg.leveldiff = [];
-      if(g_cfg.daily.length === 0) g_cfg.daily.push({en:false, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00')});
-      if(g_cfg.cycle.length === 0) g_cfg.cycle.push({en:false, steps:[{state:'open', dur_ms:8*3600000},{state:'close', dur_ms:3*3600000}]});
-      if(g_cfg.leveldiff.length === 0) g_cfg.leveldiff.push({en:false, open_mm:-60, close_mm:-20});
+    function roListClear(id){
+      const el = $(id);
+      if(!el) return null;
+      while(el.firstChild) el.removeChild(el.firstChild);
+      return el;
     }
 
-    function cfgRender(){
-      cfgEnsure();
+    function roItem(title, val){
+      const wrap = document.createElement('div');
+      wrap.className = 'roItem';
+      const top = document.createElement('div');
+      top.className = 'roItemTop';
+      const t = document.createElement('div');
+      t.className = 'roItemTitle';
+      t.textContent = title;
+      const v = document.createElement('div');
+      v.className = 'roItemVal';
+      v.textContent = val;
+      top.appendChild(t);
+      top.appendChild(v);
+      wrap.appendChild(top);
+      return wrap;
+    }
 
-      $('cfg_mode').value = g_cfg.mode || 'mixed';
-      const tzH = Math.round(num(g_cfg.tz_offset_ms, 28800000) / 3600000);
-      $('cfg_tz_h').value = tzH;
-      $('cfg_tz_label').textContent = tzLabelFromHours(tzH);
+    function cfgRenderReadOnly(){
+      const cfg = g_cfg || cfgMigrate({});
+      const tzH = Math.round(num(cfg.tz_offset_ms, 28800000) / 3600000);
+      const roMode = $('roMode');
+      const roTz = $('roTz');
+      if(roMode) roMode.textContent = modeLabel(cfg.mode || 'mixed');
+      if(roTz) roTz.textContent = tzLabelFromHours(tzH);
 
-      const d = g_cfg.daily[0];
-      $('cfg_d_en').checked = !!d.en;
-      $('cfg_d_open_en').checked = (d.open_en !== false);
-      $('cfg_d_close_en').checked = (d.close_en !== false);
-      $('cfg_d_open').value = msToHHMM(d.open_ms);
-      $('cfg_d_close').value = msToHHMM(d.close_ms);
+      const dailyEl = roListClear('roDailyList');
+      const daily = Array.isArray(cfg.daily) ? cfg.daily : [];
+      const dailyOn = daily.filter(r => r && r.en);
+      if(dailyEl){
+        if(!daily.length){
+          dailyEl.appendChild(roItem('定时', '未配置'));
+        }else if(!dailyOn.length){
+          dailyEl.appendChild(roItem('定时', '无（均未启用）'));
+        }else{
+          dailyOn.forEach((r, i)=>{
+            const parts = [];
+            if(r.open_en !== false) parts.push('开 ' + msToHHMMMaybe(r.open_ms));
+            if(r.close_en !== false) parts.push('关 ' + msToHHMMMaybe(r.close_ms));
+            dailyEl.appendChild(roItem('定时 #' + (i+1), '启用 | ' + parts.join(' | ')));
+          });
+        }
+      }
 
-      const c = g_cfg.cycle[0];
-      $('cfg_c_en').checked = !!c.en;
-      const steps = Array.isArray(c.steps) ? c.steps : [];
-      const openStep = steps.find(s => s && s.state === 'open') || {dur_ms:8*3600000};
-      const closeStep = steps.find(s => s && s.state === 'close') || {dur_ms:3*3600000};
-      const toHM = (ms)=>{
-        const min = Math.floor(Math.max(1, num(ms, 60000)) / 60000);
-        return {h: Math.floor(min/60), m: (min % 60)};
-      };
-      const ohm = toHM(openStep.dur_ms);
-      const chm = toHM(closeStep.dur_ms);
-      $('cfg_c_open_h').value = ohm.h;
-      $('cfg_c_open_m').value = ohm.m;
-      $('cfg_c_close_h').value = chm.h;
-      $('cfg_c_close_m').value = chm.m;
+      const cycleEl = roListClear('roCycleList');
+      const cycle = Array.isArray(cfg.cycle) ? cfg.cycle : [];
+      const cycleOn = cycle.filter(r => r && r.en);
+      if(cycleEl){
+        if(!cycle.length){
+          cycleEl.appendChild(roItem('循环', '未配置'));
+        }else if(!cycleOn.length){
+          cycleEl.appendChild(roItem('循环', '无（均未启用）'));
+        }else{
+          cycleOn.forEach((r, i)=>{
+            const steps = Array.isArray(r.steps) ? r.steps : [];
+            const seq = steps.map((st)=>{
+              const act = (st && st.state === 'close') ? '关' : '开';
+              const d = (st && typeof st.dur_ms === 'number' && isFinite(st.dur_ms)) ? durHM(st.dur_ms) : '--';
+              return act + ' ' + d;
+            }).filter(Boolean).join(' -> ');
+            cycleEl.appendChild(roItem('循环 #' + (i+1), '启用' + (seq ? (' | ' + seq) : '')));
+          });
+        }
+      }
 
-      const l = g_cfg.leveldiff[0];
-      $('cfg_l_en').checked = !!l.en;
-      $('cfg_l_open').value = num(l.open_mm, -60);
-      $('cfg_l_close').value = num(l.close_mm, -20);
+      const ldEl = roListClear('roLdList');
+      const ld = Array.isArray(cfg.leveldiff) ? cfg.leveldiff : [];
+      const ldOn = ld.filter(r => r && r.en);
+      if(ldEl){
+        if(!ld.length){
+          ldEl.appendChild(roItem('水位差', '未配置'));
+        }else if(!ldOn.length){
+          ldEl.appendChild(roItem('水位差', '无（均未启用）'));
+        }else{
+          ldOn.forEach((r, i)=>{
+            const o = (typeof r.open_mm === 'number' && isFinite(r.open_mm)) ? (r.open_mm + 'mm') : '--';
+            const c = (typeof r.close_mm === 'number' && isFinite(r.close_mm)) ? (r.close_mm + 'mm') : '--';
+            ldEl.appendChild(roItem('水位差 #' + (i+1), '启用 | 开阈值 ' + o + ' | 关阈值 ' + c));
+          });
+        }
+      }
 
       cfgSetChip('CFG OK', 'good');
       cfgSetMsg('');
     }
 
-    function cfgCollect(){
-      cfgEnsure();
-      g_cfg.mode = $('cfg_mode').value || 'mixed';
-      const tzH = num($('cfg_tz_h').value, 8);
-      g_cfg.tz_offset_ms = tzH * 3600000;
-
-      const d = g_cfg.daily[0];
-      d.en = $('cfg_d_en').checked;
-      d.open_en = $('cfg_d_open_en').checked;
-      d.close_en = $('cfg_d_close_en').checked;
-      d.open_ms = hhmmToMs($('cfg_d_open').value || '08:00');
-      d.close_ms = hhmmToMs($('cfg_d_close').value || '09:00');
-
-      const c = g_cfg.cycle[0];
-      c.en = $('cfg_c_en').checked;
-      const h1 = Math.max(0, num($('cfg_c_open_h').value, 8));
-      const m1 = clamp(num($('cfg_c_open_m').value, 0), 0, 59);
-      const h2 = Math.max(0, num($('cfg_c_close_h').value, 3));
-      const m2 = clamp(num($('cfg_c_close_m').value, 0), 0, 59);
-      const openDur = Math.max(1, (h1*3600 + m1*60) * 1000);
-      const closeDur = Math.max(1, (h2*3600 + m2*60) * 1000);
-
-      let steps = Array.isArray(c.steps) ? c.steps : [];
-      const upsertFirst = (state, dur_ms) => {
-        const idx = steps.findIndex(s => s && s.state === state);
-        if(idx >= 0){
-          steps[idx].dur_ms = dur_ms;
-        }else{
-          steps.push({state, dur_ms});
-        }
-      };
-      upsertFirst('open', openDur);
-      upsertFirst('close', closeDur);
-      c.steps = steps;
-
-      const l = g_cfg.leveldiff[0];
-      l.en = $('cfg_l_en').checked;
-      l.open_mm = num($('cfg_l_open').value, -60);
-      l.close_mm = num($('cfg_l_close').value, -20);
-
-      cfgSetChip('CFG 修改中', 'warn');
-      cfgSetMsg('');
-      return g_cfg;
-    }
-
     async function cfgLoad(){
-      cfgBusySet(true);
       cfgSetChip('CFG 加载中', '');
       cfgSetMsg('加载中…');
       try{
@@ -998,51 +1434,174 @@
           return;
         }
         g_cfg = cfgMigrate(JSON.parse(tx || '{}'));
-        cfgRender();
+        cfgRenderReadOnly();
       }catch(e){
         cfgSetChip('CFG ERR', 'bad');
         cfgSetMsg('加载失败：网络错误或配置 JSON 解析失败');
-      }finally{
-        cfgBusySet(false);
       }
     }
-
-    async function cfgSave(){
-      cfgBusySet(true);
-      cfgSetChip('CFG 保存中', '');
-      cfgSetMsg('保存中…');
-      try{
-        cfgCollect();
-        const body = JSON.stringify(g_cfg, null, 2);
-        const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body});
-        const tx = await r.text();
-        if(!r.ok){
-          cfgSetChip('CFG ERR', 'bad');
-          cfgSetMsg(r.status === 401 ? '保存失败：未授权（需要面板密码）' : ('保存失败：HTTP ' + r.status + ' ' + tx));
-          return;
-        }
-        cfgSetChip('CFG 已保存', 'good');
-        cfgSetMsg('已保存');
-      }catch(e){
-        cfgSetChip('CFG ERR', 'bad');
-        cfgSetMsg('保存失败：网络错误');
-      }finally{
-        cfgBusySet(false);
-      }
-    }
-
     window.cfgLoad = cfgLoad;
-    window.cfgSave = cfgSave;
 
-    // keep tz label reactive
-    if($('cfg_tz_h')){
-      $('cfg_tz_h').addEventListener('input', ()=> $('cfg_tz_label').textContent = tzLabelFromHours($('cfg_tz_h').value));
+    // --- Logs (embedded, no /logs jump needed) ---
+    const LOG_POLL_MS = 2500;
+    const LOG_TAIL_BYTES = 16384;
+    const HAS_ABORT = (typeof AbortController !== 'undefined');
+    let g_logTab = 'error';
+    const g_logCache = {error:null, measure:null, action:null};
+    let g_logTimer = 0;
+    let g_logInflight = 0;
+    let g_logCtrl = null;
+    let g_logReqId = 0;
+
+    function logBusySet(b){
+      const busy = !!b;
+      const br = $('logRefreshBtn');
+      const bc = $('logClearBtn');
+      if(br) br.disabled = busy;
+      if(bc) bc.disabled = busy;
     }
 
-    function tick(){
-      const d = (g_gateTarget - g_gateRatio);
-      if(Math.abs(d) > 0.0005){
-        setGateRatio(g_gateRatio + d * 0.14);
+    function logStopPolling(){
+      if(g_logTimer){
+        clearTimeout(g_logTimer);
+        g_logTimer = 0;
+      }
+    }
+
+    function logScheduleNext(){
+      logStopPolling();
+      if(document.hidden) return;
+      g_logTimer = setTimeout(()=>logRefresh({scheduled:true}), LOG_POLL_MS);
+    }
+
+    function logShouldAutoScroll(pre){
+      const gap = pre.scrollHeight - pre.scrollTop - pre.clientHeight;
+      return gap < 60;
+    }
+
+    function logShowCached(tab){
+      const box = $('logBox');
+      if(!box) return;
+      const v = g_logCache[tab];
+      box.textContent = (typeof v === 'string') ? (v.length ? v : '(空)') : '加载中…';
+    }
+
+    function logSetTab(t){
+      g_logTab = t;
+      ['error','measure','action'].forEach((k)=>{
+        const el = $('logTab_' + k);
+        if(!el) return;
+        const on = (k === t);
+        el.className = on ? 'seg on' : 'seg';
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      logShowCached(t);
+      logRefresh({force:true, forceScroll:true});
+    }
+
+    async function logRefresh(opts){
+      const o = opts || {};
+      const force = !!o.force;
+      const scheduled = !!o.scheduled;
+      const forceScroll = !!o.forceScroll;
+      const tab = g_logTab;
+
+      if(g_logInflight && !force){
+        if(scheduled) logScheduleNext();
+        return;
+      }
+
+      if(force && g_logCtrl){
+        try{ if(g_logCtrl.abort) g_logCtrl.abort(); }catch(e){}
+      }
+
+      const reqId = ++g_logReqId;
+      const ctrl = HAS_ABORT ? new AbortController() : null;
+      g_logCtrl = ctrl;
+      g_logInflight = 1;
+      logBusySet(true);
+
+      const box = $('logBox');
+      const autoScroll = box ? logShouldAutoScroll(box) : true;
+      try{
+        const url = '/api/log?name=' + encodeURIComponent(tab) + '&tail=' + LOG_TAIL_BYTES + '&t=' + Date.now();
+        const r = ctrl ? (await fetch(url, {signal: ctrl.signal})) : (await fetch(url));
+        const tx = await r.text();
+        if(reqId !== g_logReqId) return;
+
+        g_logCache[tab] = tx;
+        if(tab === g_logTab && box){
+          box.textContent = tx.length ? tx : '(空)';
+          if((forceScroll || autoScroll)) box.scrollTop = box.scrollHeight;
+        }
+        const msg = $('logMsg');
+        if(msg){
+          if(!r.ok){
+            msg.textContent = (r.status === 401) ? '读取失败：未授权（需要面板密码）' : ('读取失败：HTTP ' + r.status + ' ' + tx);
+          }else{
+            msg.textContent = '';
+          }
+        }
+      }catch(e){
+        if(e && e.name === 'AbortError') return;
+        const msg = $('logMsg');
+        if(msg) msg.textContent = '读取失败：网络错误';
+      }finally{
+        if(reqId === g_logReqId){
+          g_logInflight = 0;
+          g_logCtrl = null;
+          logBusySet(false);
+          logScheduleNext();
+        }
+      }
+    }
+
+    function logRefreshNow(){
+      logRefresh({force:true, forceScroll:true});
+    }
+
+    async function logClearCur(){
+      if(!confirm('确认清空当前日志？')) return;
+      const msg = $('logMsg');
+      try{
+        const r = await fetch('/api/log/clear', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:g_logTab})});
+        const tx = await r.text();
+        if(msg){
+          msg.textContent = r.ok ? '已清空' : ((r.status === 401) ? '清空失败：未授权（需要面板密码）' : ('清空失败：HTTP ' + r.status + ' ' + tx));
+        }
+      }catch(e){
+        if(msg) msg.textContent = '清空失败：网络错误';
+      }
+      logRefresh({force:true, forceScroll:true});
+    }
+
+    window.logSetTab = logSetTab;
+    window.logRefreshNow = logRefreshNow;
+    window.logClearCur = logClearCur;
+
+    function tick(ts){
+      const nowTs = (typeof ts === 'number') ? ts : 0;
+      const dt = g_lastFrameTs ? Math.max(0, (nowTs - g_lastFrameTs) / 1000) : 0;
+      g_lastFrameTs = nowTs;
+
+      // Keep countdown bar smooth even when polling is 1Hz.
+      renderTimerNow();
+      if(!g_ctlUiLastMs || (Date.now() - g_ctlUiLastMs) > 200){
+        g_ctlUiLastMs = Date.now();
+        applyControlDisabledState();
+      }
+
+      if(REDUCE_MOTION){
+        setGateRatio(g_gateTarget);
+      }else{
+        // Gate plate: 0->100% takes ~g_gateTravelS seconds.
+        const d = (g_gateTarget - g_gateRatio);
+        if(Math.abs(d) > 0.0005 && dt > 0){
+          const travel = Math.max(1, (typeof g_gateTravelS === 'number' && isFinite(g_gateTravelS)) ? g_gateTravelS : 10);
+          const step = dt / travel;
+          const next = g_gateRatio + Math.sign(d) * Math.min(Math.abs(d), step);
+          setGateRatio(next);
+        }
       }
 
       // Update channel water + flow according to the animated gate ratio.
@@ -1062,8 +1621,14 @@
         setFlowFx(connected && !!dir, dir);
 
         if(g_chan){
+          // Match channel water color to the upstream side for better readability.
+          if(dir === 'left') g_chan.setAttribute('data-src', 'inner');
+          else if(dir === 'right') g_chan.setAttribute('data-src', 'outer');
+          else g_chan.removeAttribute('data-src');
+
           const chanMm = deltaOk ? Math.min(innerMm, outerMm) : 0;
-          setChannelWater(g_chan, g_surfC, chanMm, connected, g_gateRatio);
+          const geom = setChannelWater(g_chan, g_surfC, chanMm, connected, g_gateRatio);
+          layoutFlowRows(geom);
         }
 
         $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
@@ -1081,6 +1646,14 @@
       cfgLoad();
       refreshOnce();
       setInterval(refreshOnce, 1000);
+      logSetTab('error');
+      document.addEventListener('visibilitychange', ()=>{
+        if(document.hidden){
+          logStopPolling();
+        }else{
+          logRefresh({force:true, forceScroll:true});
+        }
+      });
       requestAnimationFrame(tick);
     });
   </script>

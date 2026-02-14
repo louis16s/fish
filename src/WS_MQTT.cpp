@@ -46,9 +46,11 @@ extern bool Gate_AutoControl_Enabled;
 extern bool Gate_Auto_Latched_Off;
 extern bool Gate_Open_Allowed;
 extern bool Gate_Close_Allowed;
+extern uint32_t Gate_Last_Action_EndMs;
 extern char Gate_Block_Reason[96];
 extern bool Manual_Takeover_Active;
 extern uint32_t Manual_Takeover_UntilMs;
+extern uint32_t Manual_Takeover_DurationMs;
 extern bool Alarm_Active;
 extern uint8_t Alarm_Severity;
 extern char Alarm_Text[128];
@@ -67,6 +69,37 @@ static char OtaLastCheck[24] = "n/a";
 static char OtaLastResult[96] = "web_update_only";
 static bool Mqtt_State_Dirty = true;
 static uint32_t Mqtt_LastPublishMs = 0;
+
+static void WS_JsonEscape(const char* in, char* out, size_t outSize)
+{
+  if (out == nullptr || outSize == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (in == nullptr) {
+    return;
+  }
+
+  size_t w = 0;
+  for (size_t i = 0; in[i] != '\0' && (w + 1) < outSize; i++) {
+    const char c = in[i];
+    if (c == '\\' || c == '"') {
+      if ((w + 2) >= outSize) {
+        break;
+      }
+      out[w++] = '\\';
+      out[w++] = c;
+      continue;
+    }
+    // Strip control characters that could break JSON formatting.
+    if ((unsigned char)c < 0x20) {
+      out[w++] = ' ';
+      continue;
+    }
+    out[w++] = c;
+  }
+  out[w] = '\0';
+}
 
 static bool MQTT_HasAuth()
 {
@@ -148,9 +181,25 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
   const int rssi = WIFI_Connection ? WiFi.RSSI() : -127;
   const bool mqttConnected = MQTT_CLOUD_Enable ? client.connected() : false;
   const uint32_t nowMs = millis();
+
+  char ssidEsc[80];
+  WS_JsonEscape(WIFI_Connection ? WiFi.SSID().c_str() : "", ssidEsc, sizeof(ssidEsc));
+
   uint32_t manualRemainS = 0;
   if (Manual_Takeover_Active && Manual_Takeover_UntilMs > nowMs) {
     manualRemainS = (Manual_Takeover_UntilMs - nowMs + 999UL) / 1000UL;
+  }
+  uint32_t manualTotalS = 0;
+  if (Manual_Takeover_DurationMs > 0) {
+    manualTotalS = (Manual_Takeover_DurationMs + 999UL) / 1000UL;
+  }
+  uint32_t cooldownRemainS = 0;
+  {
+    const uint32_t cooldownMs = (uint32_t)GATE_MIN_ACTION_INTERVAL_S * 1000UL;
+    const uint32_t untilMs = Gate_Last_Action_EndMs + cooldownMs;
+    if (cooldownMs > 0 && (int32_t)(nowMs - untilMs) < 0) {
+      cooldownRemainS = (untilMs - nowMs + 999UL) / 1000UL;
+    }
   }
   uint32_t airLastRxAgeS = 0;
   if (Air780E_LastRxMs > 0 && nowMs >= Air780E_LastRxMs) {
@@ -160,7 +209,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
   snprintf(
     json,
     jsonSize,
-    "{\"sensor1\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"sensor2\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"gate_state\":%u,\"gate_position_open\":%s,\"auto_gate\":%s,\"auto_latched\":%s,\"manual\":{\"active\":%s,\"remain_s\":%lu},\"relay1\":%u,\"relay2\":%u,\"net\":{\"wifi\":%s,\"mqtt\":%s,\"http\":%s,\"ip\":\"%s\",\"rssi\":%d},\"cell\":{\"enabled\":%s,\"online\":%s,\"sim_ready\":%s,\"attached\":%s,\"csq\":%d,\"rssi_dbm\":%d,\"last_rx_age_s\":%lu},\"ctrl\":{\"open_allowed\":%s,\"close_allowed\":%s,\"reason\":\"%s\"},\"alarm\":{\"active\":%s,\"severity\":%u,\"text\":\"%s\"},\"fw\":{\"current\":\"%s\",\"latest\":\"%s\",\"last_check\":\"%s\",\"last_result\":\"%s\"}}",
+    "{\"sensor1\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"sensor2\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"gate_state\":%u,\"gate_position_open\":%s,\"auto_gate\":%s,\"auto_latched\":%s,\"manual\":{\"active\":%s,\"remain_s\":%lu,\"total_s\":%lu},\"relay1\":%u,\"relay2\":%u,\"net\":{\"wifi\":%s,\"mqtt\":%s,\"http\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ssid\":\"%s\"},\"cell\":{\"enabled\":%s,\"online\":%s,\"sim_ready\":%s,\"attached\":%s,\"csq\":%d,\"rssi_dbm\":%d,\"last_rx_age_s\":%lu},\"ctrl\":{\"open_allowed\":%s,\"close_allowed\":%s,\"cooldown_remain_s\":%lu,\"min_interval_s\":%u,\"action_s\":%u,\"reason\":\"%s\"},\"alarm\":{\"active\":%s,\"severity\":%u,\"text\":\"%s\"},\"fw\":{\"current\":\"%s\",\"latest\":\"%s\",\"last_check\":\"%s\",\"last_result\":\"%s\"}}",
     Sensor_Level_mm_1,
     Sensor_HasValue_1 ? "true" : "false",
     Sensor_Online_1 ? "true" : "false",
@@ -177,6 +226,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     Gate_Auto_Latched_Off ? "true" : "false",
     Manual_Takeover_Active ? "true" : "false",
     (unsigned long)manualRemainS,
+    (unsigned long)manualTotalS,
     Relay_Flag[0] ? 1 : 0,
     Relay_Flag[1] ? 1 : 0,
     WIFI_Connection ? "true" : "false",
@@ -184,6 +234,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     WIFI_Connection ? "true" : "false",
     ipStr,
     rssi,
+    ssidEsc,
     AIR780E_Enable ? "true" : "false",
     Air780E_Online ? "true" : "false",
     Air780E_SIMReady ? "true" : "false",
@@ -193,6 +244,9 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     (unsigned long)airLastRxAgeS,
     Gate_Open_Allowed ? "true" : "false",
     Gate_Close_Allowed ? "true" : "false",
+    (unsigned long)cooldownRemainS,
+    (unsigned int)GATE_MIN_ACTION_INTERVAL_S,
+    (unsigned int)GATE_RELAY_ACTION_SECONDS,
     Gate_Block_Reason,
     Alarm_Active ? "true" : "false",
     Alarm_Severity,
@@ -222,7 +276,7 @@ static void MQTT_PublishState(bool force)
     return;
   }
 
-  char json[1700];
+  char json[2000];
   MQTT_BuildStateJson(json, sizeof(json));
   if (client.publish(pub, json, false)) {
     Mqtt_LastPublishMs = nowMs;
@@ -431,6 +485,35 @@ void handleRoot() {
     const $ = (id) => document.getElementById(id);
     function setStatus(t){ $('statusLine').textContent=t; }
     function gateStateText(s){ if(s===1) return '开闸中'; if(s===2) return '关闸中'; return '待机'; }
+    function cnInterlockReason(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'Interlock: close relay is active':'关闸继电器已吸合',
+        'Interlock: open relay is active':'开闸继电器已吸合',
+        'Interlock: both relays cannot be active':'开闸/关闸继电器不可同时吸合',
+        'Gate is already opening':'闸门已在开闸中',
+        'Gate is already closing':'闸门已在关闸中',
+        'Gate is running, repeat action blocked':'闸门运行中，重复动作已禁止',
+        'Cooldown active: wait before next action':'冷却中，请稍后再试',
+        'Cooldown active: min action interval':'冷却中（最小动作间隔）',
+      };
+      return map[v] || v;
+    }
+    function cnAlarmText(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'normal':'正常',
+        'Alarm: relay interlock triggered':'严重：继电器互锁触发',
+        'Alarm: gate execution timeout':'严重：闸门动作超时',
+        'Alarm: gate runtime timeout, stopped':'严重：闸门运行超时，已停止',
+        'Alarm: sensor offline or data timeout':'严重：传感器离线或数据超时',
+        'Warning: abnormal level jump':'警告：水位突变异常',
+        'Warning: level out of safe range':'警告：水位超出安全范围',
+      };
+      return map[v] || v;
+    }
     function clamp(n, a, b){ return Math.min(b, Math.max(a, n)); }
     function setBar(id, mm, valid){
       const el = $(id);
@@ -460,12 +543,12 @@ void handleRoot() {
       $('gateState').textContent = gateStateText(t.gate_state);
       $('autoState').textContent = t.auto_latched ? '锁定关闭' : (t.auto_gate?'已启用':'已关闭');
       const reason=(t.ctrl&&t.ctrl.reason)?t.ctrl.reason:'';
-      $('interlock').textContent='互锁：'+(reason||'正常');
+      $('interlock').textContent='互锁：'+(cnInterlockReason(reason)||'正常');
       if(t.alarm && t.alarm.active){
-        $('alarmLine').textContent = t.alarm.text || '告警';
+        $('alarmLine').textContent = cnAlarmText(t.alarm.text) || '告警';
         $('alarmLine').className='alarm alarm-on';
       }else{
-        $('alarmLine').textContent = 'normal';
+        $('alarmLine').textContent = '正常';
         $('alarmLine').className='alarm';
       }
       if(t.net){
@@ -697,7 +780,7 @@ void handleGetData() {
   if (!Http_Auth()) {
     return;
   }
-  char json[1700];
+  char json[2000];
   MQTT_BuildStateJson(json, sizeof(json));
   server.send(200, "application/json", json);
 }
@@ -707,7 +790,7 @@ void handleApiState()
   if (!Http_Auth()) {
     return;
   }
-  char tele[1700];
+  char tele[2000];
   MQTT_BuildStateJson(tele, sizeof(tele));
   char out[2000];
   const bool mqttConnected = MQTT_CLOUD_Enable ? client.connected() : false;

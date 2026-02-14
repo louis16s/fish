@@ -76,10 +76,6 @@
 
 ## 4. 配置说明（WS_Information.h）
 
-### 4.0 重要：机密信息不要提交到 GitHub
-
-请在提交前确认 `src/WS_Information.h` 中的 Wi-Fi/MQTT/面板密码不是你的真实密码。
-
 仓库提供了示例文件：`src/WS_Information.example.h`。
 
 ### 4.1 功能开关
@@ -239,12 +235,12 @@
   "gate_position_open": false,
   "auto_gate": true,
   "auto_latched": false,
-  "manual": {"active": false, "remain_s": 0},
+  "manual": {"active": false, "remain_s": 0, "total_s": 60},
   "relay1": 0,
   "relay2": 0,
-  "net": {"wifi": true, "mqtt": true, "http": true, "ip": "192.168.1.5", "rssi": -57},
+  "net": {"wifi": true, "mqtt": true, "http": true, "ip": "192.168.1.5", "rssi": -57, "ssid": "MyWiFi"},
   "cell": {"enabled": true, "online": true, "sim_ready": true, "attached": true, "csq": 20, "rssi_dbm": -73, "last_rx_age_s": 2},
-  "ctrl": {"open_allowed": true, "close_allowed": true, "reason": ""},
+  "ctrl": {"open_allowed": true, "close_allowed": true, "cooldown_remain_s": 0, "min_interval_s": 15, "action_s": 10, "reason": ""},
   "alarm": {"active": false, "severity": 0, "text": "normal"},
   "fw": {"current": "v2026...", "latest": "ElegantOTA", "last_check": "25s", "last_result": "ready_update_page"}
 }
@@ -259,6 +255,22 @@
 
 2. `cell.enabled`
 - 由 `AIR780E_Enable` 决定
+
+3. `alarm`（告警）
+- `severity`：`0` 无告警，`1` 警告，`2` 严重
+- `text`：告警文本（固件内部为英文，主页 UI 会映射为中文显示）
+- 触发规则（见 `src/MAIN_ALL.ino`）：
+- 严重（`severity=2`）
+- 继电器互锁：开闸/关闸两个方向继电器同时为 ON（触发后立即 `Gate_Stop()`）
+- 闸门动作超时：单次动作持续时间超过 `GATE_MAX_CONTINUOUS_RUN_S`
+- 传感器离线/数据超时：任一传感器最后成功读数距离当前超过 `SENSOR_DATA_TIMEOUT_MS`
+- 警告（`severity=1`）
+- 水位突变：单位时间水位变化率超过 `LEVEL_JUMP_THRESHOLD_MM_PER_S`（触发后保持约 15s）
+- 水位越界：水位小于 `LEVEL_MIN_MM` 或大于 `LEVEL_MAX_MM`（触发后保持约 15s）
+- 清除：
+- `severity=1` 的两类警告会在最后一次触发后约 15s 自动清除
+- `severity=2` 中的“传感器离线/数据超时”会在数据恢复后自动清除
+- `severity=2` 中的“互锁/动作超时”属于锁存类标志，通常在下一次成功开/关闸动作开始（或重启）后清除
 
 ## 9. MQTT 使用说明
 
