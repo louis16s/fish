@@ -4,6 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>控制面板</title>
+  <script>
+    // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
+    (function(){
+      try{
+        var rm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        var narrow = !!(window.matchMedia && window.matchMedia('(max-width: 680px)').matches);
+        var dm = (typeof navigator !== 'undefined' && navigator.deviceMemory) ? navigator.deviceMemory : 0;
+        var hc = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : 0;
+        var lite = !!(rm || narrow || (dm && dm <= 2) || (hc && hc <= 4));
+        if(lite) document.documentElement.classList.add('lite');
+      }catch(e){}
+    })();
+  </script>
   <style>
     :root{
       --bg0:#060812;
@@ -39,7 +52,12 @@
       color:var(--text);
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+        linear-gradient(180deg, var(--bg0), var(--bg1)),
+        url("/ui/bg_long.svg");
+      background-repeat:no-repeat,no-repeat,no-repeat;
+      background-position:18% 10%, top, center;
+      background-size:auto,auto,cover;
+      background-attachment:scroll,scroll,fixed;
       padding:18px 14px 28px;
       overflow-x:hidden;
     }
@@ -47,7 +65,7 @@
     .wrap{max-width:1180px;margin:0 auto}
 
     .topbar{
-      display:flex;align-items:center;justify-content:space-between;gap:14px;
+      display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
       padding:14px 14px;
       border:1px solid var(--stroke);
       border-radius:var(--radius-panel);
@@ -75,6 +93,7 @@
       margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .topbar > .nav{margin-left:auto}
     .quickLinks{justify-content:flex-start}
     .navbtn{
       display:inline-grid;place-items:center;
@@ -90,9 +109,26 @@
     .navbtn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
     .navbtn:active{transform:translateY(1px)}
 
+    .topInfo{
+      flex:1 1 420px;
+      min-width:0;
+      font-family:var(--mono);
+      font-size:12px;
+      color:var(--muted2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .topV{color:var(--text);font-weight:900}
+
+    @media (max-width:980px){
+      body{background-attachment:scroll,scroll,scroll}
+    }
+
     .layout{
       display:grid;
       grid-template-columns: 1.45fr 1fr;
+      align-items:stretch;
       gap:14px;
       margin-top:14px;
     }
@@ -198,7 +234,9 @@
     }
     .meterHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.4}
 
-    .stack{display:grid;gap:14px;align-content:start}
+    .stack{display:flex;flex-direction:column;gap:14px;align-content:stretch;height:100%}
+    #histPanel{flex:1;display:flex;flex-direction:column}
+    #histPanel .panelBody{flex:1;display:flex;flex-direction:column}
     .panelBody{padding:14px}
     .kv{display:grid;grid-template-columns: 92px 1fr;gap:10px 10px;align-items:center}
     .k{color:var(--muted2);font-size:12px;font-weight:950}
@@ -322,6 +360,10 @@
       border-radius:var(--radius-card);
       padding:10px 10px;
     }
+    .roItem.on{
+      border-color:rgba(255,255,255,.22);
+      background:rgba(255,255,255,.03);
+    }
     .roItemTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
     .roItemTitle{font-size:12px;color:var(--muted2);font-weight:950}
     .roItemVal{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
@@ -342,6 +384,38 @@
     .alarmTag{font-size:12px;color:var(--muted2);font-family:var(--font);font-weight:980}
     .alarmText{font-family:var(--mono);font-weight:950}
     .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
+    .hint.good{color:var(--good)}
+    .hint.warn{color:var(--warn)}
+    .hint.bad{color:var(--bad)}
+    a.inlineLink{color:rgba(34,211,238,.95);font-weight:950;text-decoration:underline}
+    a.inlineLink:hover{opacity:.9}
+
+    .histCard{
+      margin-top:12px;
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+    }
+    .histHd{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+    .histTitle{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .histMeta{font-family:var(--mono);font-size:11px;color:var(--muted2);font-weight:900}
+    canvas.histCanvas{
+      width:100%;
+      flex:1 1 auto;
+      height:auto;
+      min-height:170px;
+      display:block;
+      margin-top:10px;
+      border-radius:var(--radius-card);
+      border:1px solid rgba(255,255,255,.08);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(2,6,23,.20));
+    }
+    .histLegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;color:var(--muted2);font-size:12px;font-weight:950}
+    .histLegend .lg{display:flex;align-items:center;gap:8px}
+    .histLegend .dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+    .histLegend .dot.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 3px rgba(37,99,235,.10)}
+    .histLegend .dot.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 3px rgba(6,182,212,.10)}
 
     .timerCard{
       border:1px solid rgba(255,255,255,.06);
@@ -362,6 +436,19 @@
       background:linear-gradient(180deg, rgba(34,211,238,.10), rgba(2,6,23,.22));
     }
     .rule.active .ruleTitle{color:rgba(231,238,252,.98)}
+
+    @supports (content-visibility: auto){
+      /* Big below-the-fold panels: skip layout/paint until scrolled into view. */
+      #cfgPanel, #logPanel{content-visibility:auto; contain-intrinsic-size: 900px}
+    }
+
+    html.lite .panel,
+    html.lite .topbar{
+      backdrop-filter:none;
+      box-shadow:0 10px 28px rgba(0,0,0,.28);
+    }
+    html.lite pre.logPre{box-shadow:none}
+    html.lite body{background-attachment:scroll,scroll,scroll}
 
     :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
     @media (max-width:980px){
@@ -384,6 +471,7 @@
       .durRow .miniLbl{grid-column:1 / -1}
       .actions{justify-content:stretch}
       .actions .btn{flex:1}
+      canvas.histCanvas{height:140px;min-height:140px}
     }
     @media (prefers-reduced-motion: reduce){
       *{scroll-behavior:auto !important;transition:none !important;animation:none !important}
@@ -400,6 +488,21 @@
           <div class="brandSub" id="statusLine">连接中…</div>
         </div>
       </div>
+      <div class="topInfo" aria-label="网络信息">
+        Wi-Fi <span class="topV" id="infoWifi">--</span>
+        | RSSI <span class="topV" id="infoRssi">--</span>
+        | IP <span class="topV" id="infoIp">--</span>
+        | MQTT <span class="topV" id="infoMqtt">--</span>
+        <span id="infoCellRowK" style="display:none"> | 4G </span><span id="infoCellRowV" style="display:none"><span class="topV" id="infoCell">--</span></span>
+        | 刷新 <span class="topV" id="infoLastSeen">--</span>
+        | <span class="topV" id="infoVer">--</span>
+      </div>
+      <nav class="nav" aria-label="快捷入口">
+        <a class="navbtn" href="/config">配置</a>
+        <a class="navbtn" href="http://67.209.185.215:18083/#/login?to=/authentication" target="_blank" rel="noopener noreferrer">MQTT</a>
+        <a class="navbtn" href="https://github.com/louis16s/fish" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="navbtn" href="/update">升级</a>
+      </nav>
     </header>
 
     <main class="layout">
@@ -462,6 +565,7 @@
               </div>
             </div>
           </div>
+
           <div class="hint" id="interlock">互锁：--</div>
         </div>
       </section>
@@ -500,44 +604,34 @@
             </div>
 
             <div class="ctlGroup">
-              <div class="ctlTitle">自动</div>
               <div class="controls" role="group" aria-label="自动控制">
                 <button class="btn span2" id="btnLatch" onclick="confirmLatch()">锁定关闭自动</button>
               </div>
             </div>
+            <div class="hint" id="cmdMsg" aria-live="polite" style="display:none"></div>
+            <div class="hint" id="authHint" style="display:none">
+              设备启用了面板密码，请先 <a class="inlineLink" href="/api/state" target="_blank" rel="noopener">点击这里授权</a> 后再操作。
+            </div>
           </div>
         </section>
 
-        <section class="panel" id="infoPanel">
+        <section class="panel" id="histPanel" aria-label="历史水位曲线">
           <div class="panelHd">
             <div>
-              <div class="panelTitle">信息</div>
-              <div class="panelSub">网络 / 刷新 / 版本</div>
+              <div class="panelTitle">历史水位</div>
+              <div class="panelSub histMeta" id="histMeta">最近 60 分钟</div>
+            </div>
+            <div class="segs" role="tablist" aria-label="历史时间范围">
+              <button class="seg" id="histRange30" role="tab" onclick="histSetRange('30m')" aria-selected="false">30分钟</button>
+              <button class="seg on" id="histRange60" role="tab" onclick="histSetRange('60m')" aria-selected="true">60分钟</button>
+              <button class="seg" id="histRange24" role="tab" onclick="histSetRange('24h')" aria-selected="false">24小时</button>
             </div>
           </div>
           <div class="panelBody">
-            <div class="kv" aria-label="设备信息">
-              <div class="k">网络</div>
-              <div class="v small">
-                <div>Wi-Fi <span id="infoWifi">--</span></div>
-                <div>RSSI <span id="infoRssi">--</span></div>
-                <div>IP <span id="infoIp">--</span></div>
-                <div>MQTT <span id="infoMqtt">--</span></div>
-              </div>
-              <div class="k" id="infoCellRowK" style="display:none">4G</div>
-              <div class="v small" id="infoCellRowV" style="display:none"><span id="infoCell">--</span></div>
-              <div class="k">最后刷新</div><div class="v small" id="infoLastSeen">--</div>
-              <div class="k">版本</div><div class="v small preline" id="infoVer">--</div>
-            </div>
-
-            <div class="ctlGroup quickLinksGroup">
-              <div class="ctlTitle">快捷入口</div>
-              <nav class="nav quickLinks" aria-label="快捷入口">
-                <a class="navbtn" href="/update">升级</a>
-                <a class="navbtn" href="/config">配置</a>
-                <a class="navbtn" href="http://67.209.185.215:18083/#/login?to=/authentication" target="_blank" rel="noopener noreferrer">MQTT平台</a>
-                <a class="navbtn" href="https://github.com/louis16s/fish" target="_blank" rel="noopener noreferrer">GitHub</a>
-              </nav>
+            <canvas class="histCanvas" id="histCanvas" height="170"></canvas>
+            <div class="histLegend" aria-hidden="true">
+              <div class="lg"><span class="dot outer" aria-hidden="true"></span>外塘</div>
+              <div class="lg"><span class="dot inner" aria-hidden="true"></span>内塘</div>
             </div>
           </div>
         </section>
@@ -547,7 +641,7 @@
         <div class="panelHd">
           <div>
             <div class="panelTitle">规则</div>
-            <div class="panelSub">主页只展示当前 /ctrl.json。如需修改请到「配置」页。</div>
+            <div class="panelSub">主页只展示当前设置，如需修改请到「配置」页</div>
           </div>
           <div class="chips">
             <span class="chip" id="cfgChip">CFG --</span>
@@ -617,7 +711,7 @@
         <div class="panelHd">
           <div>
             <div class="panelTitle">日志</div>
-            <div class="panelSub">默认读取末尾 16KB（LittleFS）。</div>
+            <div class="panelSub">默认读取末尾 16KB（LittleFS）</div>
           </div>
           <div class="segs" role="tablist" aria-label="日志类型">
             <button class="seg on" id="logTab_error" role="tab" aria-selected="true" onclick="logSetTab('error')">错误</button>
@@ -628,6 +722,7 @@
         <div class="panelBody">
           <div class="actions">
             <button class="btn" id="logRefreshBtn" onclick="logRefreshNow()">刷新</button>
+            <button class="btn" id="logExportBtn" onclick="logExportCur()">导出当前</button>
             <button class="btn danger" id="logClearBtn" onclick="logClearCur()">清空当前日志</button>
           </div>
           <pre id="logBox" class="logPre">加载中…</pre>
@@ -638,10 +733,18 @@
   </div>
 
   <script>
-    const $ = (id) => document.getElementById(id);
+    // Cache DOM lookups (including null) to avoid repeated getElementById in hot paths.
+    const _elCache = Object.create(null);
+    const _hasOwn = Object.prototype.hasOwnProperty;
+    const $ = (id) => {
+      if(_hasOwn.call(_elCache, id)) return _elCache[id];
+      const el = document.getElementById(id);
+      _elCache[id] = el;
+      return el;
+    };
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
-    const UI_VERSION = 'ui-2026.02.14-03';
+    const UI_VERSION = 'ui-2026.02.14-06';
     const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const fmtHHMMSS = (sec) => {
@@ -660,10 +763,59 @@
       return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
     };
 
+    const nowFileStamp = () => {
+      const d = new Date();
+      const p = (x) => (x<10?('0'+x):(''+x));
+      return '' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+    };
+
     function setStatus(text, state){
       $('statusLine').textContent = text;
       const dot = $('statusDot');
       dot.className = 'statusDot' + (state === 'on' ? ' on' : (state === 'bad' ? ' bad' : ''));
+    }
+
+    let g_needAuth = false;
+    function setNeedAuth(v){
+      g_needAuth = !!v;
+      const el = $('authHint');
+      if(el) el.style.display = g_needAuth ? '' : 'none';
+    }
+
+    let g_cmdMsgTimer = 0;
+    function showCmdMsg(text, kind, keep){
+      const el = $('cmdMsg');
+      if(!el) return;
+      if(g_cmdMsgTimer){
+        clearTimeout(g_cmdMsgTimer);
+        g_cmdMsgTimer = 0;
+      }
+      const t = (text == null) ? '' : ('' + text).trim();
+      if(!t){
+        el.textContent = '';
+        el.className = 'hint';
+        el.style.display = 'none';
+        return;
+      }
+      el.textContent = t;
+      el.className = 'hint' + (kind ? (' ' + kind) : '');
+      el.style.display = '';
+      if(!keep){
+        g_cmdMsgTimer = setTimeout(()=>showCmdMsg('', '', false), 6500);
+      }
+    }
+
+    function cmdLabel(c){
+      const map = {
+        gate_open:'开闸',
+        gate_close:'关闸',
+        gate_stop:'停止',
+        auto_on:'恢复自动',
+        auto_off:'手动接管',
+        auto_latch_off:'锁定关闭自动',
+        manual_end:'结束手动',
+      };
+      return map[c] || c || '--';
     }
 
     function gateStateText(s, ratio){
@@ -683,7 +835,7 @@
         'Interlock: both relays cannot be active':'开闸/关闸继电器不可同时吸合',
         'Gate is already opening':'闸门已在开闸中',
         'Gate is already closing':'闸门已在关闸中',
-        'Gate is running, repeat action blocked':'闸门运行中，重复动作已禁止',
+        'Gate is running, repeat action blocked':'闸门运行中，重复动作已禁止（请先点“停止”）',
         'Cooldown active: wait before next action':'冷却中，请稍后再试',
         'Cooldown active: min action interval':'冷却中（最小动作间隔）',
       };
@@ -716,18 +868,41 @@
     // animation state
     let g_gateRatio=0; // 0..1
     let g_gateTarget=0;
-    let g_gateTravelS=10;
+    const GATE_ANIM_TRAVEL_S = 10; // 0->100% gate plate animation duration
+    let g_gateTravelS=GATE_ANIM_TRAVEL_S;
     let g_lastTelemetry=null;
+    let g_manualActiveLast=false;
+    let g_gatePctIntLast=null;
+    let g_connectedLast=null;
+    let g_gateStateLast='';
+    let g_timerUiLastTs=0;
     let g_lastOkAt=0;
     let g_reqBusy=0;
     let g_polling=0;
+    let g_refreshQueued=0;
     let g_cfg=null;
     let g_lastFrameTs=0;
     let g_ruleBound=0;
     let g_ctlUiLastMs=0;
 
-    // UI-only safety lock: after pressing Open/Close, lock both buttons for 120s.
-    const GATE_BTN_LOCK_S = 120;
+    // --- History Chart (client-side, not stored on device) ---
+    const HIST_MAX_MM = 5000;
+    const HIST_RETENTION_S = 24 * 3600; // keep 24h in memory (1Hz)
+    const HIST_MAX = HIST_RETENTION_S;
+    const HIST_RANGE = {'30m':30*60, '60m':60*60, '24h':24*3600};
+    let g_histWindowS = HIST_RANGE['60m'];
+    const g_histT = new Int32Array(HIST_MAX);
+    const g_histIn = new Int32Array(HIST_MAX);
+    const g_histOut = new Int32Array(HIST_MAX);
+    let g_histIdx = 0;
+    let g_histN = 0;
+    let g_histLastSec = 0;
+    let g_histDrawPending = 0;
+    let g_histResizeTimer = 0;
+
+    // UI-only safety lock: after pressing Open/Close, lock both buttons briefly to prevent spam.
+    // Note: manual takeover mode bypasses this lock.
+    const GATE_BTN_LOCK_S = 12;
     let g_gateBtnLockUntilMs = 0;
 
     // Countdown bar state (manual takeover > cooldown > ready).
@@ -771,7 +946,8 @@
       g_timer.untilMs = now;
       g_timer.totalS = 0;
       g_timer.lastRemainS = 0;
-      g_timer.reason = reason || '';
+      const rr = (reason || '').trim();
+      g_timer.reason = rr;
     }
 
     function renderTimerNow(){
@@ -821,18 +997,206 @@
       if(pb) pb.setAttribute('aria-valuenow', String(Math.round(w)));
     }
 
+    function histScheduleDraw(){
+      if(g_histDrawPending) return;
+      g_histDrawPending = 1;
+      requestAnimationFrame(()=>{
+        g_histDrawPending = 0;
+        histDraw();
+      });
+    }
+
+    function histAdd(innerMm, innerOk, outerMm, outerOk){
+      const sec = Math.floor(Date.now() / 1000);
+      if(sec === g_histLastSec) return;
+      g_histLastSec = sec;
+      g_histT[g_histIdx] = sec;
+      g_histIn[g_histIdx] = innerOk ? (innerMm | 0) : -1;
+      g_histOut[g_histIdx] = outerOk ? (outerMm | 0) : -1;
+      g_histIdx = (g_histIdx + 1) % HIST_MAX;
+      if(g_histN < HIST_MAX) g_histN++;
+      histScheduleDraw();
+    }
+
+    function histSetupCanvas(ctx, c){
+      const rect = c.getBoundingClientRect();
+      const cssW = Math.max(1, rect.width);
+      const cssH = Math.max(1, rect.height);
+      const dpr = window.devicePixelRatio || 1;
+      const pxW = Math.max(1, Math.round(cssW * dpr));
+      const pxH = Math.max(1, Math.round(cssH * dpr));
+      if(c.width !== pxW || c.height !== pxH){
+        c.width = pxW;
+        c.height = pxH;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return {w: cssW, h: cssH};
+    }
+
+    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color){
+      const xSpan = w - padL - padR;
+      const ySpan = h - padT - padB;
+      let started = false;
+      ctx.beginPath();
+      for(let i = 0; i < n; i += stride){
+        const idx = (startIdx + i) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0 || t < x0) continue;
+        const mm = arr[idx] | 0;
+        if(mm < 0){
+          started = false;
+          continue;
+        }
+        const x = padL + ((t - x0) / windowS) * xSpan;
+        const y = padT + (1 - (clamp(mm, 0, HIST_MAX_MM) / HIST_MAX_MM)) * ySpan;
+        if(!started){
+          ctx.moveTo(x, y);
+          started = true;
+        }else{
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+
+    function histRangeLabel(k){
+      if(k === '30m') return '最近 30 分钟';
+      if(k === '60m') return '最近 60 分钟';
+      if(k === '24h') return '最近 24 小时';
+      return '历史水位';
+    }
+
+    function histTimeStepS(windowS){
+      if(windowS <= 30*60) return 10*60;
+      if(windowS <= 60*60) return 15*60;
+      return 6*60*60;
+    }
+
+    function histFmtTime(sec){
+      const d = new Date(sec * 1000);
+      const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      return p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    function histSetRange(k){
+      const w = HIST_RANGE[k];
+      if(!w) return;
+      g_histWindowS = w;
+      const meta = $('histMeta');
+      if(meta) meta.textContent = histRangeLabel(k);
+      const map = {'30m':'histRange30', '60m':'histRange60', '24h':'histRange24'};
+      Object.keys(map).forEach((kk)=>{
+        const el = $(map[kk]);
+        if(!el) return;
+        const on = (kk === k);
+        el.className = on ? 'seg on' : 'seg';
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      histScheduleDraw();
+    }
+    window.histSetRange = histSetRange;
+
+    function histDraw(){
+      const c = $('histCanvas');
+      if(!c) return;
+      const ctx = c.getContext && c.getContext('2d');
+      if(!ctx) return;
+      const rect = c.getBoundingClientRect();
+      if(rect.width < 2 || rect.height < 2) return;
+
+      const dim = histSetupCanvas(ctx, c);
+      const w = dim.w, h = dim.h;
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 44, padR = 12, padT = 12, padB = 28;
+      const xSpan = Math.max(1, w - padL - padR);
+      const ySpan = Math.max(1, h - padT - padB);
+
+      ctx.font = '11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(165,180,207,.72)';
+
+      // Grid lines: 0..5m (fixed scale to match the schematic).
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
+      for(let i=0;i<=5;i++){
+        const y = padT + (1 - (i/5)) * ySpan;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + xSpan, y);
+        ctx.stroke();
+        ctx.fillText(i + 'm', padL - 6, y);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const x0 = now - g_histWindowS;
+      if(g_histN < 2) return;
+
+      // Time ticks along X axis.
+      {
+        const step = histTimeStepS(g_histWindowS);
+        const start = Math.ceil(x0 / step) * step;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = 'rgba(165,180,207,.60)';
+        ctx.strokeStyle = 'rgba(255,255,255,.04)';
+        const yText = padT + ySpan + 8;
+        for(let t = start; t <= now; t += step){
+          const x = padL + ((t - x0) / g_histWindowS) * xSpan;
+          ctx.beginPath();
+          ctx.moveTo(x, padT);
+          ctx.lineTo(x, padT + ySpan);
+          ctx.stroke();
+          ctx.fillText(histFmtTime(t), x, yText);
+        }
+      }
+
+      // Windowing: walk backwards from newest to count samples within the selected range.
+      let n = 0;
+      for(let j = 0; j < g_histN; j++){
+        const idx = (g_histIdx - 1 - j + HIST_MAX) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0) break;
+        if(t < x0) break;
+        n++;
+      }
+      if(n < 2) return;
+      const startIdx = (g_histIdx - n + HIST_MAX) % HIST_MAX;
+      const stride = Math.max(1, Math.floor(n / Math.max(1, Math.round(xSpan))));
+
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)');
+      histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)');
+    }
+
+    window.addEventListener('resize', ()=>{
+      if(g_histResizeTimer) clearTimeout(g_histResizeTimer);
+      g_histResizeTimer = setTimeout(()=>{
+        g_histResizeTimer = 0;
+        histScheduleDraw();
+      }, 120);
+    });
+
     function gateBtnLockRemainS(){
       return Math.max(0, (g_gateBtnLockUntilMs - Date.now()) / 1000);
     }
 
     function applyControlDisabledState(){
-      const lock = gateBtnLockRemainS() > 0.05;
+      const t = g_lastTelemetry;
+      const manual = t && t.manual ? t.manual : null;
+      const manualActive = !!(manual && manual.active);
+
+      const lock = (!manualActive) && (gateBtnLockRemainS() > 0.05);
       const remain = lock ? Math.ceil(gateBtnLockRemainS()) : 0;
 
       const open = $('btnOpen');
       const close = $('btnClose');
       const stop = $('btnStop');
-      const manual = $('btnManualToggle');
+      const manualBtn = $('btnManualToggle');
       const latch = $('btnLatch');
 
       if(open){
@@ -843,8 +1207,8 @@
         close.disabled = !!g_reqBusy || lock;
         close.title = lock ? ('冷却中：' + remain + 's') : '';
       }
-      if(stop) stop.disabled = !!g_reqBusy;
-      if(manual) manual.disabled = !!g_reqBusy;
+      if(stop) stop.disabled = false; // highest priority
+      if(manualBtn) manualBtn.disabled = !!g_reqBusy;
       if(latch) latch.disabled = !!g_reqBusy;
     }
 
@@ -923,9 +1287,18 @@
 
     function setGateRatio(ratio){
       g_gateRatio = clamp(ratio, 0, 1);
-      $('gatePct').textContent = Math.round(g_gateRatio*100) + '%';
-      $('gateBar').style.width = (g_gateRatio*100).toFixed(1) + '%';
-      $('gateBar').parentElement.setAttribute('aria-valuenow', String(Math.round(g_gateRatio*100)));
+      const pctInt = Math.round(g_gateRatio*100);
+      if(g_gatePctIntLast !== pctInt){
+        g_gatePctIntLast = pctInt;
+        const pctEl = $('gatePct');
+        if(pctEl) pctEl.textContent = pctInt + '%';
+      }
+      const barEl = $('gateBar');
+      if(barEl){
+        barEl.style.width = (g_gateRatio*100).toFixed(1) + '%';
+        const pb = barEl.parentElement;
+        if(pb) pb.setAttribute('aria-valuenow', String(pctInt));
+      }
 
       if(g_gatePlateGroup){
         const openDy = parseFloat(g_gatePlateGroup.getAttribute('data-open-dy') || '-600');
@@ -1018,15 +1391,22 @@
       $('chipDelta').textContent = deltaOk ? ('Δ ' + deltaMm + ' mm') : 'Δ --';
       $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
 
-      if(t && t.ctrl && typeof t.ctrl.action_s === 'number' && t.ctrl.action_s > 0){
-        g_gateTravelS = t.ctrl.action_s;
-      }
+      // UI animation duration is fixed to keep open/close feel consistent.
+      g_gateTravelS = GATE_ANIM_TRAVEL_S;
       g_gateTarget = deriveGateTarget(t);
 
       setWaterRect(g_waterL, g_surfL, outerMm, outerOk);
       setWaterRect(g_waterR, g_surfR, innerMm, innerOk);
+      histAdd(innerMm, innerOk, outerMm, outerOk);
 
-      $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+      {
+        const gs = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+        if(g_gateStateLast !== gs){
+          g_gateStateLast = gs;
+          const el = $('gateState');
+          if(el) el.textContent = gs;
+        }
+      }
       const autoText = t.auto_latched ? '锁定关闭' : (t.auto_gate ? '已启用' : '已关闭');
       const autoEl = $('autoState');
       if(autoEl){
@@ -1039,17 +1419,22 @@
 
       // Timer strip (hysteresis / minimum action interval) - at top of control panel.
       updateTimerFromTelemetry(t);
-      renderTimerNow();
+      // renderTimerNow() is driven by tick() (throttled) to keep UI smooth.
 
       // Auto control: merge manual takeover + resume into a single toggle button.
+      const manual = t && t.manual ? t.manual : null;
+      const manualActive = !!(manual && manual.active);
+      if(manualActive && !g_manualActiveLast){
+        // Manual takeover should allow immediate open/close without UI lock.
+        g_gateBtnLockUntilMs = 0;
+      }
+      g_manualActiveLast = manualActive;
       const mb = $('btnManualToggle');
       if(mb){
-        const manual = t && t.manual ? t.manual : null;
-        const active = !!(manual && manual.active);
         const autoGate = !!t.auto_gate;
         // "开启自动" and "恢复自动" are conceptually the same action: go back to auto mode.
-        mb.textContent = active ? '恢复自动' : (autoGate ? '手动接管' : '恢复自动');
-        mb.className = (active || !autoGate) ? 'btn primary' : 'btn';
+        mb.textContent = manualActive ? '恢复自动' : (autoGate ? '手动接管' : '恢复自动');
+        mb.className = (manualActive || !autoGate) ? 'btn primary' : 'btn';
       }
 
       // Info panel (network / 4G / firmware)
@@ -1111,15 +1496,20 @@
       if(ab) ab.className = 'statusCard' + (alarmActive ? ' on' : '');
 
       const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
-      const ver = 'UI ' + UI_VERSION + '\n固件 ' + ((fw && fw !== '--') ? fw : '--');
+      const ver = '固件 ' + ((fw && fw !== '--') ? fw : '--');
       $('infoVer').textContent = ver;
     }
 
     async function fetchTelemetry(){
       try{
         const r = await fetch('/api/state', {cache:'no-store'});
-        const j = await r.json();
+        if(r.status === 401){
+          setNeedAuth(true);
+          throw new Error('HTTP 401');
+        }
         if(!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        setNeedAuth(false);
         return j.telemetry || j;
       }catch(e){
         const r2 = await fetch('/getData', {cache:'no-store'});
@@ -1134,42 +1524,89 @@
       applyControlDisabledState();
     }
 
+    async function readTextSafe(r){ try{ return await r.text(); }catch(e){ return ''; } }
+
     async function sendCmdOnce(c){
+      // Prefer unified command API, but keep backward compatibility with legacy GET endpoints.
+      const map = {
+        gate_open:'/GateOpen',
+        gate_close:'/GateClose',
+        gate_stop:'/GateStop',
+        auto_on:'/AutoGateOn',
+        auto_off:'/AutoGateOff',
+        auto_latch_off:'/AutoGateLatchOff',
+        manual_end:'/ManualEnd',
+      };
+
+      let apiRes = null;
       try{
-        const r = await fetch('/api/cmd', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cmd:c})});
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        return;
+        apiRes = await fetch('/api/cmd', {method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cmd:c})});
+        if(apiRes && apiRes.ok){
+          setNeedAuth(false);
+          return {ok:true, via:'api', status:apiRes.status};
+        }
+        if(apiRes && apiRes.status === 401){
+          setNeedAuth(true);
+        }
       }catch(e){
-        const map = {
-          gate_open:'/GateOpen',
-          gate_close:'/GateClose',
-          gate_stop:'/GateStop',
-          auto_on:'/AutoGateOn',
-          auto_off:'/AutoGateOff',
-          auto_latch_off:'/AutoGateLatchOff',
-          manual_end:'/ManualEnd',
-        };
-        const url = map[c];
-        if(url){
-          try{ await fetch(url, {cache:'no-store'}); }catch(e2){}
+        apiRes = null;
+      }
+
+      const url = map[c];
+      if(url){
+        try{
+          const r2 = await fetch(url, {cache:'no-store'});
+          if(r2 && r2.ok){
+            setNeedAuth(false);
+            return {ok:true, via:'legacy', status:r2.status};
+          }
+          if(r2 && r2.status === 401){
+            setNeedAuth(true);
+          }
+          return {ok:false, via:'legacy', status:r2 ? r2.status : 0, text: r2 ? (await readTextSafe(r2)) : ''};
+        }catch(e2){
+          return {ok:false, via:'legacy', status:0, error:e2};
         }
       }
+
+      return {ok:false, via:'api', status: apiRes ? apiRes.status : 0, text: apiRes ? (await readTextSafe(apiRes)) : ''};
     }
 
     async function cmd(c, opts){
-      if(g_reqBusy) return;
+      const isStop = (c === 'gate_stop');
+      if(g_reqBusy && !isStop){
+        showCmdMsg('忙：上一条命令处理中…', 'warn');
+        return;
+      }
+      if(isStop){
+        // Stop should always be available and should also clear the UI lock.
+        g_gateBtnLockUntilMs = 0;
+      }
       setBusy(true);
       try{
-        await sendCmdOnce(c);
+        const res = await sendCmdOnce(c);
+        if(!res || !res.ok){
+          if(res && res.status === 401){
+            showCmdMsg('未授权：需要面板密码（请先点击下方“授权”链接完成登录）', 'bad', true);
+          }else if(res && res.status){
+            showCmdMsg('命令失败：HTTP ' + res.status, 'bad');
+          }else{
+            showCmdMsg('命令失败：网络错误或设备未响应', 'bad');
+          }
+        }else{
+          showCmdMsg('命令已发送：' + cmdLabel(c), 'good');
+        }
 
         // Keep manual takeover alive while operating the gate.
         // Only the "恢复自动" button should end manual takeover.
-        const keepManual = !!(opts && opts.keepManual);
-        const t = g_lastTelemetry;
-        const manual = t && t.manual ? t.manual : null;
-        const manualActive = !!(manual && manual.active);
-        if(keepManual && manualActive && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
-          await sendCmdOnce('auto_off');
+        if(res && res.ok){
+          const keepManual = !!(opts && opts.keepManual);
+          const t = g_lastTelemetry;
+          const manual = t && t.manual ? t.manual : null;
+          const manualActive = !!(manual && manual.active);
+          if(keepManual && manualActive && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+            await sendCmdOnce('auto_off');
+          }
         }
       }finally{
         setTimeout(()=>setBusy(false), 260);
@@ -1180,8 +1617,24 @@
     function confirmLatch(){ if(confirm('确认关闭自动(锁定)？')) cmd('auto_latch_off'); }
     function gateCmd(c){
       if(c === 'gate_open' || c === 'gate_close'){
-        g_gateBtnLockUntilMs = Math.max(g_gateBtnLockUntilMs, Date.now() + GATE_BTN_LOCK_S * 1000);
-        applyControlDisabledState();
+        const t = g_lastTelemetry;
+        const manual = t && t.manual ? t.manual : null;
+        const manualActive = !!(manual && manual.active);
+        if(!manualActive){
+          let allow = true;
+          const ctrl = t && t.ctrl ? t.ctrl : null;
+          const reason = (ctrl && typeof ctrl.reason === 'string') ? ctrl.reason : '';
+          if(ctrl){
+            if(c === 'gate_open' && typeof ctrl.open_allowed === 'boolean') allow = ctrl.open_allowed;
+            if(c === 'gate_close' && typeof ctrl.close_allowed === 'boolean') allow = ctrl.close_allowed;
+          }
+          if(allow !== false){
+            g_gateBtnLockUntilMs = Math.max(g_gateBtnLockUntilMs, Date.now() + GATE_BTN_LOCK_S * 1000);
+            applyControlDisabledState();
+          }else{
+            showCmdMsg('提示：' + (cnInterlockReason(reason) || '当前处于保护/互锁状态'), 'warn');
+          }
+        }
       }
       cmd(c, {keepManual:true});
     }
@@ -1204,21 +1657,32 @@
     window.manualToggle = manualToggle;
 
     async function refreshOnce(){
-      if(g_polling) return;
+      if(g_polling){
+        // Ensure we do a trailing refresh after the in-flight poll finishes.
+        g_refreshQueued = 1;
+        return true;
+      }
       g_polling = 1;
+      let ok = false;
       try{
         const t = await fetchTelemetry();
         g_lastOkAt = Date.now();
         const ls = $('infoLastSeen');
         if(ls) ls.textContent = nowHHMMSS();
         renderTelemetry(t);
+        ok = true;
       }catch(e){
         setStatus('连接失败（将重试）', 'bad');
         const ls = $('infoLastSeen');
         if(ls) ls.textContent = '失败 ' + nowHHMMSS();
       }finally{
         g_polling = 0;
+        if(g_refreshQueued){
+          g_refreshQueued = 0;
+          setTimeout(()=>refreshOnce(), 60);
+        }
       }
+      return ok;
     }
     window.refreshOnce = refreshOnce;
 
@@ -1337,9 +1801,9 @@
       return el;
     }
 
-    function roItem(title, val){
+    function roItem(title, val, on){
       const wrap = document.createElement('div');
-      wrap.className = 'roItem';
+      wrap.className = 'roItem' + (on ? ' on' : '');
       const top = document.createElement('div');
       top.className = 'roItemTop';
       const t = document.createElement('div');
@@ -1352,6 +1816,17 @@
       top.appendChild(v);
       wrap.appendChild(top);
       return wrap;
+    }
+
+    function dowMaskText(mask){
+      const m = (typeof mask === 'number' && isFinite(mask)) ? (mask & 127) : 127;
+      if(m === 127) return '';
+      const days = ['一','二','三','四','五','六','日'];
+      let s = '';
+      for(let i=0;i<7;i++){
+        if(m & (1<<i)) s += days[i];
+      }
+      return s ? ('周' + s) : '周(未选)';
     }
 
     function cfgRenderReadOnly(){
@@ -1373,9 +1848,11 @@
         }else{
           dailyOn.forEach((r, i)=>{
             const parts = [];
+            const dow = dowMaskText(r && r.dow_mask);
+            if(dow) parts.push(dow);
             if(r.open_en !== false) parts.push('开 ' + msToHHMMMaybe(r.open_ms));
             if(r.close_en !== false) parts.push('关 ' + msToHHMMMaybe(r.close_ms));
-            dailyEl.appendChild(roItem('定时 #' + (i+1), '启用 | ' + parts.join(' | ')));
+            dailyEl.appendChild(roItem('定时 #' + (i+1), '启用 | ' + parts.join(' | '), true));
           });
         }
       }
@@ -1396,7 +1873,7 @@
               const d = (st && typeof st.dur_ms === 'number' && isFinite(st.dur_ms)) ? durHM(st.dur_ms) : '--';
               return act + ' ' + d;
             }).filter(Boolean).join(' -> ');
-            cycleEl.appendChild(roItem('循环 #' + (i+1), '启用' + (seq ? (' | ' + seq) : '')));
+            cycleEl.appendChild(roItem('循环 #' + (i+1), '启用' + (seq ? (' | ' + seq) : ''), true));
           });
         }
       }
@@ -1413,7 +1890,7 @@
           ldOn.forEach((r, i)=>{
             const o = (typeof r.open_mm === 'number' && isFinite(r.open_mm)) ? (r.open_mm + 'mm') : '--';
             const c = (typeof r.close_mm === 'number' && isFinite(r.close_mm)) ? (r.close_mm + 'mm') : '--';
-            ldEl.appendChild(roItem('水位差 #' + (i+1), '启用 | 开阈值 ' + o + ' | 关阈值 ' + c));
+            ldEl.appendChild(roItem('水位差 #' + (i+1), '启用 | 开阈值 ' + o + ' | 关阈值 ' + c, true));
           });
         }
       }
@@ -1446,6 +1923,7 @@
     const LOG_POLL_MS = 2500;
     const LOG_TAIL_BYTES = 16384;
     const HAS_ABORT = (typeof AbortController !== 'undefined');
+    let g_logLive = false;
     let g_logTab = 'error';
     const g_logCache = {error:null, measure:null, action:null};
     let g_logTimer = 0;
@@ -1456,8 +1934,10 @@
     function logBusySet(b){
       const busy = !!b;
       const br = $('logRefreshBtn');
+      const be = $('logExportBtn');
       const bc = $('logClearBtn');
       if(br) br.disabled = busy;
+      if(be) be.disabled = busy;
       if(bc) bc.disabled = busy;
     }
 
@@ -1470,7 +1950,7 @@
 
     function logScheduleNext(){
       logStopPolling();
-      if(document.hidden) return;
+      if(document.hidden || !g_logLive) return;
       g_logTimer = setTimeout(()=>logRefresh({scheduled:true}), LOG_POLL_MS);
     }
 
@@ -1496,7 +1976,9 @@
         el.setAttribute('aria-selected', on ? 'true' : 'false');
       });
       logShowCached(t);
-      logRefresh({force:true, forceScroll:true});
+      if(g_logLive){
+        logRefresh({force:true, forceScroll:true});
+      }
     }
 
     async function logRefresh(opts){
@@ -1506,8 +1988,12 @@
       const forceScroll = !!o.forceScroll;
       const tab = g_logTab;
 
+      if(!g_logLive && !force){
+        // Not in view: skip network and timers.
+        return;
+      }
+
       if(g_logInflight && !force){
-        if(scheduled) logScheduleNext();
         return;
       }
 
@@ -1579,13 +2065,29 @@
     window.logRefreshNow = logRefreshNow;
     window.logClearCur = logClearCur;
 
+    function logExportCur(){
+      const name = g_logTab || 'error';
+      const url = '/api/log/download?name=' + encodeURIComponent(name) + '&t=' + Date.now();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'log_' + name + '_' + nowFileStamp() + '.txt';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    window.logExportCur = logExportCur;
+
     function tick(ts){
       const nowTs = (typeof ts === 'number') ? ts : 0;
       const dt = g_lastFrameTs ? Math.max(0, (nowTs - g_lastFrameTs) / 1000) : 0;
       g_lastFrameTs = nowTs;
 
       // Keep countdown bar smooth even when polling is 1Hz.
-      renderTimerNow();
+      if(!g_timerUiLastTs || (nowTs - g_timerUiLastTs) >= 80){
+        g_timerUiLastTs = nowTs;
+        renderTimerNow();
+      }
       if(!g_ctlUiLastMs || (Date.now() - g_ctlUiLastMs) > 200){
         g_ctlUiLastMs = Date.now();
         applyControlDisabledState();
@@ -1614,8 +2116,14 @@
         const deltaMm = innerMm - outerMm;
 
         const connected = (g_gateRatio > 0.12) && deltaOk;
-        $('chipFlow').textContent = connected ? '连通 ON' : '连通 OFF';
-        $('chipFlow').className = 'chip ' + (connected ? 'good' : '');
+        if(g_connectedLast !== connected){
+          g_connectedLast = connected;
+          const cf = $('chipFlow');
+          if(cf){
+            cf.textContent = connected ? '连通 ON' : '连通 OFF';
+            cf.className = 'chip ' + (connected ? 'good' : '');
+          }
+        }
 
         const dir = (deltaOk && Math.abs(deltaMm) >= 20) ? (deltaMm > 0 ? 'left' : 'right') : null;
         setFlowFx(connected && !!dir, dir);
@@ -1631,7 +2139,12 @@
           layoutFlowRows(geom);
         }
 
-        $('gateState').textContent = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+        const gs = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+        if(g_gateStateLast !== gs){
+          g_gateStateLast = gs;
+          const el = $('gateState');
+          if(el) el.textContent = gs;
+        }
       }
 
       if(g_lastOkAt && (Date.now() - g_lastOkAt) >= 4500){
@@ -1645,13 +2158,47 @@
       setGateRatio(0);
       cfgLoad();
       refreshOnce();
-      setInterval(refreshOnce, 1000);
+      // Telemetry polling: self-schedule after each request finishes.
+      const POLL_MS = 1000;
+      const POLL_FAIL_MS = 1800;
+      let g_pollTimer = 0;
+      const pollStop = () => { if(g_pollTimer){ clearTimeout(g_pollTimer); g_pollTimer = 0; } };
+      const pollLoop = () => {
+        pollStop();
+        Promise.resolve(refreshOnce()).then((ok)=>{
+          g_pollTimer = setTimeout(pollLoop, ok ? POLL_MS : POLL_FAIL_MS);
+        });
+      };
+      pollLoop();
+
+      // Logs: only poll when the log panel is near viewport.
+      const lp = $('logPanel');
+      if(lp && ('IntersectionObserver' in window)){
+        const io = new IntersectionObserver((ents)=>{
+          const ent = (ents && ents.length) ? ents[0] : null;
+          const vis = !!(ent && ent.isIntersecting);
+          if(vis){
+            if(!g_logLive){
+              g_logLive = true;
+              logRefresh({force:true, forceScroll:false});
+              logScheduleNext();
+            }
+          }else{
+            g_logLive = false;
+            logStopPolling();
+          }
+        }, {root:null, rootMargin:'200px 0px', threshold:0.05});
+        io.observe(lp);
+      }else{
+        // Fallback: older browsers poll logs immediately.
+        g_logLive = true;
+      }
       logSetTab('error');
       document.addEventListener('visibilitychange', ()=>{
         if(document.hidden){
           logStopPolling();
         }else{
-          logRefresh({force:true, forceScroll:true});
+          if(g_logLive) logRefresh({force:true, forceScroll:true});
         }
       });
       requestAnimationFrame(tick);

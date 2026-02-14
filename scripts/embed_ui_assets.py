@@ -6,6 +6,7 @@ Input (source of truth):
   - data/ui/config.html
   - data/ui/logs.html
   - data/ui/pond_gate.svg
+  - data/ui/bg_long.svg
 
 Output (generated):
   - src/WS_UI_Assets.h
@@ -42,6 +43,12 @@ ASSETS: list[dict[str, str]] = [
         "id": "UI_POND_GATE_SVG",
         "src": "data/ui/pond_gate.svg",
         "path": "/ui/pond_gate.svg",
+        "content_type": "image/svg+xml",
+    },
+    {
+        "id": "UI_BG_LONG_SVG",
+        "src": "data/ui/bg_long.svg",
+        "path": "/ui/bg_long.svg",
         "content_type": "image/svg+xml",
     },
 ]

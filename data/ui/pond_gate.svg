@@ -159,12 +159,32 @@ paint-order: stroke fill;
     <!-- Flow FX (arrows/lines), toggled by UI. -->
     <g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
       <g id="flow_dir_right" style="display:none">
-        <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-        <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
       </g>
       <g id="flow_dir_left" style="display:none">
-        <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-        <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <g class="flow-row" data-base-y="740">
+          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
       </g>
     </g>
   </g>

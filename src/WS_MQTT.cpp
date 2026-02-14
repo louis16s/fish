@@ -8,7 +8,6 @@
 #include "WS_Control.h"
 #include "WS_Log.h"
 #include "WS_FS.h"
-#include "WS_UI_Assets.h"
 
 #ifndef CONTENT_LENGTH_UNKNOWN
 #define CONTENT_LENGTH_UNKNOWN ((size_t)-1)
@@ -227,7 +226,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     manualTotalS = (Manual_Takeover_DurationMs + 999UL) / 1000UL;
   }
   uint32_t cooldownRemainS = 0;
-  {
+  if (!Manual_Takeover_Active) {
     const uint32_t cooldownMs = (uint32_t)GATE_MIN_ACTION_INTERVAL_S * 1000UL;
     const uint32_t untilMs = Gate_Last_Action_EndMs + cooldownMs;
     if (cooldownMs > 0 && (int32_t)(nowMs - untilMs) < 0) {
@@ -322,14 +321,11 @@ static void MQTT_PublishState(bool force)
   }
 }
 
-// ===================== UI Files (LittleFS Override + Embedded Fallback) =====================
-// If a UI file exists on LittleFS, serve it (allows UI updates via uploadfs).
-// Otherwise, fall back to the firmware-embedded assets (compiled with the firmware).
+// ===================== UI Files (LittleFS Only) =====================
+// UI files are served from LittleFS under /ui/... (uploaded via uploadfs).
 static const char* kUiIndexPath = "/ui/index.html";
 static const char* kUiConfigPath = "/ui/config.html";
 static const char* kUiLogsPath = "/ui/logs.html";
-
-static bool WS_HTTP_SendEmbeddedUiAsset(const char* path);
 
 static bool WS_HTTP_StreamFileFromLittleFS(const char* path, const String& contentType)
 {
@@ -355,8 +351,8 @@ static void WS_HTTP_SendUiMissingHint(const char* wanted)
   html += "<p>未找到：<code>";
   html += wanted;
   html += "</code></p>";
-  html += "<p>该固件通常已内置 UI 资源；如果仍看到此页面，说明固件未包含该资源，且 LittleFS 上也没有对应文件。</p>";
-  html += "<p>如需覆盖/自定义 UI，可在 PlatformIO 执行：<b>Upload Filesystem Image</b>（LittleFS），把 <code>data/</code>（包含 <code>data/ui/</code>）上传到设备，然后刷新本页。</p>";
+  html += "<p>未找到对应 UI 文件，通常是因为设备 LittleFS 尚未上传 <code>data/ui</code>。</p>";
+  html += "<p>请在 PlatformIO 执行：<b>Upload Filesystem Image</b>（LittleFS），把 <code>data/</code>（包含 <code>data/ui/</code>）上传到设备，然后刷新本页。</p>";
   html += "</body></html>";
   server.send(200, "text/html; charset=utf-8", html);
 }
@@ -365,7 +361,6 @@ static void WS_HTTP_SendUiPage(const char* path)
 {
   if (!Http_Auth()) return;
   if (WS_HTTP_StreamFileFromLittleFS(path, "text/html; charset=utf-8")) return;
-  if (WS_HTTP_SendEmbeddedUiAsset(path)) return;
   WS_HTTP_SendUiMissingHint(path);
 }
 
@@ -379,17 +374,6 @@ static String WS_HTTP_GuessContentType(const String& path)
   if (path.endsWith(".ico")) return "image/x-icon";
   if (path.endsWith(".svg")) return "image/svg+xml";
   return "application/octet-stream";
-}
-
-static bool WS_HTTP_SendEmbeddedUiAsset(const char* path)
-{
-  const WS_UI_Asset* a = WS_UI_FindAsset(path);
-  if (a == nullptr) {
-    return false;
-  }
-  server.sendHeader("Cache-Control", "no-store");
-  server.send_P(200, a->content_type, (const char*)a->data, a->len);
-  return true;
 }
 
 void handleRoot() {
@@ -792,6 +776,44 @@ void handleApiLogGet()
     return;
   }
   server.send(200, "text/plain; charset=utf-8", out);
+}
+
+void handleApiLogDownload()
+{
+  if (!Http_Auth()) {
+    return;
+  }
+  String name = server.hasArg("name") ? server.arg("name") : "";
+  name.toLowerCase();
+  const char* basePath = LogPathFromName(name);
+  if (!basePath) {
+    server.send(400, "text/plain", "bad name");
+    return;
+  }
+
+  const bool bak = server.hasArg("bak") ? (server.arg("bak").toInt() != 0) : false;
+  String path = String(basePath) + (bak ? ".1" : "");
+
+  if (!WS_FS_EnsureMounted()) {
+    server.send(500, "text/plain", "fs not mounted");
+    return;
+  }
+  if (!LittleFS.exists(path.c_str())) {
+    server.send(404, "text/plain", "not found");
+    return;
+  }
+  File f = LittleFS.open(path.c_str(), "r");
+  if (!f) {
+    server.send(500, "text/plain", "open failed");
+    return;
+  }
+
+  const String filename = String("log_") + name + (bak ? "_1" : "") + ".txt";
+  const String cd = String("attachment; filename=\"") + filename + "\"";
+  server.sendHeader("Cache-Control", "no-store");
+  server.sendHeader("Content-Disposition", cd);
+  server.streamFile(f, "text/plain; charset=utf-8");
+  f.close();
 }
 
 static bool ParseNameFromJsonBody(String& outName)
@@ -1341,6 +1363,7 @@ static void WS_HTTP_RegisterRoutesOnce()
   server.on("/logs", handleLogsPage);
   server.on("/api/log", HTTP_GET, handleApiLogGet);
   server.on("/api/log/clear", HTTP_POST, handleApiLogClear);
+  server.on("/api/log/download", HTTP_GET, handleApiLogDownload);
   server.on("/config", handleConfigPage);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigPost);
@@ -1367,9 +1390,6 @@ static void WS_HTTP_RegisterRoutesOnce()
       }
       const String ct = WS_HTTP_GuessContentType(uri);
       if (WS_HTTP_StreamFileFromLittleFS(uri.c_str(), ct)) {
-        return;
-      }
-      if (WS_HTTP_SendEmbeddedUiAsset(uri.c_str())) {
         return;
       }
     }

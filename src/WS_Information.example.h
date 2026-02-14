@@ -60,15 +60,15 @@
 #define STARTUP_BUZZER_DURATION_MS 1500
 
 // ===================== Water Gate Control =====================
-// Sensor role mapping: ID001 = inner pond, ID002 = outer pond
-#define INNER_POND_SENSOR_ID          0x01
-#define OUTER_POND_SENSOR_ID          0x02
-#define GATE_AUTO_CONTROL_Enable      true
-#define GATE_RELAY_ACTION_SECONDS     200
-#define GATE_LEVEL_EQUAL_TOL_MM       30
-#define GATE_OPEN_DELTA_THRESHOLD_MM  (-60)   // inner-outer <= this -> open gate
-#define GATE_CLOSE_DELTA_THRESHOLD_MM (-20)   // inner-outer >= this -> close gate (hysteresis)
-#define GATE_MIN_ACTION_INTERVAL_S    15      // cooldown between actions
+  // Sensor role mapping: ID001 = inner pond, ID002 = outer pond
+  #define INNER_POND_SENSOR_ID          0x01
+  #define OUTER_POND_SENSOR_ID          0x02
+  #define GATE_AUTO_CONTROL_Enable      true
+  #define GATE_RELAY_ACTION_SECONDS     10
+  #define GATE_LEVEL_EQUAL_TOL_MM       30
+  #define GATE_OPEN_DELTA_THRESHOLD_MM  (-60)   // inner-outer <= this -> open gate
+  #define GATE_CLOSE_DELTA_THRESHOLD_MM (-20)   // inner-outer >= this -> close gate (hysteresis)
+  #define GATE_MIN_ACTION_INTERVAL_S    15      // cooldown between actions
 #define GATE_MAX_CONTINUOUS_RUN_S     260     // overtime stop protection
 #define MANUAL_TAKEOVER_RECOVER_S     120     // after manual op, auto pauses and resumes later
 

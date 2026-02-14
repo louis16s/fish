@@ -18,6 +18,8 @@ enum WS_CtrlMode : uint8_t {
 
 struct WS_DailyRule {
   bool enabled = false;
+  // Monday..Sunday bitmask (bit0=Mon ... bit6=Sun). 0 means "never".
+  uint8_t dow_mask = 0x7F;
   bool open_enabled = true;
   // Milliseconds since 00:00 (local time). UI typically uses minute precision.
   uint32_t open_ms = 8UL * 3600UL * 1000UL;
@@ -51,7 +53,7 @@ struct WS_ControlConfig {
   uint8_t daily_count = 0;
   WS_DailyRule daily[8];
   uint8_t cycle_count = 0;
-  WS_CycleRule cycle[2];
+  WS_CycleRule cycle[5];
   uint8_t leveldiff_count = 0;
   WS_LevelDiffRule leveldiff[4];
 };

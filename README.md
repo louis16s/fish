@@ -33,12 +33,11 @@
 - 主流程：传感器采集、自动闸门、告警、循环调度
 
 2. `src/WS_MQTT.cpp`
-- Wi-Fi连接、WebServer、面板静态文件服务（内置 + LittleFS 覆盖）、MQTT控制、OTA入口
+- Wi-Fi连接、WebServer、面板静态文件服务（LittleFS）、MQTT控制、OTA入口
 
 3. `data/ui/`
 - 面板前端静态文件（`index.html/config.html/logs.html/pond_gate.svg`）
-- 默认在编译时内置进固件（无需 `uploadfs`）
-- 如需不刷固件更新 UI，可通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`），设备会优先使用 LittleFS 版本
+- 通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`）后生效（无需刷固件即可更新 UI）
 
 4. `src/WS_Serial.cpp`
 - RS485串口初始化、Air780E AT状态轮询
@@ -201,7 +200,7 @@
 
 说明：
 
-1. 面板前端页面文件存放在工程 `data/ui/`，固件会内置这些资源；同时也支持通过 LittleFS 覆盖（便于不刷固件更新 UI）。
+1. 面板前端页面文件存放在工程 `data/ui/`，固件从 LittleFS 提供这些资源（便于不刷固件更新 UI）。
 2. LittleFS 覆盖路径为：
 - `/ui/index.html`
 - `/ui/config.html`
@@ -428,5 +427,5 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 
 ## 14. 当前代码边界（避免误解）
 
-1. 面板前端文件位于 `data/ui/`：默认会编译内置进固件，也支持上传到设备 LittleFS 进行覆盖。
+1. 面板前端文件位于 `data/ui/`：默认不内置进固件，需要上传到设备 LittleFS 才能访问（`/ui/...`）。
 2. MQTT 遥测上报未启用，当前以下行控制为主。

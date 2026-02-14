@@ -24,6 +24,7 @@ static void SetDefaults(WS_ControlConfig& cfg)
 
   cfg.daily_count = 1;
   cfg.daily[0].enabled = true;
+  cfg.daily[0].dow_mask = 0x7F;
   cfg.daily[0].open_enabled = true;
   cfg.daily[0].open_ms = 8UL * 3600UL * 1000UL;
   cfg.daily[0].close_enabled = true;
@@ -110,6 +111,7 @@ bool WS_Control_Save(const WS_ControlConfig& cfg)
   for (uint8_t i = 0; i < cfg.daily_count && i < 8; i++) {
     JsonObject o = daily.add<JsonObject>();
     o["en"] = cfg.daily[i].enabled;
+    o["dow_mask"] = cfg.daily[i].dow_mask;
     o["open_en"] = cfg.daily[i].open_enabled;
     o["open_ms"] = cfg.daily[i].open_ms;
     o["close_en"] = cfg.daily[i].close_enabled;
@@ -117,7 +119,7 @@ bool WS_Control_Save(const WS_ControlConfig& cfg)
   }
 
   JsonArray cycle = doc["cycle"].to<JsonArray>();
-  for (uint8_t i = 0; i < cfg.cycle_count && i < 2; i++) {
+  for (uint8_t i = 0; i < cfg.cycle_count && i < 5; i++) {
     JsonObject c = cycle.add<JsonObject>();
     c["en"] = cfg.cycle[i].enabled;
     JsonArray steps = c["steps"].to<JsonArray>();
@@ -184,6 +186,8 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
       if (outCfg.daily_count >= 8) break;
       WS_DailyRule& r = outCfg.daily[outCfg.daily_count++];
       r.enabled = o["en"] | false;
+      const uint32_t mask = (uint32_t)(o["dow_mask"] | 0x7FU) & 0x7FU;
+      r.dow_mask = (uint8_t)mask;
       r.open_enabled = o["open_en"] | true;
       r.close_enabled = o["close_en"] | true;
       // New schema: open_ms/close_ms. Backward compat: "open":"HH:MM" / "close":"HH:MM".
@@ -203,7 +207,7 @@ bool WS_Control_Load(WS_ControlConfig& outCfg)
   outCfg.cycle_count = 0;
   if (doc["cycle"].is<JsonArray>()) {
     for (JsonObject c : doc["cycle"].as<JsonArray>()) {
-      if (outCfg.cycle_count >= 2) break;
+      if (outCfg.cycle_count >= 5) break;
       WS_CycleRule& rule = outCfg.cycle[outCfg.cycle_count++];
       rule.enabled = c["en"] | false;
       rule.step_count = 0;
