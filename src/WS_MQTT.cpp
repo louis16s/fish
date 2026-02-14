@@ -8,6 +8,11 @@
 #include "WS_Control.h"
 #include "WS_Log.h"
 #include "WS_FS.h"
+#include "WS_UI_Assets.h"
+
+#ifndef CONTENT_LENGTH_UNKNOWN
+#define CONTENT_LENGTH_UNKNOWN ((size_t)-1)
+#endif
 
 // The name and password of the WiFi access point
 const char* ssid = STASSID;
@@ -29,6 +34,9 @@ WebServer server(80);                 // Declare the WebServer object
 
 bool WIFI_Connection = 0;
 char ipStr[16];
+static bool g_httpRoutesRegistered = false;
+static bool g_httpStarted = false;
+static uint32_t g_wifiRetryLastMs = 0;
 
 extern uint16_t Sensor_Level_mm_1;
 extern uint16_t Sensor_Level_mm_2;
@@ -178,12 +186,37 @@ static void Ota_SetStatus(const char* latest, const char* result)
 
 static void MQTT_BuildStateJson(char* json, size_t jsonSize)
 {
-  const int rssi = WIFI_Connection ? WiFi.RSSI() : -127;
-  const bool mqttConnected = MQTT_CLOUD_Enable ? client.connected() : false;
+  const bool wifiStaConnected = (WiFi.status() == WL_CONNECTED);
+  const int rssi = wifiStaConnected ? WiFi.RSSI() : -127;
+  const bool mqttConnected = (MQTT_CLOUD_Enable && wifiStaConnected) ? client.connected() : false;
   const uint32_t nowMs = millis();
 
   char ssidEsc[80];
-  WS_JsonEscape(WIFI_Connection ? WiFi.SSID().c_str() : "", ssidEsc, sizeof(ssidEsc));
+  WS_JsonEscape(wifiStaConnected ? WiFi.SSID().c_str() : "", ssidEsc, sizeof(ssidEsc));
+
+  char ipLocal[16];
+  {
+    const IPAddress ip = wifiStaConnected ? WiFi.localIP() : WiFi.softAPIP();
+    snprintf(ipLocal, sizeof(ipLocal), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+  }
+
+  char ipEsc[24];
+  WS_JsonEscape(ipLocal, ipEsc, sizeof(ipEsc));
+
+  char reasonEsc[192];
+  WS_JsonEscape(Gate_Block_Reason, reasonEsc, sizeof(reasonEsc));
+
+  char alarmEsc[256];
+  WS_JsonEscape(Alarm_Text, alarmEsc, sizeof(alarmEsc));
+
+  char fwCurEsc[64];
+  WS_JsonEscape(FW_VERSION, fwCurEsc, sizeof(fwCurEsc));
+  char fwLatestEsc[64];
+  WS_JsonEscape(OtaLatestVersion, fwLatestEsc, sizeof(fwLatestEsc));
+  char fwLastCheckEsc[64];
+  WS_JsonEscape(OtaLastCheck, fwLastCheckEsc, sizeof(fwLastCheckEsc));
+  char fwLastResultEsc[160];
+  WS_JsonEscape(OtaLastResult, fwLastResultEsc, sizeof(fwLastResultEsc));
 
   uint32_t manualRemainS = 0;
   if (Manual_Takeover_Active && Manual_Takeover_UntilMs > nowMs) {
@@ -206,7 +239,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     airLastRxAgeS = (nowMs - Air780E_LastRxMs) / 1000UL;
   }
 
-  snprintf(
+  const int n = snprintf(
     json,
     jsonSize,
     "{\"sensor1\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"sensor2\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"gate_state\":%u,\"gate_position_open\":%s,\"auto_gate\":%s,\"auto_latched\":%s,\"manual\":{\"active\":%s,\"remain_s\":%lu,\"total_s\":%lu},\"relay1\":%u,\"relay2\":%u,\"net\":{\"wifi\":%s,\"mqtt\":%s,\"http\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ssid\":\"%s\"},\"cell\":{\"enabled\":%s,\"online\":%s,\"sim_ready\":%s,\"attached\":%s,\"csq\":%d,\"rssi_dbm\":%d,\"last_rx_age_s\":%lu},\"ctrl\":{\"open_allowed\":%s,\"close_allowed\":%s,\"cooldown_remain_s\":%lu,\"min_interval_s\":%u,\"action_s\":%u,\"reason\":\"%s\"},\"alarm\":{\"active\":%s,\"severity\":%u,\"text\":\"%s\"},\"fw\":{\"current\":\"%s\",\"latest\":\"%s\",\"last_check\":\"%s\",\"last_result\":\"%s\"}}",
@@ -229,10 +262,10 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     (unsigned long)manualTotalS,
     Relay_Flag[0] ? 1 : 0,
     Relay_Flag[1] ? 1 : 0,
-    WIFI_Connection ? "true" : "false",
+    wifiStaConnected ? "true" : "false",
     mqttConnected ? "true" : "false",
-    WIFI_Connection ? "true" : "false",
-    ipStr,
+    g_httpStarted ? "true" : "false",
+    ipEsc,
     rssi,
     ssidEsc,
     AIR780E_Enable ? "true" : "false",
@@ -247,15 +280,20 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     (unsigned long)cooldownRemainS,
     (unsigned int)GATE_MIN_ACTION_INTERVAL_S,
     (unsigned int)GATE_RELAY_ACTION_SECONDS,
-    Gate_Block_Reason,
+    reasonEsc,
     Alarm_Active ? "true" : "false",
     Alarm_Severity,
-    Alarm_Text,
-    FW_VERSION,
-    OtaLatestVersion,
-    OtaLastCheck,
-    OtaLastResult
+    alarmEsc,
+    fwCurEsc,
+    fwLatestEsc,
+    fwLastCheckEsc,
+    fwLastResultEsc
   );
+
+  if (n < 0 || (size_t)n >= jsonSize) {
+    // Keep response JSON valid even if it doesn't fit into the buffer.
+    snprintf(json, jsonSize, "{\"ok\":false,\"error\":\"telemetry_json_overflow\"}");
+  }
 }
 
 static void MQTT_MarkStateDirty()
@@ -284,11 +322,14 @@ static void MQTT_PublishState(bool force)
   }
 }
 
-// ===================== UI Files On LittleFS =====================
-// Front-end pages are served from LittleFS to keep C++ code small and allow UI updates via uploadfs.
+// ===================== UI Files (LittleFS Override + Embedded Fallback) =====================
+// If a UI file exists on LittleFS, serve it (allows UI updates via uploadfs).
+// Otherwise, fall back to the firmware-embedded assets (compiled with the firmware).
 static const char* kUiIndexPath = "/ui/index.html";
 static const char* kUiConfigPath = "/ui/config.html";
 static const char* kUiLogsPath = "/ui/logs.html";
+
+static bool WS_HTTP_SendEmbeddedUiAsset(const char* path);
 
 static bool WS_HTTP_StreamFileFromLittleFS(const char* path, const String& contentType)
 {
@@ -314,8 +355,8 @@ static void WS_HTTP_SendUiMissingHint(const char* wanted)
   html += "<p>未找到：<code>";
   html += wanted;
   html += "</code></p>";
-  html += "<p>请在 PlatformIO 执行：<b>Upload Filesystem Image</b>（LittleFS），把 <code>data/</code>（包含 <code>data/ui/</code>）上传到设备。</p>";
-  html += "<p>上传后刷新本页即可。</p>";
+  html += "<p>该固件通常已内置 UI 资源；如果仍看到此页面，说明固件未包含该资源，且 LittleFS 上也没有对应文件。</p>";
+  html += "<p>如需覆盖/自定义 UI，可在 PlatformIO 执行：<b>Upload Filesystem Image</b>（LittleFS），把 <code>data/</code>（包含 <code>data/ui/</code>）上传到设备，然后刷新本页。</p>";
   html += "</body></html>";
   server.send(200, "text/html; charset=utf-8", html);
 }
@@ -324,6 +365,7 @@ static void WS_HTTP_SendUiPage(const char* path)
 {
   if (!Http_Auth()) return;
   if (WS_HTTP_StreamFileFromLittleFS(path, "text/html; charset=utf-8")) return;
+  if (WS_HTTP_SendEmbeddedUiAsset(path)) return;
   WS_HTTP_SendUiMissingHint(path);
 }
 
@@ -337,6 +379,17 @@ static String WS_HTTP_GuessContentType(const String& path)
   if (path.endsWith(".ico")) return "image/x-icon";
   if (path.endsWith(".svg")) return "image/svg+xml";
   return "application/octet-stream";
+}
+
+static bool WS_HTTP_SendEmbeddedUiAsset(const char* path)
+{
+  const WS_UI_Asset* a = WS_UI_FindAsset(path);
+  if (a == nullptr) {
+    return false;
+  }
+  server.sendHeader("Cache-Control", "no-store");
+  server.send_P(200, a->content_type, (const char*)a->data, a->len);
+  return true;
 }
 
 void handleRoot() {
@@ -782,6 +835,7 @@ void handleGetData() {
   }
   char json[2000];
   MQTT_BuildStateJson(json, sizeof(json));
+  server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", json);
 }
 
@@ -792,14 +846,22 @@ void handleApiState()
   }
   char tele[2000];
   MQTT_BuildStateJson(tele, sizeof(tele));
-  char out[2000];
-  const bool mqttConnected = MQTT_CLOUD_Enable ? client.connected() : false;
-  snprintf(out, sizeof(out),
-           "{\"mqtt_connected\":%s,\"last_telemetry_at\":%lu,\"telemetry\":%s}",
-           mqttConnected ? "true" : "false",
-           (unsigned long)millis(),
-           tele);
-  Api_SendJson(200, out);
+
+  const bool wifiStaConnected = (WiFi.status() == WL_CONNECTED);
+  const bool mqttConnected = (MQTT_CLOUD_Enable && wifiStaConnected) ? client.connected() : false;
+
+  server.sendHeader("Cache-Control", "no-store");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "application/json", "");
+  server.sendContent("{\"mqtt_connected\":");
+  server.sendContent(mqttConnected ? "true" : "false");
+  server.sendContent(",\"last_telemetry_at\":");
+  char msBuf[16];
+  snprintf(msBuf, sizeof(msBuf), "%lu", (unsigned long)millis());
+  server.sendContent(msBuf);
+  server.sendContent(",\"telemetry\":");
+  server.sendContent(tele);
+  server.sendContent("}");
 }
 
 void handleApiCmd()
@@ -1255,6 +1317,78 @@ void handleAutoGateOn() { if (!Http_Auth()) return; Enable_Auto_Mode(); MQTT_Mar
 void handleAutoGateOff() { if (!Http_Auth()) return; Pause_Auto_By_ManualTakeover(); MQTT_MarkStateDirty(); server.send(200, "text/plain", "OK"); }
 void handleAutoGateLatchOff() { if (!Http_Auth()) return; Latch_Auto_Off(); MQTT_MarkStateDirty(); server.send(200, "text/plain", "OK"); }
 void handleManualEnd() { if (!Http_Auth()) return; End_Manual_Takeover(); MQTT_MarkStateDirty(); server.send(200, "text/plain", "OK"); }
+
+static void WS_Net_UpdateIpStrFromWiFi()
+{
+  // Prefer STA IP, otherwise use AP IP (if any).
+  const bool sta = (WiFi.status() == WL_CONNECTED);
+  const IPAddress ip = sta ? WiFi.localIP() : WiFi.softAPIP();
+  snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+}
+
+static void WS_HTTP_RegisterRoutesOnce()
+{
+  if (g_httpRoutesRegistered) {
+    return;
+  }
+  g_httpRoutesRegistered = true;
+
+  server.on("/", handleRoot);
+  server.on("/favicon.ico", [](){ server.send(204, "text/plain", ""); });
+  server.on("/getData", handleGetData);
+  server.on("/api/state", handleApiState);
+  server.on("/api/cmd", HTTP_POST, handleApiCmd);
+  server.on("/logs", handleLogsPage);
+  server.on("/api/log", HTTP_GET, handleApiLogGet);
+  server.on("/api/log/clear", HTTP_POST, handleApiLogClear);
+  server.on("/config", handleConfigPage);
+  server.on("/api/config", HTTP_GET, handleApiConfigGet);
+  server.on("/api/config", HTTP_POST, handleApiConfigPost);
+  server.on("/Switch1", handleSwitch1);
+  server.on("/Switch2", handleSwitch2);
+  server.on("/Switch3", handleSwitch3);
+  server.on("/Switch4", handleSwitch4);
+  server.on("/Switch5", handleSwitch5);
+  server.on("/Switch6", handleSwitch6);
+  server.on("/AllOn", handleSwitch7);
+  server.on("/AllOff", handleSwitch8);
+  server.on("/GateOpen", handleGateOpen);
+  server.on("/GateClose", handleGateClose);
+  server.on("/GateStop", handleGateStop);
+  server.on("/AutoGateOn", handleAutoGateOn);
+  server.on("/AutoGateOff", handleAutoGateOff);
+  server.on("/AutoGateLatchOff", handleAutoGateLatchOff);
+  server.on("/ManualEnd", handleManualEnd);
+  server.onNotFound([](){
+    const String uri = server.uri();
+    if (uri.startsWith("/ui/")) {
+      if (!Http_Auth()) {
+        return;
+      }
+      const String ct = WS_HTTP_GuessContentType(uri);
+      if (WS_HTTP_StreamFileFromLittleFS(uri.c_str(), ct)) {
+        return;
+      }
+      if (WS_HTTP_SendEmbeddedUiAsset(uri.c_str())) {
+        return;
+      }
+    }
+    server.send(404, "text/plain", "404 Not Found");
+  });
+  if (ELEGANT_OTA_Enable) {
+    ElegantOTA.begin(&server);
+  }
+}
+
+static void WS_HTTP_BeginOnce()
+{
+  if (g_httpStarted) {
+    return;
+  }
+  WS_HTTP_RegisterRoutesOnce();
+  server.begin();
+  g_httpStarted = true;
+}
 /************************************************** MQTT *********************************************/
 // MQTT subscribes to callback functions for processing received messages
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -1504,8 +1638,30 @@ void setup_wifi() {
 
   if (!connected) {
     WIFI_Connection = 0;
-    printf("WIFI connection fails, network features are unavailable in current mode.\r\n");
+    printf("WIFI connection fails, starting fallback AP for local web panel...\r\n");
     RGB_Light(60, 0, 0);
+
+    if (WIFI_FallbackPortal_Enable) {
+      // Keep AP available so the user can still access the panel even when STA is down.
+      WiFi.mode(WIFI_AP_STA);
+      const bool apOk = WiFi.softAP(WIFI_PORTAL_SSID, WIFI_PORTAL_PASSWORD);
+      if (!apOk) {
+        printf("warning: fallback AP start failed.\r\n");
+        return;
+      }
+
+      WS_Net_UpdateIpStrFromWiFi();
+      WS_HTTP_BeginOnce();
+
+      printf("Web server started (AP)\r\n");
+      printf("Web panel (AP): http://%s/\r\n", ipStr[0] ? ipStr : "192.168.4.1");
+      Ota_SetStatus("ElegantOTA", "ap_mode");
+      if (ELEGANT_OTA_Enable) {
+        printf("ElegantOTA page (AP): http://%s/update\r\n", ipStr[0] ? ipStr : "192.168.4.1");
+      }
+    } else {
+      printf("Network fallback is disabled; web panel is unavailable.\r\n");
+    }
     return;
   }
 
@@ -1530,50 +1686,8 @@ void setup_wifi() {
   sprintf(ipStr, "%d.%d.%d.%d", myIP[0], myIP[1], myIP[2], myIP[3]);
   printf("%s\r\n", ipStr);
 
-  // Register web routes
-  server.on("/", handleRoot);
-  server.on("/favicon.ico", [](){ server.send(204, "text/plain", ""); });
-  server.on("/getData", handleGetData);
-  server.on("/api/state", handleApiState);
-  server.on("/api/cmd", HTTP_POST, handleApiCmd);
-  server.on("/logs", handleLogsPage);
-  server.on("/api/log", HTTP_GET, handleApiLogGet);
-  server.on("/api/log/clear", HTTP_POST, handleApiLogClear);
-  server.on("/config", handleConfigPage);
-  server.on("/api/config", HTTP_GET, handleApiConfigGet);
-  server.on("/api/config", HTTP_POST, handleApiConfigPost);
-  server.on("/Switch1", handleSwitch1);
-  server.on("/Switch2", handleSwitch2);
-  server.on("/Switch3", handleSwitch3);
-  server.on("/Switch4", handleSwitch4);
-  server.on("/Switch5", handleSwitch5);
-  server.on("/Switch6", handleSwitch6);
-  server.on("/AllOn", handleSwitch7);
-  server.on("/AllOff", handleSwitch8);
-  server.on("/GateOpen", handleGateOpen);
-  server.on("/GateClose", handleGateClose);
-  server.on("/GateStop", handleGateStop);
-  server.on("/AutoGateOn", handleAutoGateOn);
-  server.on("/AutoGateOff", handleAutoGateOff);
-  server.on("/AutoGateLatchOff", handleAutoGateLatchOff);
-  server.on("/ManualEnd", handleManualEnd);
-  server.onNotFound([](){
-    const String uri = server.uri();
-    if (uri.startsWith("/ui/")) {
-      if (!Http_Auth()) {
-        return;
-      }
-      const String ct = WS_HTTP_GuessContentType(uri);
-      if (WS_HTTP_StreamFileFromLittleFS(uri.c_str(), ct)) {
-        return;
-      }
-    }
-    server.send(404, "text/plain", "404 Not Found");
-  });
-  if (ELEGANT_OTA_Enable) {
-    ElegantOTA.begin(&server);
-  }
-  server.begin();
+  // Register web routes and start web server (once).
+  WS_HTTP_BeginOnce();
 
   printf("Web server started\r\n");
   printf("Web panel: http://%s/\r\n", ipStr);
@@ -1614,33 +1728,46 @@ void reconnect() {
 void MQTT_Init()
 {
   setup_wifi();
-  if(WIFI_Connection == 1 && MQTT_CLOUD_Enable){
+  if (MQTT_CLOUD_Enable) {
     client.setServer(mqtt_server, PORT);
     client.setCallback(callback);
     // PubSubClient default buffer is too small for the /getData-style JSON payload.
     client.setBufferSize(3072);
-  } else if (WIFI_Connection == 1) {
+  } else {
     printf("MQTT disabled, Web panel + ElegantOTA are available.\r\n");
   }
 }
 
 void MQTT_Loop()
 {
-  if(WIFI_Connection == 1){
-    // Web
-    server.handleClient();                                  // Processing requests from clients
+  // Web: keep responsive even when STA is offline (may still be reachable via SoftAP).
+  if (g_httpStarted) {
+    server.handleClient();
     if (ELEGANT_OTA_Enable) {
       ElegantOTA.loop();
     }
-    // MQTT
-    if (MQTT_CLOUD_Enable) {
-      if (!client.connected()) {
-        reconnect();
-      }
-      client.loop();
-      MQTT_PublishState(false);
-    }
   }
+
+  // MQTT: only meaningful when STA is connected.
+  if (!MQTT_CLOUD_Enable) {
+    return;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    const uint32_t now = millis();
+    if ((now - g_wifiRetryLastMs) > 30000UL) {
+      g_wifiRetryLastMs = now;
+      (void)WiFi.reconnect();
+      WS_Net_UpdateIpStrFromWiFi();
+    }
+    return;
+  }
+
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  MQTT_PublishState(false);
 }
 
 

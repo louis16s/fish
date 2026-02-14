@@ -7,6 +7,8 @@
 # Firmware build outputs
 dist/
 src/auto_fw_version.h
+src/WS_UI_Assets.h
+src/WS_UI_Assets.cpp
 
 # Local secrets (do not commit)
 src/WS_Secrets.h

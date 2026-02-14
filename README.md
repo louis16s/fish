@@ -33,10 +33,12 @@
 - 主流程：传感器采集、自动闸门、告警、循环调度
 
 2. `src/WS_MQTT.cpp`
-- Wi-Fi连接、WebServer、面板静态文件服务（LittleFS）、MQTT控制、OTA入口
+- Wi-Fi连接、WebServer、面板静态文件服务（内置 + LittleFS 覆盖）、MQTT控制、OTA入口
 
 3. `data/ui/`
-- 面板前端静态文件（`index.html/config.html/logs.html`），通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`）
+- 面板前端静态文件（`index.html/config.html/logs.html/pond_gate.svg`）
+- 默认在编译时内置进固件（无需 `uploadfs`）
+- 如需不刷固件更新 UI，可通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`），设备会优先使用 LittleFS 版本
 
 4. `src/WS_Serial.cpp`
 - RS485串口初始化、Air780E AT状态轮询
@@ -199,12 +201,13 @@
 
 说明：
 
-1. 面板前端已从固件代码中分离，页面文件存放在工程 `data/ui/`，上传到设备 LittleFS 后路径为：
+1. 面板前端页面文件存放在工程 `data/ui/`，固件会内置这些资源；同时也支持通过 LittleFS 覆盖（便于不刷固件更新 UI）。
+2. LittleFS 覆盖路径为：
 - `/ui/index.html`
 - `/ui/config.html`
 - `/ui/logs.html`
 - `/ui/pond_gate.svg`（水位/水闸示意图）
-2. 若未上传 LittleFS（文件系统镜像），访问 `/` 会提示 UI 文件缺失。请在 PlatformIO 执行 `Upload Filesystem Image`（或命令行 `pio run -t uploadfs`）。
+3. 若需要覆盖/自定义 UI，请在 PlatformIO 执行 `Upload Filesystem Image`（或命令行 `pio run -t uploadfs`）。
 
 ### 7.2 闸门控制接口
 
@@ -425,5 +428,5 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 
 ## 14. 当前代码边界（避免误解）
 
-1. 面板前端文件位于 `data/ui/`，需要上传到设备 LittleFS（未上传时访问 `/` 会提示 UI 缺失）。
+1. 面板前端文件位于 `data/ui/`：默认会编译内置进固件，也支持上传到设备 LittleFS 进行覆盖。
 2. MQTT 遥测上报未启用，当前以下行控制为主。
