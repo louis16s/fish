@@ -109,10 +109,28 @@ docker compose --env-file .env up -d --build
 
 如果你用本方案的 `emqx` 容器：
 
-1. 在 EMQX 中创建两个用户：
+### 4.1 推荐做法：用 EMQX Dashboard 配置（不暴露公网）
+
+1. 临时开启 Dashboard（仅本机访问，不暴露公网）
+   - 在 `openclaw/docker-compose.yml` 的 `emqx.ports` 里取消注释（或添加）一行：
+     - `127.0.0.1:18083:18083`
+   - 然后重启：`docker compose up -d`
+   - 如果你是远程访问 Dashboard，建议用 SSH 隧道：
+     - `ssh -L 18083:127.0.0.1:18083 root@<你的VPS>`
+     - 本机浏览器访问：`http://127.0.0.1:18083`
+
+2. 修改 Dashboard 默认管理员密码
+   - EMQX 默认 Dashboard 账号通常是 `admin/public`（不同镜像/版本可能不同）
+   - 登录后第一时间修改为强密码
+
+3. 禁止匿名连接（必须）
+   - 确保 `allow_anonymous=false`（或在 Dashboard 里关闭匿名访问/启用认证链）
+
+4. 创建两个 MQTT 用户（设备账号 + 服务器账号）
    - 设备用户：例如 `fish1`（固件里的 `MQTT_Username`）
    - 服务器用户：例如 `fish_srv`（`openclaw/.env` 的 `MQTT_SERVER_USERNAME`）
-2. 配置授权（ACL）：
+
+5. 配置授权（ACL，最小权限原则）
    - `fish1`：
      - allow publish: `fish1/device/telemetry`
      - allow subscribe: `fish1/device/command`
@@ -120,7 +138,46 @@ docker compose --env-file .env up -d --build
      - allow subscribe: `+/device/telemetry`
      - allow publish: `+/device/command`
 
-注意：不同 EMQX 版本启用 ACL 的方式可能不同。如果 `openclaw/emqx/acl.conf` 不生效，请在 EMQX Dashboard 里完成同样规则。
+6. 配置完成后，建议把 `openclaw/docker-compose.yml` 里的 Dashboard 端口映射删掉/注释掉（保持不对公网开放）。
+
+### 4.2 备选：文件 ACL（仅作为参考）
+
+- `openclaw/emqx/acl.conf` 提供了一个 ACL 文件示例（不同 EMQX 版本启用方式可能不同）。
+- 如果你的 EMQX 版本不使用该文件，请以 Dashboard 中配置的认证/授权规则为准。
+
+### 4.3 MQTT/EMQX 配置清单（交付 OpenClaw）
+
+必须项（强烈建议都完成）：
+
+- [ ] MQTT 监听端口：`1883/tcp` 对公网开放（当前固件使用 `mqtt://`，不支持 `mqtts://`）。
+- [ ] EMQX Dashboard：默认不暴露公网；如需远程配置，用 `127.0.0.1:18083:18083` + SSH 隧道，配置完关闭端口映射。
+- [ ] 关闭匿名连接：所有客户端都必须认证（等价目标：`allow_anonymous=false`）。
+- [ ] 创建 MQTT 用户（建议至少 2 个账号，分权）：
+  - 设备用户：`fish1`（或你的 `device_id`），强密码
+  - 服务器用户：`fish_srv`，强密码（供 `server/` 外网面板连接 EMQX）
+- [ ] 配置授权/ACL（默认 `deny`，最小权限原则）：
+  - 设备用户 `fish1`：
+    - allow publish：`fish1/device/telemetry`
+    - allow subscribe：`fish1/device/command`
+  - 服务器用户 `fish_srv`：
+    - allow subscribe：`+/device/telemetry`
+    - allow publish：`+/device/command`
+- [ ] 对齐配置：
+  - `openclaw/.env` 的 `MQTT_SERVER_USERNAME/MQTT_SERVER_PASSWORD` 要与 EMQX 里创建的“服务器用户”一致
+  - 设备固件 `src/WS_Information.h` 的 `MQTT_Server/MQTT_Port/MQTT_Username/MQTT_Password/MQTT_Pub/MQTT_Sub` 要与 EMQX 一致
+
+可选增强（建议按时间做）：
+
+- [ ] 启用 `mqtts`（`8883/tcp`）：等固件支持后再开启 TLS，并关闭 `1883`。
+- [ ] 防火墙：限制 `18083`（Dashboard）仅本机/运维网段可访问。
+- [ ] 限流与资源限制：连接数上限、消息大小上限（防滥用/DoS）。
+- [ ] 监控与审计：关注连接断开原因、认证失败、授权拒绝事件。
+
+配置落点与 Git 忽略：
+
+- 版本库内：`openclaw/docker-compose.yml`、`openclaw/emqx/acl.conf`（如果使用文件 ACL）
+- 持久化：Docker volume `emqx_data` / `emqx_log`（EMQX 用户/规则/配置在容器数据里持久化）
+- 必须 `git ignore`：`openclaw/.env`、（若使用 TLS）`openclaw/emqx/certs/*`
 
 ---
 
@@ -167,4 +224,3 @@ docker compose --env-file .env up -d --build
    - MQTT 用户密码
    - 面板 admin 密码
    - `SESSION_SECRET`（轮换会让所有用户重新登录）
-

@@ -19,8 +19,8 @@ services:
       # Optional (recommended if you later upgrade firmware to mqtts):
       # - "8883:8883"
       #
-      # Optional dashboard (NOT recommended to expose directly to public internet):
-      # - "18083:18083"
+      # Optional dashboard (DO NOT expose publicly; bind to localhost + use SSH tunnel):
+      # - "127.0.0.1:18083:18083"
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
@@ -71,4 +71,3 @@ volumes:
   emqx_log:
   caddy_data:
   caddy_config:
-

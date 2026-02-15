@@ -17,3 +17,6 @@ server/.env
 server/node_modules/
 server/config.txt
 src/WS_Information.h
+openclaw/.env
+openclaw/emqx/certs/
+openclaw/emqx/certs/**
