@@ -1,4 +1,4 @@
-# ESP32-S3 双水位计闸门控制项目
+# ESP32-S3 双水位计闸门控制
 
 ![index1.jpeg](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/699139c9ab100.webp)
 
