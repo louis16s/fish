@@ -175,6 +175,16 @@
       background:rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(10px);
     }
+    .vizMain{padding:16px}
+    .schem{display:block}
+    .schem .ph{
+      padding:12px 12px;
+      font-size:12px;
+      font-weight:700;
+      color:var(--muted2);
+    }
+    /* Critical: constrain inline SVG default width/height (e.g. 1600x900) to container. */
+    .schem svg{display:block;width:100%;height:auto}
     .readouts{display:grid;grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;}
     .metric{
       background:rgba(255,255,255,0.03);
@@ -223,7 +233,8 @@
     .controls{display:grid; grid-template-columns: 1fr 1fr; gap:12px;}
     
     .btn{
-      height:44px;
+      min-height:44px;
+      padding:10px 12px;
       border-radius:var(--radius-btn);
       border:1px solid var(--stroke);
       background:rgba(255,255,255,0.05);
@@ -278,7 +289,10 @@
     }
     @media (max-width: 600px) {
       body {padding: 12px;}
-      .readouts {grid-template-columns: 1fr 1fr;}
+      .vizBody{padding:14px;}
+      .vizMain{padding:12px;}
+      .readouts {grid-template-columns: 1fr;}
+      .controls{grid-template-columns:1fr;}
     }
   </style>
 </head>
