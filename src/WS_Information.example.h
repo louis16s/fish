@@ -74,6 +74,10 @@
 
 // ===================== Sensor Safety =====================
 #define SENSOR_DATA_TIMEOUT_MS         6000
+#define SENSOR_ONLINE_GRACE_MS         3000   // only report sensor offline when no valid frame for > this duration
+#define SENSOR_MODBUS_TIMEOUT_MS       250    // single Modbus RTU response timeout (ms)
+#define SENSOR_MODBUS_RETRY_GAP_MS     80     // delay between Modbus retries (ms)
+#define SENSOR_MODBUS_RETRY_COUNT      2      // 2 = first try + 1 retry
 #define LEVEL_JUMP_THRESHOLD_MM_PER_S  1000
 #define LEVEL_MIN_MM                   0
 #define LEVEL_MAX_MM                   10000

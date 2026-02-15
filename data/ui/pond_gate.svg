@@ -159,32 +159,12 @@ paint-order: stroke fill;
     <!-- Flow FX (arrows/lines), toggled by UI. -->
     <g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
       <g id="flow_dir_right" style="display:none">
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
+        <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
       </g>
       <g id="flow_dir_left" style="display:none">
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
-        <g class="flow-row" data-base-y="740">
-          <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-          <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-        </g>
+        <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
       </g>
     </g>
   </g>
@@ -206,22 +186,22 @@ paint-order: stroke fill;
      font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
      font-size="30" font-weight="900" fill="#FF8A00">
     <!-- Outer pond ruler (left) -->
-    <line x1="160" y1="200" x2="160" y2="780" />
-    <line x1="150" y1="200" x2="170" y2="200" /><text class="scaleText" x="142" y="206" text-anchor="end">5m</text>
-    <line x1="150" y1="316" x2="170" y2="316" /><text class="scaleText" x="142" y="322" text-anchor="end">4m</text>
-    <line x1="150" y1="432" x2="170" y2="432" /><text class="scaleText" x="142" y="438" text-anchor="end">3m</text>
-    <line x1="150" y1="548" x2="170" y2="548" /><text class="scaleText" x="142" y="554" text-anchor="end">2m</text>
-    <line x1="150" y1="664" x2="170" y2="664" /><text class="scaleText" x="142" y="670" text-anchor="end">1m</text>
-    <line x1="150" y1="780" x2="170" y2="780" /><text class="scaleText" x="142" y="786" text-anchor="end">0m</text>
+    <line x1="120" y1="200" x2="120" y2="780" />
+    <line x1="110" y1="200" x2="130" y2="200" /><text class="scaleText" x="102" y="206" text-anchor="end">5m</text>
+    <line x1="110" y1="316" x2="130" y2="316" /><text class="scaleText" x="102" y="322" text-anchor="end">4m</text>
+    <line x1="110" y1="432" x2="130" y2="432" /><text class="scaleText" x="102" y="438" text-anchor="end">3m</text>
+    <line x1="110" y1="548" x2="130" y2="548" /><text class="scaleText" x="102" y="554" text-anchor="end">2m</text>
+    <line x1="110" y1="664" x2="130" y2="664" /><text class="scaleText" x="102" y="670" text-anchor="end">1m</text>
+    <line x1="110" y1="780" x2="130" y2="780" /><text class="scaleText" x="102" y="786" text-anchor="end">0m</text>
 
     <!-- Inner pond ruler (right) -->
-    <line x1="1440" y1="200" x2="1440" y2="780" />
-    <line x1="1430" y1="200" x2="1450" y2="200" /><text class="scaleText" x="1458" y="206">5m</text>
-    <line x1="1430" y1="316" x2="1450" y2="316" /><text class="scaleText" x="1458" y="322">4m</text>
-    <line x1="1430" y1="432" x2="1450" y2="432" /><text class="scaleText" x="1458" y="438">3m</text>
-    <line x1="1430" y1="548" x2="1450" y2="548" /><text class="scaleText" x="1458" y="554">2m</text>
-    <line x1="1430" y1="664" x2="1450" y2="664" /><text class="scaleText" x="1458" y="670">1m</text>
-    <line x1="1430" y1="780" x2="1450" y2="780" /><text class="scaleText" x="1458" y="786">0m</text>
+    <line x1="1480" y1="200" x2="1480" y2="780" />
+    <line x1="1470" y1="200" x2="1490" y2="200" /><text class="scaleText" x="1498" y="206">5m</text>
+    <line x1="1470" y1="316" x2="1490" y2="316" /><text class="scaleText" x="1498" y="322">4m</text>
+    <line x1="1470" y1="432" x2="1490" y2="432" /><text class="scaleText" x="1498" y="438">3m</text>
+    <line x1="1470" y1="548" x2="1490" y2="548" /><text class="scaleText" x="1498" y="554">2m</text>
+    <line x1="1470" y1="664" x2="1490" y2="664" /><text class="scaleText" x="1498" y="670">1m</text>
+    <line x1="1470" y1="780" x2="1490" y2="780" /><text class="scaleText" x="1498" y="786">0m</text>
   </g>
 
   <!-- Layer: Gate (sliding plate). Closed = translateY(0). Open = translateY(-600). -->

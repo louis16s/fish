@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
   <title>控制面板</title>
   <script>
     // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
@@ -45,7 +46,8 @@
       --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
+    html,body{min-height:100%}
+    html{background:linear-gradient(180deg, var(--bg0), var(--bg1))}
     body{
       margin:0;
       font-family:var(--font);
@@ -53,7 +55,7 @@
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1)),
-        url("/ui/bg_long.svg");
+        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
       background-repeat:no-repeat,no-repeat,no-repeat;
       background-position:18% 10%, top, center;
       background-size:auto,auto,cover;
@@ -334,6 +336,12 @@
     .btn:active{transform:translateY(1px)}
     .btn.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.16)}
     .btn.danger{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.14)}
+    .btn.warn{
+      border-color:rgba(245,158,11,.80);
+      background:linear-gradient(180deg, rgba(254,240,138,.98), rgba(245,158,11,.92));
+      color:rgba(17,24,39,.96);
+      box-shadow:0 14px 34px rgba(245,158,11,.18);
+    }
     .btn:disabled{opacity:.55;cursor:not-allowed}
 
     .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:12px}
@@ -513,8 +521,8 @@
             <div class="panelSub">水位范围 0-5m。闸门开度会以“闸板上下移动”显示，开闸后两侧水体连通并出现流向。</div>
           </div>
           <div class="chips">
-            <span class="chip" id="chipDelta">Δ --</span>
-            <span class="chip" id="chipFlow">连通 --</span>
+            <span class="chip" id="chipDelta">Δ 0 mm</span>
+            <span class="chip" id="chipFlow">连通 OFF</span>
           </div>
         </div>
         <div class="vizBody">
@@ -528,30 +536,30 @@
               <div class="readouts" aria-hidden="true">
                 <div class="metric">
                   <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘水位</div>
-                  <div class="mv" id="outerLevelM">--</div>
-                  <div class="ms" id="outerLevelMm">--</div>
+                  <div class="mv" id="outerLevelM">0.000 m</div>
+                  <div class="ms" id="outerLevelMm">0 mm</div>
                 </div>
                 <div class="metric">
                   <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘水位</div>
-                  <div class="mv" id="innerLevelM">--</div>
-                  <div class="ms" id="innerLevelMm">--</div>
+                  <div class="mv" id="innerLevelM">0.000 m</div>
+                  <div class="ms" id="innerLevelMm">0 mm</div>
                 </div>
                 <div class="metric">
                   <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘传感器ID002</div>
-                  <div class="mv" id="outerOnline">--</div>
-                  <div class="ms" id="outerTemp">--</div>
+                  <div class="mv" id="outerOnline">离线</div>
+                  <div class="ms" id="outerTemp">0.0 °C</div>
                 </div>
                 <div class="metric">
                   <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘传感器ID001</div>
-                  <div class="mv" id="innerOnline">--</div>
-                  <div class="ms" id="innerTemp">--</div>
+                  <div class="mv" id="innerOnline">离线</div>
+                  <div class="ms" id="innerTemp">0.0 °C</div>
                 </div>
               </div>
 
               <div class="statusCard" id="alarmBox" aria-label="闸门与告警">
                 <div class="statusTop">
                   <div class="title">闸门开度</div>
-                  <div class="value" id="gatePct">--%</div>
+                  <div class="value" id="gatePct">0%</div>
                 </div>
                 <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="闸门开度进度条">
                   <i id="gateBar" style="width:0%"></i>
@@ -571,6 +579,27 @@
       </section>
 
       <aside class="stack">
+        <section class="panel" id="histPanel" aria-label="历史水位曲线">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">历史水位</div>
+              <div class="panelSub histMeta" id="histMeta">最近 60 分钟</div>
+            </div>
+            <div class="segs" role="tablist" aria-label="历史时间范围">
+              <button class="seg" id="histRange30" role="tab" onclick="histSetRange('30m')" aria-selected="false">30分钟</button>
+              <button class="seg on" id="histRange60" role="tab" onclick="histSetRange('60m')" aria-selected="true">60分钟</button>
+              <button class="seg" id="histRange24" role="tab" onclick="histSetRange('24h')" aria-selected="false">24小时</button>
+            </div>
+          </div>
+          <div class="panelBody">
+            <canvas class="histCanvas" id="histCanvas" height="170"></canvas>
+            <div class="histLegend" aria-hidden="true">
+              <div class="lg"><span class="dot outer" aria-hidden="true"></span>外塘</div>
+              <div class="lg"><span class="dot inner" aria-hidden="true"></span>内塘</div>
+            </div>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panelHd">
             <div>
@@ -599,39 +628,12 @@
                 <button class="btn primary" id="btnOpen" onclick="gateCmd('gate_open')">开闸</button>
                 <button class="btn" id="btnClose" onclick="gateCmd('gate_close')">关闸</button>
                 <button class="btn danger" id="btnStop" onclick="gateCmd('gate_stop')">停止</button>
-                <button class="btn" id="btnManualToggle" onclick="manualToggle()">手动接管</button>
+                <button class="btn" id="btnLatch" onclick="confirmLatch()">关闭自动</button>
               </div>
-            </div>
-
-            <div class="ctlGroup">
-              <div class="controls" role="group" aria-label="自动控制">
-                <button class="btn span2" id="btnLatch" onclick="confirmLatch()">锁定关闭自动</button>
+              <div class="hint" id="cmdMsg" aria-live="polite" style="display:none"></div>
+              <div class="hint" id="authHint" style="display:none">
+                设备启用了面板密码，请先 <a class="inlineLink" href="/api/state" target="_blank" rel="noopener">点击这里授权</a> 后再操作。
               </div>
-            </div>
-            <div class="hint" id="cmdMsg" aria-live="polite" style="display:none"></div>
-            <div class="hint" id="authHint" style="display:none">
-              设备启用了面板密码，请先 <a class="inlineLink" href="/api/state" target="_blank" rel="noopener">点击这里授权</a> 后再操作。
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" id="histPanel" aria-label="历史水位曲线">
-          <div class="panelHd">
-            <div>
-              <div class="panelTitle">历史水位</div>
-              <div class="panelSub histMeta" id="histMeta">最近 60 分钟</div>
-            </div>
-            <div class="segs" role="tablist" aria-label="历史时间范围">
-              <button class="seg" id="histRange30" role="tab" onclick="histSetRange('30m')" aria-selected="false">30分钟</button>
-              <button class="seg on" id="histRange60" role="tab" onclick="histSetRange('60m')" aria-selected="true">60分钟</button>
-              <button class="seg" id="histRange24" role="tab" onclick="histSetRange('24h')" aria-selected="false">24小时</button>
-            </div>
-          </div>
-          <div class="panelBody">
-            <canvas class="histCanvas" id="histCanvas" height="170"></canvas>
-            <div class="histLegend" aria-hidden="true">
-              <div class="lg"><span class="dot outer" aria-hidden="true"></span>外塘</div>
-              <div class="lg"><span class="dot inner" aria-hidden="true"></span>内塘</div>
             </div>
           </div>
         </section>
@@ -732,6 +734,204 @@
     </main>
   </div>
 
+  <template id="schemInlineSvg">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1600"
+  height="900"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-label="外塘/内塘水位与水闸示意图">
+  <title>水位与水闸示意</title>
+  <desc>左侧外塘、右侧内塘，中间水闸。水体为独立对象：water_left/water_right/channel_water。闸门为可滑动闸板：gate_plate_group（由页面脚本设置开度）。</desc>
+
+  <defs>
+    <linearGradient id="gradWaterOuter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#60a5fa" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#2563eb" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1e3a8a" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterInner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#06b6d4" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0e7490" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterChannel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd3fc" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#38bdf8" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1d4ed8" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterOffline" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fb7185" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#be123c" stop-opacity="0.90" />
+    </linearGradient>
+    <linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cbd5e1"/>
+      <stop offset="0.45" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#64748b"/>
+    </linearGradient>
+    <linearGradient id="gradWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#0b1224" stop-opacity="0.98"/>
+    </linearGradient>
+
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b1224" flood-opacity="0.18"/>
+    </filter>
+
+    <clipPath id="clip_gate_inner">
+      <rect x="752" y="192" width="96" height="576" rx="12" />
+    </clipPath>
+
+    <style>
+      #layer_scale text.scaleText{
+        font-size: 32px;
+        paint-order: stroke fill;
+        stroke: rgba(11,18,32,0.85);
+        stroke-width: 3.4px;
+      }
+    </style>
+  </defs>
+
+  <style>
+    #water_left { fill: url(#gradWaterOuter); }
+    #water_right { fill: url(#gradWaterInner); }
+    #channel_water { fill: url(#gradWaterChannel); }
+    #channel_water[data-src="outer"] { fill: url(#gradWaterOuter); }
+    #channel_water[data-src="inner"] { fill: url(#gradWaterInner); }
+
+    #water_left[data-valid="0"], #water_right[data-valid="0"] { fill: url(#gradWaterOffline); opacity: 0.85; }
+    .water-surface { fill: rgba(255,255,255,0.38); mix-blend-mode: screen; }
+    #grid line { stroke: rgba(148,163,184,0.20); stroke-width: 2; }
+    #grid .major { stroke: rgba(148,163,184,0.28); }
+    #flow_fx { opacity: 0.0; }
+    #flow_fx[data-on="1"] { opacity: 1.0; }
+    .flow-line { transform-box: fill-box; transform-origin: center; }
+    @media (prefers-reduced-motion: no-preference) {
+      #flow_fx[data-on="1"] #flow_dir_right .flow-line { animation: flowMoveR 1.1s linear infinite; }
+      #flow_fx[data-on="1"] #flow_dir_left .flow-line { animation: flowMoveL 1.1s linear infinite; }
+      #water_left_surface, #water_right_surface, #channel_water_surface {
+        animation: surfaceBlink 2.2s ease-in-out infinite;
+      }
+    }
+    @keyframes flowMoveR {
+      from { transform: translateX(-70px); opacity: 0.35; }
+      25% { opacity: 0.9; }
+      75% { opacity: 0.9; }
+      to { transform: translateX(70px); opacity: 0.35; }
+    }
+    @keyframes flowMoveL {
+      from { transform: translateX(70px); opacity: 0.35; }
+      25% { opacity: 0.9; }
+      75% { opacity: 0.9; }
+      to { transform: translateX(-70px); opacity: 0.35; }
+    }
+    @keyframes surfaceBlink {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 0.60; }
+    }
+  </style>
+
+  <g id="grid" aria-hidden="true">
+    <line x1="120" y1="200" x2="1480" y2="200" class="major"/>
+    <line x1="120" y1="316" x2="1480" y2="316"/>
+    <line x1="120" y1="432" x2="1480" y2="432"/>
+    <line x1="120" y1="548" x2="1480" y2="548"/>
+    <line x1="120" y1="664" x2="1480" y2="664"/>
+    <line x1="120" y1="780" x2="1480" y2="780" class="major"/>
+  </g>
+
+  <g id="layer_water" filter="url(#shadowSoft)">
+    <rect id="water_left"
+      x="140" y="780"
+      width="580" height="0"
+      data-valid="1"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="water_left_surface" class="water-surface"
+      x="140" y="780"
+      width="580" height="8"
+      style="display:none" />
+
+    <rect id="water_right"
+      x="880" y="780"
+      width="580" height="0"
+      data-valid="1"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="water_right_surface" class="water-surface"
+      x="880" y="780"
+      width="580" height="8"
+      style="display:none" />
+
+    <rect id="channel_water"
+      x="760" y="780"
+      width="80" height="0"
+      clip-path="url(#clip_gate_inner)"
+      style="display:none"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="channel_water_surface" class="water-surface"
+      x="760" y="780"
+      width="80" height="8"
+      clip-path="url(#clip_gate_inner)"
+      style="display:none" />
+
+    <g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
+      <g id="flow_dir_right" style="display:none">
+        <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+      <g id="flow_dir_left" style="display:none">
+        <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+    </g>
+  </g>
+
+  <g id="layer_containers" fill="none" stroke="rgba(226,232,240,0.92)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path id="pond_outer" d="M120 180 V780 H740" />
+    <path id="pond_inner" d="M1480 180 V780 H860" />
+    <rect id="gate_frame" x="740" y="180" width="120" height="600" rx="14" />
+  </g>
+
+  <g id="layer_scale" stroke="#FF8A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+     font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+     font-size="30" font-weight="900" fill="#FF8A00">
+    <line x1="120" y1="200" x2="120" y2="780" />
+    <line x1="110" y1="200" x2="130" y2="200" /><text class="scaleText" x="102" y="206" text-anchor="end">5m</text>
+    <line x1="110" y1="316" x2="130" y2="316" /><text class="scaleText" x="102" y="322" text-anchor="end">4m</text>
+    <line x1="110" y1="432" x2="130" y2="432" /><text class="scaleText" x="102" y="438" text-anchor="end">3m</text>
+    <line x1="110" y1="548" x2="130" y2="548" /><text class="scaleText" x="102" y="554" text-anchor="end">2m</text>
+    <line x1="110" y1="664" x2="130" y2="664" /><text class="scaleText" x="102" y="670" text-anchor="end">1m</text>
+    <line x1="110" y1="780" x2="130" y2="780" /><text class="scaleText" x="102" y="786" text-anchor="end">0m</text>
+
+    <line x1="1480" y1="200" x2="1480" y2="780" />
+    <line x1="1470" y1="200" x2="1490" y2="200" /><text class="scaleText" x="1498" y="206">5m</text>
+    <line x1="1470" y1="316" x2="1490" y2="316" /><text class="scaleText" x="1498" y="322">4m</text>
+    <line x1="1470" y1="432" x2="1490" y2="432" /><text class="scaleText" x="1498" y="438">3m</text>
+    <line x1="1470" y1="548" x2="1490" y2="548" /><text class="scaleText" x="1498" y="554">2m</text>
+    <line x1="1470" y1="664" x2="1490" y2="664" /><text class="scaleText" x="1498" y="670">1m</text>
+    <line x1="1470" y1="780" x2="1490" y2="780" /><text class="scaleText" x="1498" y="786">0m</text>
+  </g>
+
+  <g id="layer_gate" filter="url(#shadowSoft)">
+    <g id="gate_plate_group" transform="translate(0 0)" data-closed-dy="0" data-open-dy="-600">
+      <rect id="gate_plate" x="760" y="100" width="80" height="680" rx="12" fill="url(#gradSteel)" stroke="#0b1224" stroke-opacity="0.55" stroke-width="10" />
+      <path d="M775 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M800 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M825 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <g id="layer_text" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" fill="rgba(226,232,240,0.95)">
+    <text x="160" y="155" font-size="22" font-weight="900">外塘</text>
+    <text x="880" y="155" font-size="22" font-weight="900">内塘</text>
+    <text x="800" y="155" text-anchor="middle" font-size="18" font-weight="800" fill="rgba(165,180,207,0.95)">水闸</text>
+  </g>
+</svg>
+  </template>
+
   <script>
     // Cache DOM lookups (including null) to avoid repeated getElementById in hot paths.
     const _elCache = Object.create(null);
@@ -744,7 +944,7 @@
     };
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
-    const UI_VERSION = 'ui-2026.02.14-06';
+    const UI_VERSION = 'ui-2026.02.15-01';
     const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const fmtHHMMSS = (sec) => {
@@ -810,10 +1010,10 @@
         gate_open:'开闸',
         gate_close:'关闸',
         gate_stop:'停止',
-        auto_on:'恢复自动',
+        auto_on:'开启自动',
         auto_off:'手动接管',
         auto_latch_off:'锁定关闭自动',
-        manual_end:'结束手动',
+        manual_end:'恢复自动',
       };
       return map[c] || c || '--';
     }
@@ -877,7 +1077,16 @@
     let g_gateStateLast='';
     let g_timerUiLastTs=0;
     let g_lastOkAt=0;
+    // In-flight command counter (supports STOP preemption without prematurely re-enabling buttons).
+    // Busy = (g_reqBusy > 0). Note: telemetry polling uses a separate flag (g_polling).
     let g_reqBusy=0;
+    // "Auto latch off" intent: used to keep auto closed across manual Open/Close (firmware clears latch on manual actions).
+    let g_autoOffWanted=false;
+    let g_autoOffPinUntilMs=0;
+    // Latch button 2-step confirmation (UI-only).
+    const LATCH_CONFIRM_MS = 5000;
+    let g_latchArmed=false;
+    let g_latchArmTimer=0;
     let g_polling=0;
     let g_refreshQueued=0;
     let g_cfg=null;
@@ -886,7 +1095,7 @@
     let g_ctlUiLastMs=0;
 
     // --- History Chart (client-side, not stored on device) ---
-    const HIST_MAX_MM = 5000;
+    const HIST_MAX_MM = 5000; // base scale: 0-5m (mm)
     const HIST_RETENTION_S = 24 * 3600; // keep 24h in memory (1Hz)
     const HIST_MAX = HIST_RETENTION_S;
     const HIST_RANGE = {'30m':30*60, '60m':60*60, '24h':24*3600};
@@ -907,6 +1116,37 @@
 
     // Countdown bar state (manual takeover > cooldown > ready).
     const g_timer = {kind:'ready', untilMs:0, totalS:0, lastRemainS:0, reason:''};
+
+    function renderNoDataUi(){
+      if(g_lastTelemetry) return;
+      const set = (id, text) => { const el = $(id); if(el) el.textContent = text; };
+      set('outerLevelM', fmtM(0));
+      set('outerLevelMm', '0 mm');
+      set('innerLevelM', fmtM(0));
+      set('innerLevelMm', '0 mm');
+      set('outerOnline', '离线');
+      set('innerOnline', '离线');
+      set('outerTemp', '0.0 °C');
+      set('innerTemp', '0.0 °C');
+      const cd = $('chipDelta');
+      if(cd){
+        cd.textContent = 'Δ 0 mm';
+        cd.className = 'chip';
+      }
+      const cf = $('chipFlow');
+      if(cf){
+        cf.textContent = '连通 OFF';
+        cf.className = 'chip';
+      }
+      g_gateTarget = 0;
+      setGateRatio(0);
+      setFlowFx(false);
+      if(g_chan){
+        const geom = setChannelWater(g_chan, g_surfC, 0, false, 0);
+        layoutFlowRows(geom);
+      }
+      latchRender();
+    }
 
     function updateTimerFromTelemetry(t){
       const now = Date.now();
@@ -1033,10 +1273,12 @@
       return {w: cssW, h: cssH};
     }
 
-    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color){
+    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color, yMaxMm){
       const xSpan = w - padL - padR;
       const ySpan = h - padT - padB;
+      const yMax = Math.max(1, (yMaxMm | 0) || HIST_MAX_MM);
       let started = false;
+      let segN = 0;
       ctx.beginPath();
       for(let i = 0; i < n; i += stride){
         const idx = (startIdx + i) % HIST_MAX;
@@ -1048,16 +1290,20 @@
           continue;
         }
         const x = padL + ((t - x0) / windowS) * xSpan;
-        const y = padT + (1 - (clamp(mm, 0, HIST_MAX_MM) / HIST_MAX_MM)) * ySpan;
+        const y = padT + (1 - (clamp(mm, 0, yMax) / yMax)) * ySpan;
         if(!started){
           ctx.moveTo(x, y);
           started = true;
         }else{
           ctx.lineTo(x, y);
+          segN++;
         }
       }
-      ctx.strokeStyle = color;
-      ctx.stroke();
+      if(segN > 0){
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      }
+      return segN;
     }
 
     function histRangeLabel(k){
@@ -1118,20 +1364,57 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(165,180,207,.72)';
 
-      // Grid lines: 0..5m (fixed scale to match the schematic).
+      const now = Math.floor(Date.now() / 1000);
+      const x0 = now - g_histWindowS;
+
+      // Windowing: walk backwards from newest to count samples within the selected range.
+      let n = 0;
+      for(let j = 0; j < g_histN; j++){
+        const idx = (g_histIdx - 1 - j + HIST_MAX) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0) break;
+        if(t < x0) break;
+        n++;
+      }
+      const startIdx = (g_histIdx - Math.max(1, n) + HIST_MAX) % HIST_MAX;
+
+      // Y axis: keep 0-5m unless data exceeds 5m (then auto-scale).
+      let dataMaxMm = 0;
+      if(n >= 2){
+        for(let i = 0; i < n; i++){
+          const idx = (startIdx + i) % HIST_MAX;
+          const a = g_histIn[idx] | 0;
+          const b = g_histOut[idx] | 0;
+          if(a > dataMaxMm) dataMaxMm = a;
+          if(b > dataMaxMm) dataMaxMm = b;
+        }
+      }
+      let yMaxMm = HIST_MAX_MM;
+      let yStepMm = 1000;
+      if(dataMaxMm > HIST_MAX_MM){
+        // Start with 1m ticks, then coarsen if ticks get too dense.
+        yStepMm = 1000;
+        while(true){
+          yMaxMm = Math.ceil(dataMaxMm / yStepMm) * yStepMm;
+          if((yMaxMm / yStepMm) <= 8) break;
+          if(yStepMm === 1000) yStepMm = 2000;
+          else if(yStepMm === 2000) yStepMm = 5000;
+          else yStepMm = yStepMm * 2;
+        }
+      }
+
+      // Grid lines.
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(255,255,255,.06)';
-      for(let i=0;i<=5;i++){
-        const y = padT + (1 - (i/5)) * ySpan;
+      for(let mm = 0; mm <= yMaxMm; mm += yStepMm){
+        const y = padT + (1 - (mm / yMaxMm)) * ySpan;
         ctx.beginPath();
         ctx.moveTo(padL, y);
         ctx.lineTo(padL + xSpan, y);
         ctx.stroke();
-        ctx.fillText(i + 'm', padL - 6, y);
+        ctx.fillText((mm / 1000) + 'm', padL - 6, y);
       }
 
-      const now = Math.floor(Date.now() / 1000);
-      const x0 = now - g_histWindowS;
       if(g_histN < 2) return;
 
       // Time ticks along X axis.
@@ -1153,24 +1436,43 @@
         }
       }
 
-      // Windowing: walk backwards from newest to count samples within the selected range.
-      let n = 0;
-      for(let j = 0; j < g_histN; j++){
-        const idx = (g_histIdx - 1 - j + HIST_MAX) % HIST_MAX;
-        const t = g_histT[idx] | 0;
-        if(t <= 0) break;
-        if(t < x0) break;
-        n++;
-      }
       if(n < 2) return;
-      const startIdx = (g_histIdx - n + HIST_MAX) % HIST_MAX;
       const stride = Math.max(1, Math.floor(n / Math.max(1, Math.round(xSpan))));
 
-      ctx.lineWidth = 1.6;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)');
-      histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)');
+
+      // Draw inner (solid) then outer (dashed on top) so both curves remain visible even when levels overlap.
+      if(ctx.setLineDash) ctx.setLineDash([]);
+      ctx.lineWidth = 1.7;
+      const segIn = histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)', yMaxMm);
+
+      if(ctx.setLineDash) ctx.setLineDash([7, 5]);
+      ctx.lineWidth = 2.0;
+      const segOut = histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)', yMaxMm);
+
+      if(ctx.setLineDash) ctx.setLineDash([]);
+
+      // If a series has no segments (no data), render a deterministic 0m baseline instead of "missing line".
+      const yZero = padT + ySpan;
+      if(segIn <= 0){
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(34,211,238,.40)';
+        ctx.beginPath();
+        ctx.moveTo(padL, yZero);
+        ctx.lineTo(padL + xSpan, yZero);
+        ctx.stroke();
+      }
+      if(segOut <= 0){
+        if(ctx.setLineDash) ctx.setLineDash([7, 5]);
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = 'rgba(96,165,250,.40)';
+        ctx.beginPath();
+        ctx.moveTo(padL, yZero);
+        ctx.lineTo(padL + xSpan, yZero);
+        ctx.stroke();
+        if(ctx.setLineDash) ctx.setLineDash([]);
+      }
     }
 
     window.addEventListener('resize', ()=>{
@@ -1212,27 +1514,41 @@
       if(latch) latch.disabled = !!g_reqBusy;
     }
 
+    function mountSchematicFromSvgText(tx){
+      const wrap = $('schemWrap');
+      if(!wrap) return false;
+      const s = (tx == null) ? '' : ('' + tx);
+      if(!s || s.indexOf('<svg') === -1) return false;
+      wrap.innerHTML = s;
+      g_svg = wrap.querySelector('svg');
+      g_waterL = g_svg && g_svg.querySelector('#water_left');
+      g_waterR = g_svg && g_svg.querySelector('#water_right');
+      g_chan  = g_svg && g_svg.querySelector('#channel_water');
+      g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
+      g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
+      g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
+      g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
+      g_gateBadgeText = g_svg && g_svg.querySelector('#gate_badge_text');
+      g_flowFx = g_svg && g_svg.querySelector('#flow_fx');
+      g_flowLeft = g_svg && g_svg.querySelector('#flow_dir_left');
+      g_flowRight = g_svg && g_svg.querySelector('#flow_dir_right');
+      g_flowRowsL = g_flowLeft ? Array.from(g_flowLeft.querySelectorAll('.flow-row')) : [];
+      g_flowRowsR = g_flowRight ? Array.from(g_flowRight.querySelectorAll('.flow-row')) : [];
+      return !!g_svg;
+    }
+
     async function loadSchematic(){
       try{
         const r = await fetch('/ui/pond_gate.svg', {cache:'no-store'});
         const tx = await r.text();
-        $('schemWrap').innerHTML = tx;
-        g_svg = $('schemWrap').querySelector('svg');
-        g_waterL = g_svg && g_svg.querySelector('#water_left');
-        g_waterR = g_svg && g_svg.querySelector('#water_right');
-        g_chan  = g_svg && g_svg.querySelector('#channel_water');
-        g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
-        g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
-        g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
-        g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
-        g_gateBadgeText = g_svg && g_svg.querySelector('#gate_badge_text');
-        g_flowFx = g_svg && g_svg.querySelector('#flow_fx');
-        g_flowLeft = g_svg && g_svg.querySelector('#flow_dir_left');
-        g_flowRight = g_svg && g_svg.querySelector('#flow_dir_right');
-        g_flowRowsL = g_flowLeft ? Array.from(g_flowLeft.querySelectorAll('.flow-row')) : [];
-        g_flowRowsR = g_flowRight ? Array.from(g_flowRight.querySelectorAll('.flow-row')) : [];
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        if(mountSchematicFromSvgText(tx)) return;
+        throw new Error('mount failed');
       }catch(e){
-        $('schemMsg').textContent = '示意图加载失败';
+        const tpl = $('schemInlineSvg');
+        if(tpl && mountSchematicFromSvgText(tpl.innerHTML)) return;
+        const msg = $('schemMsg');
+        if(msg) msg.textContent = '示意图加载失败';
       }
     }
 
@@ -1370,25 +1686,27 @@
     function renderTelemetry(t){
       if(!t) return;
       g_lastTelemetry = t;
+      syncAutoOffWantedFromTelemetry(t);
 
       const s1=t.sensor1||{}, s2=t.sensor2||{};
       const innerOk=!!s1.valid, outerOk=!!s2.valid;
       const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
       const innerTempOk=!!s1.temp_valid, outerTempOk=!!s2.temp_valid;
 
-      $('innerLevelM').textContent = innerOk ? fmtM(innerMm) : '离线';
-      $('innerLevelMm').textContent = innerOk ? (innerMm + ' mm') : '--';
-      $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : '离线';
-      $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '--';
+      // When sensor has no valid data yet, keep UI stable by showing 0 (while still marking online/offline separately).
+      $('innerLevelM').textContent = innerOk ? fmtM(innerMm) : fmtM(0);
+      $('innerLevelMm').textContent = innerOk ? (innerMm + ' mm') : '0 mm';
+      $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : fmtM(0);
+      $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '0 mm';
 
       $('innerOnline').textContent = s1.online ? '在线' : '离线';
       $('outerOnline').textContent = s2.online ? '在线' : '离线';
-      $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '--';
-      $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '--';
+      $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
+      $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
 
       const deltaOk = innerOk && outerOk;
       const deltaMm = innerMm - outerMm;
-      $('chipDelta').textContent = deltaOk ? ('Δ ' + deltaMm + ' mm') : 'Δ --';
+      $('chipDelta').textContent = 'Δ ' + deltaMm + ' mm';
       $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
 
       // UI animation duration is fixed to keep open/close feel consistent.
@@ -1436,6 +1754,7 @@
         mb.textContent = manualActive ? '恢复自动' : (autoGate ? '手动接管' : '恢复自动');
         mb.className = (manualActive || !autoGate) ? 'btn primary' : 'btn';
       }
+      latchRender();
 
       // Info panel (network / 4G / firmware)
       const net = t.net || null;
@@ -1520,7 +1839,11 @@
     }
 
     function setBusy(b){
-      g_reqBusy = b ? 1 : 0;
+      if(b){
+        g_reqBusy = (g_reqBusy|0) + 1;
+      }else{
+        g_reqBusy = Math.max(0, (g_reqBusy|0) - 1);
+      }
       applyControlDisabledState();
     }
 
@@ -1572,19 +1895,85 @@
       return {ok:false, via:'api', status: apiRes ? apiRes.status : 0, text: apiRes ? (await readTextSafe(apiRes)) : ''};
     }
 
+    function pinAutoOffWanted(wanted, pinMs){
+      g_autoOffWanted = !!wanted;
+      const ms = (typeof pinMs === 'number' && isFinite(pinMs)) ? pinMs : 4000;
+      g_autoOffPinUntilMs = Date.now() + Math.max(800, ms);
+    }
+
+    function syncAutoOffWantedFromTelemetry(t){
+      const now = Date.now();
+      const latched = !!(t && t.auto_latched);
+      if(g_autoOffPinUntilMs && now < g_autoOffPinUntilMs){
+        // If device state has caught up with our pinned intent, release the pin early.
+        if(latched === !!g_autoOffWanted) g_autoOffPinUntilMs = 0;
+        return;
+      }
+      g_autoOffWanted = latched;
+    }
+
+    function autoOffUiIsLatched(){
+      const now = Date.now();
+      if(g_autoOffPinUntilMs && now < g_autoOffPinUntilMs) return !!g_autoOffWanted;
+      const t = g_lastTelemetry;
+      return !!(t && t.auto_latched);
+    }
+
+    function latchBtnSet(text, kind){
+      const b = $('btnLatch');
+      if(!b) return;
+      b.textContent = text || '';
+      b.className = 'btn' + (kind ? (' ' + kind) : '');
+    }
+
+    function latchDisarm(){
+      if(g_latchArmTimer){
+        clearTimeout(g_latchArmTimer);
+        g_latchArmTimer = 0;
+      }
+      g_latchArmed = false;
+    }
+
+    function latchArm(){
+      latchDisarm();
+      g_latchArmed = true;
+      latchBtnSet('确认关闭？', 'warn');
+      g_latchArmTimer = setTimeout(()=>{
+        g_latchArmTimer = 0;
+        g_latchArmed = false;
+        latchRender();
+      }, LATCH_CONFIRM_MS);
+    }
+
+    function latchRender(){
+      const latched = autoOffUiIsLatched();
+      if(latched){
+        latchDisarm();
+        latchBtnSet('开启自动', 'primary');
+        return;
+      }
+      if(g_latchArmed){
+        latchBtnSet('确认关闭？', 'warn');
+      }else{
+        latchBtnSet('关闭自动', '');
+      }
+    }
+
     async function cmd(c, opts){
       const isStop = (c === 'gate_stop');
       if(g_reqBusy && !isStop){
         showCmdMsg('忙：上一条命令处理中…', 'warn');
-        return;
+        return false;
       }
       if(isStop){
         // Stop should always be available and should also clear the UI lock.
         g_gateBtnLockUntilMs = 0;
       }
       setBusy(true);
+      let ok = false;
       try{
         const res = await sendCmdOnce(c);
+        ok = !!(res && res.ok);
         if(!res || !res.ok){
           if(res && res.status === 401){
             showCmdMsg('未授权：需要面板密码（请先点击下方“授权”链接完成登录）', 'bad', true);
@@ -1599,22 +1988,58 @@
 
         // Keep manual takeover alive while operating the gate.
         // Only the "恢复自动" button should end manual takeover.
-        if(res && res.ok){
+        if(ok){
           const keepManual = !!(opts && opts.keepManual);
+          const keepAutoOff = !!(opts && opts.keepAutoOff);
           const t = g_lastTelemetry;
           const manual = t && t.manual ? t.manual : null;
           const manualActive = !!(manual && manual.active);
           if(keepManual && manualActive && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
             await sendCmdOnce('auto_off');
           }
+
+          // Preserve "锁定关闭自动" across manual Open/Close/Stop (firmware clears latch on manual actions).
+          if(keepAutoOff && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+            const r2 = await sendCmdOnce('auto_latch_off');
+            if(!(r2 && r2.ok)){
+              // Release pin so UI can reflect actual device state.
+              g_autoOffPinUntilMs = 0;
+              showCmdMsg('提示：已执行开/关闸，但“保持自动关闭”失败（请再点一次“关闭自动”）', 'warn');
+            }
+          }
         }
       }finally{
         setTimeout(()=>setBusy(false), 260);
       }
       refreshOnce();
+      return ok;
     }
 
-    function confirmLatch(){ if(confirm('确认关闭自动(锁定)？')) cmd('auto_latch_off'); }
+    async function confirmLatch(){
+      const latched = autoOffUiIsLatched();
+      if(latched){
+        latchDisarm();
+        const ok = await cmd('auto_on');
+        if(ok) pinAutoOffWanted(false, 5000);
+        latchRender();
+        return;
+      }
+
+      if(!g_latchArmed){
+        latchArm();
+        return;
+      }
+
+      // Second click: confirm latch-off.
+      if(g_latchArmTimer){
+        clearTimeout(g_latchArmTimer);
+        g_latchArmTimer = 0;
+      }
+      const ok = await cmd('auto_latch_off');
+      g_latchArmed = false;
+      if(ok) pinAutoOffWanted(true, 6000);
+      latchRender();
+    }
     function gateCmd(c){
       if(c === 'gate_open' || c === 'gate_close'){
         const t = g_lastTelemetry;
@@ -1636,7 +2061,12 @@
           }
         }
       }
-      cmd(c, {keepManual:true});
+      const keepAutoOff = !!g_autoOffWanted;
+      if(keepAutoOff && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+        // Firmware clears latch on manual actions; pin UI intent until we re-latch.
+        pinAutoOffWanted(true, 8000);
+      }
+      cmd(c, {keepManual:true, keepAutoOff});
     }
     function manualToggle(){
       const t = g_lastTelemetry;
@@ -1675,6 +2105,7 @@
         setStatus('连接失败（将重试）', 'bad');
         const ls = $('infoLastSeen');
         if(ls) ls.textContent = '失败 ' + nowHHMMSS();
+        renderNoDataUi();
       }finally{
         g_polling = 0;
         if(g_refreshQueued){
@@ -2154,8 +2585,12 @@
       requestAnimationFrame(tick);
     }
 
+    // Boot: show deterministic "0" values before the first telemetry arrives.
+    renderNoDataUi();
+
     loadSchematic().then(()=>{
       setGateRatio(0);
+      renderNoDataUi(); // apply again after SVG handles are available
       cfgLoad();
       refreshOnce();
       // Telemetry polling: self-schedule after each request finishes.

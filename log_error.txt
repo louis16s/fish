@@ -1,0 +1,23 @@
+ms=1731 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:14:03 [ERR] alarm cleared
+2026-02-15 02:14:13 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:14:13 [ERR] alarm cleared
+2026-02-15 02:14:45 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:14:45 [ERR] alarm cleared
+2026-02-15 02:16:46 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:16:47 [ERR] alarm cleared
+2026-02-15 02:22:48 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:22:59 [ERR] alarm cleared
+2026-02-15 02:23:05 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:23:08 [ERR] alarm cleared
+2026-02-15 02:23:14 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:23:15 [ERR] alarm cleared
+2026-02-15 02:23:25 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+ms=1734 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:28:01 [ERR] alarm cleared
+2026-02-15 02:28:07 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:28:08 [ERR] alarm cleared
+2026-02-15 02:28:19 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:28:19 [ERR] alarm cleared
+2026-02-15 02:28:52 [ERR] alarm severity=2 text=Alarm: sensor offline or data timeout
+2026-02-15 02:28:52 [ERR] alarm cleared

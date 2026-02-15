@@ -44,8 +44,6 @@ const uint32_t GATE_ACTION_DURATION_MS = (uint32_t)GATE_RELAY_ACTION_SECONDS * 1
 const uint8_t SENSOR_ID_1 = INNER_POND_SENSOR_ID;
 const uint8_t SENSOR_ID_2 = OUTER_POND_SENSOR_ID;
 const uint16_t SENSOR_POLL_INTERVAL_MS = 1000;
-const uint16_t SENSOR_TIMEOUT_MS = 250;
-const uint16_t SENSOR_RETRY_GAP_MS = 80;
 
 uint16_t Sensor_Level_mm_1 = 0;
 uint16_t Sensor_Level_mm_2 = 0;
@@ -601,44 +599,71 @@ static bool Read_Sensor_Data(uint8_t id, uint16_t* level_mm, int16_t* temp_x10)
   req[6] = req_crc & 0xFF;
   req[7] = (req_crc >> 8) & 0xFF;
 
+  // Drain late bytes from the previous frame. A short quiet window helps avoid
+  // "polluting" the next response when a sensor replies after our timeout.
+  while (lidarSerial.available() > 0) {
+    lidarSerial.read();
+  }
+  delay(5);
   while (lidarSerial.available() > 0) {
     lidarSerial.read();
   }
 
   lidarSerial.write(req, sizeof(req));
+  lidarSerial.flush();  // ensure request is on the wire (helps RS485 auto-direction modules)
 
-  uint8_t resp[13] = {0};
-  uint8_t received = 0;
+  // Expected response:
+  // id, 0x03, 0x08, 8 bytes data, CRC(2) -> total 13 bytes.
+  // Read into a larger buffer and resync by header+CRC to tolerate stray bytes.
+  uint8_t raw[32] = {0};
+  size_t received = 0;
   const uint32_t start_ms = millis();
 
-  while (received < sizeof(resp) && (millis() - start_ms) < SENSOR_TIMEOUT_MS) {
-    if (lidarSerial.available() > 0) {
-      resp[received++] = (uint8_t)lidarSerial.read();
+  while ((millis() - start_ms) < (uint32_t)SENSOR_MODBUS_TIMEOUT_MS) {
+    bool progressed = false;
+    while (lidarSerial.available() > 0 && received < sizeof(raw)) {
+      raw[received++] = (uint8_t)lidarSerial.read();
+      progressed = true;
+    }
+
+    if (received >= 13) {
+      for (size_t off = 0; off + 13 <= received; ++off) {
+        if (raw[off] != id || raw[off + 1] != 0x03 || raw[off + 2] != 0x08) {
+          continue;
+        }
+        const uint16_t resp_crc = (uint16_t)raw[off + 11] | ((uint16_t)raw[off + 12] << 8);
+        const uint16_t calc_crc = Modbus_CRC16(&raw[off], 11);
+        if (resp_crc != calc_crc) {
+          continue;
+        }
+        *level_mm = ((uint16_t)raw[off + 3] << 8) | raw[off + 4];
+        *temp_x10 = (int16_t)(((uint16_t)raw[off + 9] << 8) | raw[off + 10]);
+        return true;
+      }
+    }
+
+    if (received >= sizeof(raw)) {
+      break;
+    }
+    if (!progressed) {
+      delay(1);  // yield
     }
   }
 
-  if (received != sizeof(resp)) {
-    return false;
-  }
-
-  const uint16_t resp_crc = (uint16_t)resp[11] | ((uint16_t)resp[12] << 8);
-  const uint16_t calc_crc = Modbus_CRC16(resp, 11);
-  if (resp[0] != id || resp[1] != 0x03 || resp[2] != 0x08 || resp_crc != calc_crc) {
-    return false;
-  }
-
-  *level_mm = ((uint16_t)resp[3] << 8) | resp[4];
-  *temp_x10 = (int16_t)(((uint16_t)resp[9] << 8) | resp[10]);
-  return true;
+  return false;
 }
 
 static bool Read_Sensor_WithRetry(uint8_t id, uint16_t* level_mm, int16_t* temp_x10)
 {
-  if (Read_Sensor_Data(id, level_mm, temp_x10)) {
-    return true;
+  for (uint8_t attempt = 0; attempt < (uint8_t)SENSOR_MODBUS_RETRY_COUNT; ++attempt) {
+    if (Read_Sensor_Data(id, level_mm, temp_x10)) {
+      return true;
+    }
+    if ((attempt + 1U) < (uint8_t)SENSOR_MODBUS_RETRY_COUNT) {
+      delay(SENSOR_MODBUS_RETRY_GAP_MS);
+    }
   }
-  delay(SENSOR_RETRY_GAP_MS);
-  return Read_Sensor_Data(id, level_mm, temp_x10);
+  return false;
 }
 
 static void Sensor_Read_Loop()
@@ -651,8 +676,8 @@ static void Sensor_Read_Loop()
   uint16_t level_tmp = 0;
   int16_t temp_tmp = 0;
   if (Next_Sensor_ID == SENSOR_ID_1) {
-    Sensor_Online_1 = Read_Sensor_WithRetry(SENSOR_ID_1, &level_tmp, &temp_tmp);
-    if (Sensor_Online_1) {
+    const bool ok = Read_Sensor_WithRetry(SENSOR_ID_1, &level_tmp, &temp_tmp);
+    if (ok) {
       const uint32_t now = millis();
       Sensor_Level_mm_1 = level_tmp;
       Sensor_Temp_x10_1 = temp_tmp;
@@ -679,8 +704,8 @@ static void Sensor_Read_Loop()
     }
     Next_Sensor_ID = SENSOR_ID_2;
   } else {
-    Sensor_Online_2 = Read_Sensor_WithRetry(SENSOR_ID_2, &level_tmp, &temp_tmp);
-    if (Sensor_Online_2) {
+    const bool ok = Read_Sensor_WithRetry(SENSOR_ID_2, &level_tmp, &temp_tmp);
+    if (ok) {
       const uint32_t now = millis();
       Sensor_Level_mm_2 = level_tmp;
       Sensor_Temp_x10_2 = temp_tmp;
@@ -706,6 +731,14 @@ static void Sensor_Read_Loop()
       Sensor_Prev_Valid_2 = true;
     }
     Next_Sensor_ID = SENSOR_ID_1;
+  }
+
+  // Debounce "online" to reduce flapping: treat sensor as offline only after N ms without successful data.
+  // Note: each sensor is polled every ~2s (alternating), so a 3s grace tolerates one missed poll.
+  {
+    const uint32_t now = millis();
+    Sensor_Online_1 = (Sensor_Last_Ok_Ms_1 > 0) && ((now - Sensor_Last_Ok_Ms_1) <= (uint32_t)SENSOR_ONLINE_GRACE_MS);
+    Sensor_Online_2 = (Sensor_Last_Ok_Ms_2 > 0) && ((now - Sensor_Last_Ok_Ms_2) <= (uint32_t)SENSOR_ONLINE_GRACE_MS);
   }
 
   if (SERIAL_LEVEL_LOG_Enable && (millis() - Last_Level_Log_Ms >= SERIAL_LEVEL_LOG_INTERVAL_MS)) {
