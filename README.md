@@ -202,6 +202,8 @@
 
 日志查看页：`http://<设备IP>/logs`（读取设备 LittleFS 上的日志文件末尾内容，用于快速排查）。
 
+![config.jpeg](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/6991dd24900b9.webp)
+
 ## 7. HTTP 接口
 
 ### 7.1 页面与数据
