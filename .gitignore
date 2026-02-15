@@ -10,7 +10,7 @@ dist/
 src/auto_fw_version.h
 src/WS_UI_Assets.h
 src/WS_UI_Assets.cpp
-
+src/MAIN_ALL.ino.cpp
 # Local secrets (do not commit)
 src/WS_Secrets.h
 server/.env
