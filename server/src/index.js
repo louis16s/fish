@@ -108,6 +108,7 @@ async function main() {
   // In-memory latest cache (fast /api/state).
   const latest = new Map(); // deviceId -> {receivedAt:number, payload:object}
   const logCache = new LogCache({ maxBytes: cfg.LOG_CACHE_MAX_BYTES });
+  const configCache = new Map(); // deviceId -> { raw:string, updatedAt:number }
 
   const mqtt = createMqttClient(cfg, {
     onTelemetry: async ({ deviceId, topic, payload, receivedAt }) => {
@@ -453,15 +454,38 @@ async function main() {
   // --- Device config/logs via MQTT RPC (keeps browser isolated from MQTT creds) ---
   app.get('/api/config', requireAuthApi, async (req, res) => {
     const deviceId = pickDeviceId(req);
+    const source = String((req.query && req.query.source) || '').toLowerCase(); // '', 'cache', 'rpc'
     try {
+      if (source !== 'rpc') {
+        const ent = configCache.get(deviceId);
+        if (ent && typeof ent.raw === 'string' && ent.raw.length) {
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('X-Config-Source', 'cache');
+          return res.type('application/json').send(ent.raw);
+        }
+      }
+
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_config' }, { timeoutMs: 8000 });
       const raw = (rep && typeof rep.raw === 'string') ? rep.raw : '';
       if (!raw) return res.status(502).type('text/plain').send('empty_config');
+      try { configCache.set(deviceId, { raw, updatedAt: Date.now() }); } catch (e2) {}
       res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Config-Source', 'rpc');
       res.type('application/json').send(raw);
     } catch (e) {
       const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
       const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+
+      // Best-effort: serve last known config if available (helps UI avoid 504 spam).
+      if (source !== 'rpc') {
+        const ent = configCache.get(deviceId);
+        if (ent && typeof ent.raw === 'string' && ent.raw.length) {
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('X-Config-Source', 'cache');
+          return res.status(200).type('application/json').send(ent.raw);
+        }
+      }
+
       res.status(code).type('text/plain').send(msg);
     }
   });
@@ -477,6 +501,7 @@ async function main() {
     if (!raw || raw === 'null') return res.status(400).type('text/plain').send('invalid_json');
     try {
       await mqtt.rpc(deviceId, { cmd: 'set_config', raw }, { timeoutMs: 12_000 });
+      try { configCache.set(deviceId, { raw, updatedAt: Date.now() }); } catch (e2) {}
       res.setHeader('Cache-Control', 'no-store');
       res.json({ ok: true });
     } catch (e) {
