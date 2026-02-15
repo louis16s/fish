@@ -464,6 +464,12 @@ async function main() {
           return res.type('application/json').send(ent.raw);
         }
       }
+      if (source === 'cache') {
+        // Cache-only mode: don't block on MQTT RPC (avoids 504s behind proxies).
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Config-Source', 'cache-miss');
+        return res.status(503).type('text/plain').send('cache_miss');
+      }
 
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_config' }, { timeoutMs: 8000 });
       const raw = (rep && typeof rep.raw === 'string') ? rep.raw : '';
@@ -525,6 +531,12 @@ async function main() {
         res.setHeader('X-Log-Source', 'cache');
         return res.type('text/plain; charset=utf-8').send(text);
       }
+      if (!bak && source === 'cache') {
+        // Cache-only mode: never fall back to device RPC (avoids 504s behind proxies).
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Log-Source', 'cache-miss');
+        return res.status(503).type('text/plain; charset=utf-8').send('cache_miss');
+      }
 
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });
       const text = (rep && typeof rep.text === 'string') ? rep.text : '';
@@ -576,6 +588,11 @@ async function main() {
         res.setHeader('X-Log-Source', 'cache');
         res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`);
         return res.type('text/plain; charset=utf-8').send(text);
+      }
+      if (!bak && source === 'cache') {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Log-Source', 'cache-miss');
+        return res.status(503).type('text/plain; charset=utf-8').send('cache_miss');
       }
 
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });

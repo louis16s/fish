@@ -234,6 +234,8 @@
       background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(56,189,248,.95), rgba(34,197,94,.95));
       transition:width .20s ease;
     }
+    /* These bars are driven by rAF updates; CSS width transitions cause visible jitter/jumps. */
+    #gateBar, #timerBar{transition:none !important}
     .meterHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.4}
 
     .stack{display:flex;flex-direction:column;gap:14px;align-content:stretch;height:100%}
@@ -961,28 +963,32 @@
       const coolTotal = ctrl && typeof ctrl.min_interval_s === 'number' ? ctrl.min_interval_s : 0;
       const reason = ctrl && typeof ctrl.reason === 'string' ? ctrl.reason : '';
 
-      if(manual && manual.active && manualRemain > 0){
-        const restarting = (g_timer.kind === 'manual') && (manualRemain > (g_timer.lastRemainS + 1.2));
-        const entering = (g_timer.kind !== 'manual') || restarting;
-        g_timer.kind = 'manual';
-        g_timer.untilMs = now + manualRemain * 1000;
-        if(manualTotal > 0) g_timer.totalS = manualTotal;
-        else if(entering || !g_timer.totalS) g_timer.totalS = manualRemain;
-        else g_timer.totalS = Math.max(g_timer.totalS, manualRemain);
-        g_timer.lastRemainS = manualRemain;
+      // Prevent bar "jumping": don't re-base untilMs on every telemetry tick (device seconds are quantized,
+      // and HTTP polling jitter can make remain_s appear to increase by ~1s). Only resync when drift is large.
+      function applyCountdown(kind, remainS, totalS){
+        const targetUntil = now + remainS * 1000;
+        const entering = (g_timer.kind !== kind);
+        const curRemain = Math.max(0, (g_timer.untilMs - now) / 1000);
+        const diff = remainS - curRemain; // + => would extend countdown
+        const restart = diff > 1.6 || remainS > (g_timer.lastRemainS + 1.6);
+        const behind = diff < -1.0;
+        if(entering || restart || behind || !isFinite(g_timer.untilMs) || g_timer.untilMs <= 0){
+          g_timer.untilMs = targetUntil;
+        }
+        g_timer.kind = kind;
+        if(totalS > 0) g_timer.totalS = totalS;
+        else if(entering || !g_timer.totalS) g_timer.totalS = remainS;
+        else g_timer.totalS = Math.max(g_timer.totalS, remainS);
+        g_timer.lastRemainS = remainS;
         g_timer.reason = '';
+      }
+
+      if(manual && manual.active && manualRemain > 0){
+        applyCountdown('manual', manualRemain, manualTotal);
         return;
       }
       if(coolRemain > 0){
-        const restarting = (g_timer.kind === 'cooldown') && (coolRemain > (g_timer.lastRemainS + 1.2));
-        const entering = (g_timer.kind !== 'cooldown') || restarting;
-        g_timer.kind = 'cooldown';
-        g_timer.untilMs = now + coolRemain * 1000;
-        if(coolTotal > 0) g_timer.totalS = coolTotal;
-        else if(entering || !g_timer.totalS) g_timer.totalS = coolRemain;
-        else g_timer.totalS = Math.max(g_timer.totalS, coolRemain);
-        g_timer.lastRemainS = coolRemain;
-        g_timer.reason = '';
+        applyCountdown('cooldown', coolRemain, coolTotal);
         return;
       }
       g_timer.kind = 'ready';
@@ -1033,9 +1039,9 @@
       $('timerHint').textContent = hint;
       card.className = klass;
 
-      const w = (progress * 100);
+      const w = Math.round(progress * 100);
       const bar = $('timerBar');
-      if(bar) bar.style.width = w.toFixed(1) + '%';
+      if(bar) bar.style.width = w + '%';
       const pb = bar && bar.parentElement;
       if(pb) pb.setAttribute('aria-valuenow', String(Math.round(w)));
     }
@@ -1346,10 +1352,11 @@
         const tx = await r.text();
         if(!r.ok) throw new Error('HTTP ' + r.status);
         if(mountSchematicFromSvgText(tx)) return;
-        throw new Error('mount failed');
+        throw new Error('not_svg');
       }catch(e){
         const msg = $('schemMsg');
-        if(msg) msg.textContent = '示意图加载失败';
+        const em = (e && e.message) ? String(e.message) : '';
+        if(msg) msg.textContent = '示意图加载失败' + (em ? ('（' + em + '）') : '') + '：请确认已上传 LittleFS 文件 /ui/pond_gate.svg（PlatformIO: Upload Filesystem Image）';
       }
     }
 
@@ -1412,7 +1419,7 @@
       }
       const barEl = $('gateBar');
       if(barEl){
-        barEl.style.width = (g_gateRatio*100).toFixed(1) + '%';
+        barEl.style.width = pctInt + '%';
         const pb = barEl.parentElement;
         if(pb) pb.setAttribute('aria-valuenow', String(pctInt));
       }
