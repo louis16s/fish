@@ -38,6 +38,9 @@
 3. `data/ui/`
 - 面板前端静态文件（`index.html/config.html/logs.html/pond_gate.svg`）
 - 通过 PlatformIO `Upload Filesystem Image` 上传到设备 LittleFS（路径 `/ui/...`）后生效（无需刷固件即可更新 UI）
+- 说明：
+- 默认情况下，这些 UI 文件**不编译进固件**（固件只内置一个“UI 缺失”提示页用于引导你上传 LittleFS）
+- `pond_gate.svg` 为独立文件，由页面运行时通过 `/ui/pond_gate.svg` 加载（页面内不再内联 SVG）
 
 4. `src/WS_Serial.cpp`
 - RS485串口初始化、Air780E AT状态轮询
@@ -225,6 +228,7 @@
 - `/ui/logs.html`
 - `/ui/pond_gate.svg`（水位/水闸示意图）
 3. 若需要覆盖/自定义 UI，请在 PlatformIO 执行 `Upload Filesystem Image`（或命令行 `pio run -t uploadfs`）。
+4. （可选）仓库提供了 `scripts/embed_ui_assets.py` 用于“把 UI 资源编译进固件”，但默认未启用（`platformio.ini` 未配置该脚本）。除非你明确需要“只刷固件不上传 LittleFS”的体验，否则建议保持 LittleFS 分离方案。
 
 ### 7.2 闸门控制接口
 
