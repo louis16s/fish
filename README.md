@@ -1,6 +1,6 @@
 # ESP32-S3 双水位计闸门控制项目
 
-![屏幕截图 2026-02-13 194808.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/13/698f0ff780f47.webp)
+![main.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/69913589ceee3.webp)
 
 ## 1. 项目功能概览
 
