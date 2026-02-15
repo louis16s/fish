@@ -129,6 +129,29 @@
     th{color:var(--muted2);font-weight:950}
     td{color:var(--text);font-family:var(--mono)}
     .tblWrap{margin-top:12px;overflow:auto;max-height:70vh;border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-card)}
+    tbody tr:hover td{background:rgba(255,255,255,.03);cursor:pointer}
+    tbody tr.sel td{background:rgba(34,211,238,.10)}
+
+    .vizWrap{
+      margin-top:12px;
+      border-radius:var(--radius-card);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(2,6,23,.22));
+      overflow:hidden;
+    }
+    .vizMain{padding:12px}
+    .schem{display:block}
+    .schem svg{width:100%;height:auto;display:block}
+    .vizHud{
+      padding:10px 12px;
+      border-top:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    }
+    .tag{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.04);font-size:12px;font-weight:950;font-family:var(--mono)}
+    .tag.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
+    .tag.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
+    .tag.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
     :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
   </style>
 </head>
@@ -137,7 +160,8 @@
     <div class="top">
       <div class="row">
         <a class="btn" href="/">返回面板</a>
-        <a class="btn" href="/config">配置</a>
+        <a class="btn" href="/device-config">设备配置</a>
+        <a class="btn" href="/config">管理</a>
       </div>
       <div class="row">
         <span class="mini" id="who">--</span>
@@ -174,6 +198,48 @@
         <div class="hint bad" id="msg" style="display:none"></div>
       </div>
 
+      <div style="height:12px"></div>
+
+      <div class="sec" aria-label="水位可视化回放">
+        <div class="sec-title">水位可视化</div>
+        <div class="controls" style="align-items:center">
+          <button class="btn" id="btnPlay" onclick="togglePlay()">播放</button>
+          <label>
+            <span class="lbl">速度</span>
+            <select id="speed">
+              <option value="1">1x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+              <option value="8">8x</option>
+            </select>
+          </label>
+          <label style="flex:1 1 360px;min-width:220px">
+            <span class="lbl">进度</span>
+            <input id="scrub" type="range" min="0" max="0" step="1" value="0" oninput="scrubTo(this.value)">
+          </label>
+          <span class="mini" id="curTs">--</span>
+        </div>
+
+        <div class="vizWrap">
+          <div class="vizMain">
+            <div class="schem" id="schemWrap">
+              <div class="hint" id="schemMsg">示意图加载中…</div>
+            </div>
+          </div>
+          <div class="vizHud" aria-label="回放读数">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <span class="tag" id="hudInner">内塘 --</span>
+              <span class="tag" id="hudOuter">外塘 --</span>
+              <span class="tag" id="hudDelta">Δ --</span>
+              <span class="tag" id="hudGate">闸门 --</span>
+              <span class="tag" id="hudAuto">自动 --</span>
+            </div>
+            <div class="mini" id="hudIdx">--</div>
+          </div>
+        </div>
+        <div class="hint">提示：点击表格行可定位到该条数据；播放会从当前条开始自动递进。</div>
+      </div>
+
       <div class="tblWrap">
         <table>
           <thead>
@@ -199,6 +265,16 @@
     const UI_VERSION = 'ui-2026.02.15-01';
     const $ = (id)=>document.getElementById(id);
     let g_last = [];
+    let g_curIdx = 0;
+    let g_playing = false;
+    let g_playTimer = 0;
+
+    // Schematic handles (same SVG ids as /ui/pond_gate.svg used on the main panel)
+    let g_svg = null;
+    let g_waterL = null, g_waterR = null, g_chan = null;
+    let g_surfL = null, g_surfR = null, g_surfC = null;
+    let g_gatePlateGroup = null;
+    let g_gateRatio = 0;
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -284,6 +360,233 @@
       return 'S' + sev + ' ' + (a.text || 'alarm');
     }
 
+    function clamp(n, a, b){ return Math.min(b, Math.max(a, n)); }
+
+    function localInputToIso(v){
+      try{
+        const d = new Date(String(v || ''));
+        if(!Number.isFinite(d.getTime())) return '';
+        return d.toISOString();
+      }catch(e){ return ''; }
+    }
+
+    function mountSchematicFromSvgText(tx){
+      const wrap = $('schemWrap');
+      if(!wrap) return false;
+      const s = (tx == null) ? '' : ('' + tx);
+      if(!s || s.indexOf('<svg') === -1) return false;
+      wrap.innerHTML = s;
+      g_svg = wrap.querySelector('svg');
+      g_waterL = g_svg && g_svg.querySelector('#water_left');
+      g_waterR = g_svg && g_svg.querySelector('#water_right');
+      g_chan  = g_svg && g_svg.querySelector('#channel_water');
+      g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
+      g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
+      g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
+      g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
+      return !!g_svg;
+    }
+
+    async function loadSchematic(){
+      const msg = $('schemMsg');
+      try{
+        const r = await fetch('/ui/pond_gate.svg', {cache:'no-store'});
+        const tx = await r.text();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        if(mountSchematicFromSvgText(tx)){
+          if(msg) msg.textContent = '';
+          setGateRatio(0);
+          return true;
+        }
+        throw new Error('mount_failed');
+      }catch(e){
+        if(msg) msg.textContent = '示意图加载失败';
+        return false;
+      }
+    }
+
+    function setWaterRect(el, surf, mm, valid){
+      if(!el) return;
+      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
+      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
+      const maxMm = 5000;
+      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
+      const h = Math.max(0, baseH * ratio);
+      const y = baseY + (baseH - h);
+      el.setAttribute('y', y.toFixed(2));
+      el.setAttribute('height', h.toFixed(2));
+      el.setAttribute('data-valid', valid ? '1' : '0');
+
+      if(!surf) return;
+      const show = valid && h > 2;
+      surf.style.display = show ? '' : 'none';
+      if(show){
+        const sy = Math.max(baseY, y - 4);
+        surf.setAttribute('y', sy.toFixed(2));
+      }
+    }
+
+    function setGateRatio(ratio){
+      g_gateRatio = clamp(ratio, 0, 1);
+      if(g_gatePlateGroup){
+        const openDy = parseFloat(g_gatePlateGroup.getAttribute('data-open-dy') || '-600');
+        const closedDy = parseFloat(g_gatePlateGroup.getAttribute('data-closed-dy') || '0');
+        const dy = closedDy + (openDy - closedDy) * g_gateRatio;
+        g_gatePlateGroup.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
+      }
+      if(g_chan){
+        // Keep channel hidden in replay to reduce visual noise.
+        g_chan.style.display = 'none';
+      }
+    }
+
+    function deriveGateTarget(t){
+      const cand = [
+        t && t.gate_open_pct,
+        t && t.gate_open_percent,
+        t && t.gate_open_ratio,
+        t && t.gate_ratio,
+      ].find(v => typeof v === 'number' && isFinite(v));
+
+      if(typeof cand === 'number'){
+        if(cand > 1.2) return clamp(cand/100, 0, 1);
+        return clamp(cand, 0, 1);
+      }
+      if(t && t.gate_state === 1) return 1;
+      if(t && t.gate_state === 2) return 0;
+      return (t && t.gate_position_open) ? 1 : 0;
+    }
+
+    function setTag(id, text, kind){
+      const el = $(id);
+      if(!el) return;
+      el.textContent = text;
+      el.className = 'tag' + (kind ? (' ' + kind) : '');
+    }
+
+    function updateTableSel(){
+      const tb = $('tbody');
+      if(!tb) return;
+      const trs = tb.querySelectorAll('tr[data-idx]');
+      trs.forEach((tr)=>{
+        const i = parseInt(tr.getAttribute('data-idx') || '-1', 10);
+        tr.className = (i === g_curIdx) ? 'sel' : '';
+      });
+    }
+
+    function renderVizRow(row, idx){
+      const curTs = $('curTs');
+      const hudIdx = $('hudIdx');
+      if(!row || !row.payload){
+        if(curTs) curTs.textContent = '--';
+        if(hudIdx) hudIdx.textContent = '--';
+        setTag('hudInner', '内塘 --', '');
+        setTag('hudOuter', '外塘 --', '');
+        setTag('hudDelta', 'Δ --', '');
+        setTag('hudGate', '闸门 --', '');
+        setTag('hudAuto', '自动 --', '');
+        setGateRatio(0);
+        setWaterRect(g_waterL, g_surfL, 0, false);
+        setWaterRect(g_waterR, g_surfR, 0, false);
+        return;
+      }
+
+      const r = row;
+      const t = r.payload || {};
+      const s1 = t.sensor1 || {};
+      const s2 = t.sensor2 || {};
+      const innerOk = !!s1.valid;
+      const outerOk = !!s2.valid;
+      const inner = innerOk ? (s1.mm|0) : null;
+      const outer = outerOk ? (s2.mm|0) : null;
+      const delta = (inner != null && outer != null) ? (inner - outer) : null;
+
+      if(curTs) curTs.textContent = fmtTs(r.ts);
+      if(hudIdx) hudIdx.textContent = (typeof idx === 'number') ? ('#' + (idx + 1) + ' / ' + (g_last.length || 0)) : '--';
+
+      setTag('hudInner', '内塘 ' + (inner==null?'--':(inner + 'mm')), innerOk ? 'good' : 'bad');
+      setTag('hudOuter', '外塘 ' + (outer==null?'--':(outer + 'mm')), outerOk ? 'good' : 'bad');
+
+      if(delta == null){
+        setTag('hudDelta', 'Δ --', '');
+      }else{
+        const kind = (Math.abs(delta) > 80) ? 'warn' : 'good';
+        setTag('hudDelta', 'Δ ' + delta + 'mm', kind);
+      }
+
+      setTag('hudGate', '闸门 ' + gateStateText(t.gate_state), '');
+      const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
+      setTag('hudAuto', '自动 ' + auto, t.auto_latched ? 'bad' : (t.auto_gate ? 'good' : ''));
+
+      // Left is outer pond, right is inner pond (matches main panel).
+      setWaterRect(g_waterL, g_surfL, outer==null?0:outer, outerOk);
+      setWaterRect(g_waterR, g_surfR, inner==null?0:inner, innerOk);
+      setGateRatio(deriveGateTarget(t));
+    }
+
+    function stopPlay(){
+      if(g_playTimer){
+        clearInterval(g_playTimer);
+        g_playTimer = 0;
+      }
+      g_playing = false;
+      const b = $('btnPlay');
+      if(b) b.textContent = '播放';
+    }
+
+    function playStepMs(){
+      const s = parseInt(($('speed') && $('speed').value) || '1', 10) || 1;
+      const base = 450; // ms/step at 1x
+      return Math.max(35, Math.round(base / Math.max(1, s)));
+    }
+
+    function startPlay(){
+      if(!g_last.length) return;
+      if(g_playTimer) clearInterval(g_playTimer);
+      g_playing = true;
+      const b = $('btnPlay');
+      if(b) b.textContent = '暂停';
+      g_playTimer = setInterval(()=>{
+        if(!g_last.length){ stopPlay(); return; }
+        if(g_curIdx >= g_last.length - 1){ stopPlay(); return; }
+        selectIdx(g_curIdx + 1, {keepPlaying:true});
+      }, playStepMs());
+    }
+
+    function togglePlay(){
+      if(g_playing) stopPlay();
+      else startPlay();
+    }
+    window.togglePlay = togglePlay;
+
+    function selectIdx(i, opts){
+      const o = opts || {};
+      const keepPlaying = !!o.keepPlaying;
+      if(!keepPlaying) stopPlay();
+      const n = g_last.length || 0;
+      if(!n){
+        g_curIdx = 0;
+        renderVizRow(null, 0);
+        updateTableSel();
+        return;
+      }
+      const idx = clamp(parseInt(i, 10) || 0, 0, n - 1);
+      g_curIdx = idx;
+      const sc = $('scrub');
+      if(sc){
+        sc.max = String(Math.max(0, n - 1));
+        sc.value = String(idx);
+      }
+      renderVizRow(g_last[idx], idx);
+      updateTableSel();
+    }
+    window.selectIdx = selectIdx;
+
+    function scrubTo(v){
+      selectIdx(v);
+    }
+    window.scrubTo = scrubTo;
+
     async function loadData(){
       const btn = $('btnLoad');
       if(btn) btn.disabled = true;
@@ -296,9 +599,12 @@
       if(!from || !to){ showMsg('请选择开始/结束时间'); if(btn) btn.disabled=false; return; }
 
       try{
+        const fromIso = localInputToIso(from);
+        const toIso = localInputToIso(to);
+        if(!fromIso || !toIso) throw new Error('bad_time_range');
         const url = '/api/telemetry/range?device_id=' + encodeURIComponent(dev) +
-          '&from=' + encodeURIComponent(from) +
-          '&to=' + encodeURIComponent(to) +
+          '&from=' + encodeURIComponent(fromIso) +
+          '&to=' + encodeURIComponent(toIso) +
           '&limit=' + encodeURIComponent(limit);
         const j = await apiJson(url);
         const rows = (j && Array.isArray(j.rows)) ? j.rows : [];
@@ -308,7 +614,7 @@
           if(!rows.length){
             tb.innerHTML = '<tr><td colspan="7">(空)</td></tr>';
           }else{
-            tb.innerHTML = rows.map((r)=>{
+            tb.innerHTML = rows.map((r, i)=>{
               const t = r && r.payload ? r.payload : {};
               const s1 = t.sensor1 || {};
               const s2 = t.sensor2 || {};
@@ -316,7 +622,7 @@
               const outer = (s2 && s2.valid) ? (s2.mm|0) : null;
               const delta = (inner != null && outer != null) ? (inner - outer) : null;
               const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
-              return '<tr>' +
+              return '<tr data-idx=\"' + i + '\" onclick=\"selectIdx(' + i + ')\">' +
                 '<td>' + fmtTs(r.ts) + '</td>' +
                 '<td>' + (inner==null?'--':inner) + '</td>' +
                 '<td>' + (outer==null?'--':outer) + '</td>' +
@@ -330,6 +636,14 @@
         }
         const meta = $('meta');
         if(meta) meta.textContent = '返回 ' + rows.length + ' 条';
+
+        // Reset scrub + visualization.
+        const sc = $('scrub');
+        if(sc){
+          sc.max = String(Math.max(0, rows.length - 1));
+          sc.value = String(Math.max(0, rows.length - 1));
+        }
+        selectIdx(Math.max(0, rows.length - 1), {keepPlaying:false});
       }catch(e){
         showMsg('查询失败：' + e.message);
       }finally{
@@ -399,6 +713,18 @@
     (function init(){
       $('verLine').textContent = 'UI ' + UI_VERSION;
       loadMe();
+      loadSchematic().then(()=>{
+        renderVizRow(null, 0);
+      });
+      const sp = $('speed');
+      if(sp){
+        sp.addEventListener('change', ()=>{
+          if(g_playing){
+            // Restart interval with the new speed.
+            startPlay();
+          }
+        });
+      }
       loadDevices().then(()=>{
         const now = new Date();
         const from = new Date(now.getTime() - 60*60*1000);
@@ -409,4 +735,3 @@
   </script>
 </body>
 </html>
-

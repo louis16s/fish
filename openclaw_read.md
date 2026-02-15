@@ -133,9 +133,11 @@ docker compose --env-file .env up -d --build
 5. 配置授权（ACL，最小权限原则）
    - `fish1`：
      - allow publish: `fish1/device/telemetry`
+     - allow publish: `fish1/device/reply`
      - allow subscribe: `fish1/device/command`
    - `fish_srv`：
      - allow subscribe: `+/device/telemetry`
+     - allow subscribe: `+/device/reply`
      - allow publish: `+/device/command`
 
 6. 配置完成后，建议把 `openclaw/docker-compose.yml` 里的 Dashboard 端口映射删掉/注释掉（保持不对公网开放）。
@@ -158,9 +160,11 @@ docker compose --env-file .env up -d --build
 - [ ] 配置授权/ACL（默认 `deny`，最小权限原则）：
   - 设备用户 `fish1`：
     - allow publish：`fish1/device/telemetry`
+    - allow publish：`fish1/device/reply`
     - allow subscribe：`fish1/device/command`
   - 服务器用户 `fish_srv`：
     - allow subscribe：`+/device/telemetry`
+    - allow subscribe：`+/device/reply`
     - allow publish：`+/device/command`
 - [ ] 对齐配置：
   - `openclaw/.env` 的 `MQTT_SERVER_USERNAME/MQTT_SERVER_PASSWORD` 要与 EMQX 里创建的“服务器用户”一致
@@ -190,6 +194,9 @@ docker compose --env-file .env up -d --build
   - `GET /api/state` 获取最新遥测（结构与设备 `/api/state` 一致：包含 `telemetry` 字段）
   - `POST /api/cmd` 下发控制（服务端发布 MQTT `device_id/device/command`）
   - 历史水位：自动调用 `GET /api/history?window_s=...` 从服务器拉取历史（默认固定 0-5m，超过 5m 才自动扩展标尺）
+- 设备配置：`/device-config`
+  - `GET /api/config` / `POST /api/config` 通过 MQTT RPC 读写设备 `ctrl.json`
+  - `GET /api/log` / `POST /api/log/clear` / `GET /api/log/download` 通过 MQTT RPC 读取/清空日志（默认读取末尾 16KB）
 - 回放：`/replay`
   - 可按时间范围查询服务器保存的所有遥测并导出 JSON/CSV
 - 配置：`/config`（管理员）

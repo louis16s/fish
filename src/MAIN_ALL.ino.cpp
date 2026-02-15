@@ -1,4 +1,7 @@
-#include <HardwareSerial.h>     // Reference the ESP32 built-in serial port library
+# 1 "C:\\Users\\louis16s\\AppData\\Local\\Temp\\tmpzr4oqbdt"
+#include <Arduino.h>
+# 1 "D:/users/code/fish-github/src/MAIN_ALL.ino"
+#include <HardwareSerial.h>
 #include <stdarg.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -11,36 +14,36 @@
 #include "WS_Control.h"
 #include "WS_Log.h"
 
-#define CH1 '1'                 // CH1 Enabled Instruction
-#define CH2 '2'                 // CH2 Enabled Instruction
-#define CH3 '3'                 // CH3 Enabled Instruction
-#define CH4 '4'                 // CH4 Enabled Instruction
-#define CH5 '5'                 // CH5 Enabled Instruction
-#define CH6 '6'                 // CH6 Enabled Instruction
-#define GATE_STOP '0'           // Stop gate motion (CH1/CH2 off)
-#define ALL_ON  '7'             // Start all channel instructions
-#define ALL_OFF '8'             // Disable all channel instructions
+#define CH1 '1'
+#define CH2 '2'
+#define CH3 '3'
+#define CH4 '4'
+#define CH5 '5'
+#define CH6 '6'
+#define GATE_STOP '0'
+#define ALL_ON '7'
+#define ALL_OFF '8'
 
-#define RS485_Mode        1     // Used to distinguish data sources
+#define RS485_Mode 1
 extern char ipStr[16];
 extern bool WIFI_Connection;
 extern HardwareSerial lidarSerial;
 
-bool Relay_Flag[6] = {0};       // Relay current status flag
+bool Relay_Flag[6] = {0};
 
-// Gate control mapping: Relay1=OPEN, Relay2=CLOSE
+
 const uint8_t GATE_STATE_STOPPED = 0;
 const uint8_t GATE_STATE_OPENING = 1;
 const uint8_t GATE_STATE_CLOSING = 2;
 uint8_t Gate_State = GATE_STATE_STOPPED;
-bool Gate_Position_Open = false;  // Estimated gate position after action completes
+bool Gate_Position_Open = false;
 bool Gate_AutoControl_Enabled = GATE_AUTO_CONTROL_Enable;
 bool Gate_Auto_Latched_Off = false;
 bool Gate_Action_Active = false;
 uint32_t Gate_Action_StartMs = 0;
 const uint32_t GATE_ACTION_DURATION_MS = (uint32_t)GATE_RELAY_ACTION_SECONDS * 1000UL;
 
-// RS485 ultrasonic level sensors (Modbus RTU)
+
 const uint8_t SENSOR_ID_1 = INNER_POND_SENSOR_ID;
 const uint8_t SENSOR_ID_2 = OUTER_POND_SENSOR_ID;
 const uint16_t SENSOR_POLL_INTERVAL_MS = 1000;
@@ -77,7 +80,7 @@ uint32_t Manual_Takeover_UntilMs = 0;
 uint32_t Manual_Takeover_DurationMs = 0;
 
 bool Alarm_Active = false;
-uint8_t Alarm_Severity = 0;  // 0=none,1=warn,2=critical
+uint8_t Alarm_Severity = 0;
 char Alarm_Text[128] = "normal";
 bool Alarm_GateTimeout = false;
 bool Alarm_RelayInterlock = false;
@@ -88,23 +91,46 @@ uint32_t Gate_Last_Block_Log_Ms = 0;
 static WS_ControlConfig CtrlCfg;
 static bool CtrlCfgLoaded = false;
 
-// Daily rule edge detect: avoid repeated trigger in same minute.
+
 static int32_t Daily_Last_Fired_DayKey_Open[8] = {0};
 static int32_t Daily_Last_Fired_DayKey_Close[8] = {0};
 
-// Cycle runtime state
+
 static uint8_t Cycle_ActiveRule = 0;
 static uint8_t Cycle_StepIndex = 0;
 static uint32_t Cycle_StepEndMs = 0;
 
-// Measurement logging throttling
+
 static uint32_t Log_LastMeasureMs = 0;
 static const uint32_t LOG_MEASURE_INTERVAL_MS = 60000UL;
 
 static bool Alarm_PrevActive = false;
 static uint8_t Alarm_PrevSeverity = 0;
 static char Alarm_PrevText[128] = "normal";
-
+static void Gate_Log(const char* fmt, ...);
+static bool Gate_Should_Log_Block();
+static void Gate_Stop();
+static bool Gate_Open();
+static bool Gate_Close();
+static void Gate_Action_Loop();
+static void Gate_AutoControl_Loop();
+static void Ctrl_LoadIfNeeded();
+void WS_Ctrl_ForceReload();
+static int32_t DayKeyFromEpoch(uint32_t epoch);
+static void Ctrl_Daily_Loop(uint32_t curMinOfDay, int32_t dayKey);
+static void Ctrl_Cycle_Loop();
+static void Ctrl_LevelDiff_Loop();
+static void Ctrl_Automation_Loop();
+static void Manual_Takeover_Loop();
+static void Alarm_LogTransitions();
+static uint16_t Modbus_CRC16(const uint8_t* data, size_t len);
+static bool Read_Sensor_Data(uint8_t id, uint16_t* level_mm, int16_t* temp_x10);
+static bool Read_Sensor_WithRetry(uint8_t id, uint16_t* level_mm, int16_t* temp_x10);
+static void Sensor_Read_Loop();
+void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag);
+void setup();
+void loop();
+#line 108 "D:/users/code/fish-github/src/MAIN_ALL.ino"
 static void Gate_Log(const char* fmt, ...)
 {
   if (!SERIAL_GATE_LOG_Enable) {
@@ -156,7 +182,7 @@ static bool Gate_Open()
 {
   if (Relay_Flag[1]) {
     if (Manual_Takeover_Active) {
-      // Manual takeover: allow one-click reverse by stopping first.
+
       Gate_Stop();
     } else {
       snprintf(Gate_Block_Reason, sizeof(Gate_Block_Reason), "Interlock: close relay is active");
@@ -195,7 +221,7 @@ static bool Gate_Close()
 {
   if (Relay_Flag[0]) {
     if (Manual_Takeover_Active) {
-      // Manual takeover: allow one-click reverse by stopping first.
+
       Gate_Stop();
     } else {
       snprintf(Gate_Block_Reason, sizeof(Gate_Block_Reason), "Interlock: open relay is active");
@@ -254,7 +280,7 @@ static void Gate_Action_Loop()
 
 static void Gate_AutoControl_Loop()
 {
-  // Deprecated: logic moved to Ctrl_Automation_Loop() with config persistence.
+
 }
 
 static void Ctrl_LoadIfNeeded()
@@ -266,11 +292,11 @@ static void Ctrl_LoadIfNeeded()
   WS_Time_SetTzOffsetMs(CtrlCfg.tz_offset_ms);
 }
 
-// Called by HTTP/MQTT handlers after ctrl.json is updated.
+
 void WS_Ctrl_ForceReload()
 {
   CtrlCfgLoaded = false;
-  // Reset runtime state so newly-enabled rules take effect immediately.
+
   for (uint8_t i = 0; i < 8; i++) {
     Daily_Last_Fired_DayKey_Open[i] = 0;
     Daily_Last_Fired_DayKey_Close[i] = 0;
@@ -282,14 +308,14 @@ void WS_Ctrl_ForceReload()
 
 static int32_t DayKeyFromEpoch(uint32_t epoch)
 {
-  // Cheap "day key": number of days since epoch 0 in local time.
+
   return (int32_t)(epoch / 86400UL);
 }
 
 static void Ctrl_Daily_Loop(uint32_t curMinOfDay, int32_t dayKey)
 {
   if (CtrlCfg.daily_count == 0) return;
-  // 1970-01-01 is Thursday. With Mon=0..Sun=6 => Thu=3.
+
   const uint8_t dow = (uint8_t)((dayKey + 3) % 7);
   const uint8_t dowBit = (uint8_t)(1U << dow);
   for (uint8_t i = 0; i < CtrlCfg.daily_count && i < 8; i++) {
@@ -376,7 +402,7 @@ static void Ctrl_LevelDiff_Loop()
     return;
   }
 
-  // Support multiple level-diff rule groups: pick the first enabled rule (in order).
+
   const WS_LevelDiffRule* pr = nullptr;
   uint8_t ridx = 0;
   for (uint8_t i = 0; i < CtrlCfg.leveldiff_count && i < 4; i++) {
@@ -421,7 +447,7 @@ static void Ctrl_Automation_Loop()
     Ctrl_LoadIfNeeded();
   }
 
-  // Cycle has priority if enabled.
+
   if (CtrlCfg.mode == WS_CTRL_CYCLE) {
     Ctrl_Cycle_Loop();
     return;
@@ -440,7 +466,7 @@ static void Ctrl_Automation_Loop()
     return;
   }
 
-  // mixed: if any cycle enabled -> run cycle; else daily events; otherwise leveldiff as continuous fallback.
+
   if (Ctrl_FindActiveCycleRule() != nullptr) {
     Ctrl_Cycle_Loop();
     return;
@@ -514,7 +540,7 @@ static void Update_Gate_Command_Availability()
     snprintf(Gate_Block_Reason, sizeof(Gate_Block_Reason), "Interlock: both relays cannot be active");
     return;
   }
-  // Manual takeover: allow immediate open/close without cooldown restrictions.
+
   if (Manual_Takeover_Active) {
     return;
   }
@@ -575,7 +601,7 @@ static void Update_Alarm_Status()
 static void Alarm_LogTransitions()
 {
   if (Alarm_Active != Alarm_PrevActive || Alarm_Severity != Alarm_PrevSeverity || strcmp(Alarm_Text, Alarm_PrevText) != 0) {
-    // Keep logs focused: ignore short-lived warnings (severity=1). The UI already shows them.
+
     const bool prevSerious = Alarm_PrevActive && (Alarm_PrevSeverity >= 2);
     const bool curSerious = Alarm_Active && (Alarm_Severity >= 2);
     if (curSerious) {
@@ -607,14 +633,14 @@ static uint16_t Modbus_CRC16(const uint8_t* data, size_t len)
 
 static bool Read_Sensor_Data(uint8_t id, uint16_t* level_mm, int16_t* temp_x10)
 {
-  // Read 4 registers from 0x0000: level(0x0000) ... temp(0x0003)
+
   uint8_t req[8] = {id, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00};
   const uint16_t req_crc = Modbus_CRC16(req, 6);
   req[6] = req_crc & 0xFF;
   req[7] = (req_crc >> 8) & 0xFF;
 
-  // Drain late bytes from the previous frame. A short quiet window helps avoid
-  // "polluting" the next response when a sensor replies after our timeout.
+
+
   while (lidarSerial.available() > 0) {
     lidarSerial.read();
   }
@@ -624,11 +650,11 @@ static bool Read_Sensor_Data(uint8_t id, uint16_t* level_mm, int16_t* temp_x10)
   }
 
   lidarSerial.write(req, sizeof(req));
-  lidarSerial.flush();  // ensure request is on the wire (helps RS485 auto-direction modules)
+  lidarSerial.flush();
 
-  // Expected response:
-  // id, 0x03, 0x08, 8 bytes data, CRC(2) -> total 13 bytes.
-  // Read into a larger buffer and resync by header+CRC to tolerate stray bytes.
+
+
+
   uint8_t raw[32] = {0};
   size_t received = 0;
   const uint32_t start_ms = millis();
@@ -660,7 +686,7 @@ static bool Read_Sensor_Data(uint8_t id, uint16_t* level_mm, int16_t* temp_x10)
       break;
     }
     if (!progressed) {
-      delay(1);  // yield
+      delay(1);
     }
   }
 
@@ -747,8 +773,8 @@ static void Sensor_Read_Loop()
     Next_Sensor_ID = SENSOR_ID_1;
   }
 
-  // Debounce "online" to reduce flapping: treat sensor as offline only after N ms without successful data.
-  // Note: each sensor is polled every ~2s (alternating), so a 3s grace tolerates one missed poll.
+
+
   {
     const uint32_t now = millis();
     Sensor_Online_1 = (Sensor_Last_Ok_Ms_1 > 0) && ((now - Sensor_Last_Ok_Ms_1) <= (uint32_t)SENSOR_ONLINE_GRACE_MS);
@@ -801,9 +827,9 @@ static void Sensor_Read_Loop()
   }
 }
 
-       
 
-/********************************************************  Data Analysis  ********************************************************/
+
+
 void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
 {
   const bool isGateCommand = (buf[0] == GATE_STOP || buf[0] == CH1 || buf[0] == CH2);
@@ -813,7 +839,7 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
     } else {
       printf("RS485 Data :");
     }
-  }  
+  }
   switch(buf[0])
   {
     case GATE_STOP:
@@ -822,30 +848,30 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
       Buzzer_PWM(60);
       Gate_Log("|***  Gate STOP (Relay CH1/CH2 off) ***|\r\n");
       break;
-    case CH1: 
+    case CH1:
       Pause_Auto_By_ManualTakeover();
       if (!Gate_Open()) {
         if (Gate_Should_Log_Block()) {
           Gate_Log("|***  Gate OPEN blocked: %s ***|\r\n", Gate_Block_Reason);
         }
         break;
-      }                                                                          // Relay1 controls gate OPEN
+      }
       Buzzer_PWM(100);
       Gate_Log("|***  Gate OPEN (Relay CH1) ***|\r\n");
       break;
-    case CH2: 
+    case CH2:
       Pause_Auto_By_ManualTakeover();
       if (!Gate_Close()) {
         if (Gate_Should_Log_Block()) {
           Gate_Log("|***  Gate CLOSE blocked: %s ***|\r\n", Gate_Block_Reason);
         }
         break;
-      }                                                                          // Relay2 controls gate CLOSE
+      }
       Buzzer_PWM(100);
       Gate_Log("|***  Gate CLOSE (Relay CH2) ***|\r\n");
       break;
     case CH3:
-      digitalToggle(GPIO_PIN_CH3);                                             //Toggle the level status of the GPIO_PIN_CH3 pin
+      digitalToggle(GPIO_PIN_CH3);
       Relay_Flag[2] =! Relay_Flag[2];
       Buzzer_PWM(100);
       if(Relay_Flag[2])
@@ -854,7 +880,7 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
         printf("|***  Relay CH3 off ***|\r\n");
       break;
     case CH4:
-      digitalToggle(GPIO_PIN_CH4);                                             //Toggle the level status of the GPIO_PIN_CH4 pin
+      digitalToggle(GPIO_PIN_CH4);
       Relay_Flag[3] =! Relay_Flag[3];
       Buzzer_PWM(100);
       if(Relay_Flag[3])
@@ -863,7 +889,7 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
         printf("|***  Relay CH4 off ***|\r\n");
       break;
     case CH5:
-      digitalToggle(GPIO_PIN_CH5);                                             //Toggle the level status of the GPIO_PIN_CH5 pin
+      digitalToggle(GPIO_PIN_CH5);
       Relay_Flag[4] =! Relay_Flag[4];
       Buzzer_PWM(100);
       if(Relay_Flag[4])
@@ -872,7 +898,7 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
         printf("|***  Relay CH5 off ***|\r\n");
       break;
     case CH6:
-      digitalToggle(GPIO_PIN_CH6);                                             //Toggle the level status of the GPIO_PIN_CH6 pin
+      digitalToggle(GPIO_PIN_CH6);
       Relay_Flag[5] =! Relay_Flag[5];
       Buzzer_PWM(100);
       if(Relay_Flag[5])
@@ -881,16 +907,16 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
         printf("|***  Relay CH6 off ***|\r\n");
       break;
     case ALL_ON:
-      // Safety: CH1/CH2 are gate direction relays, never allow both ON at the same time.
+
       if (Gate_Action_Active || Relay_Flag[0] || Relay_Flag[1]) {
         Gate_Stop();
       }
-      digitalWrite(GPIO_PIN_CH1, LOW);                                        // Keep gate relays OFF
-      digitalWrite(GPIO_PIN_CH2, LOW);                                        // Keep gate relays OFF
-      digitalWrite(GPIO_PIN_CH3, HIGH);                                       // Open CH3 relay
-      digitalWrite(GPIO_PIN_CH4, HIGH);                                       // Open CH4 relay
-      digitalWrite(GPIO_PIN_CH5, HIGH);                                       // Open CH5 relay
-      digitalWrite(GPIO_PIN_CH6, HIGH);                                       // Open CH6 relay
+      digitalWrite(GPIO_PIN_CH1, LOW);
+      digitalWrite(GPIO_PIN_CH2, LOW);
+      digitalWrite(GPIO_PIN_CH3, HIGH);
+      digitalWrite(GPIO_PIN_CH4, HIGH);
+      digitalWrite(GPIO_PIN_CH5, HIGH);
+      digitalWrite(GPIO_PIN_CH6, HIGH);
       Relay_Flag[0] = 0;
       Relay_Flag[1] = 0;
       Relay_Flag[2] = 1;
@@ -904,10 +930,10 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
       break;
     case ALL_OFF:
       Gate_Stop();
-      digitalWrite(GPIO_PIN_CH3, LOW);                                        // Turn off CH3 relay
-      digitalWrite(GPIO_PIN_CH4, LOW);                                        // Turn off CH4 relay
-      digitalWrite(GPIO_PIN_CH5, LOW);                                        // Turn off CH5 relay
-      digitalWrite(GPIO_PIN_CH6, LOW);                                        // Turn off CH6 relay
+      digitalWrite(GPIO_PIN_CH3, LOW);
+      digitalWrite(GPIO_PIN_CH4, LOW);
+      digitalWrite(GPIO_PIN_CH5, LOW);
+      digitalWrite(GPIO_PIN_CH6, LOW);
       memset(Relay_Flag,0, sizeof(Relay_Flag));
       Update_Gate_Command_Availability();
       printf("|***  Relay ALL off ***|\r\n");
@@ -954,13 +980,13 @@ static void Offline_Network_RGB_Loop()
     RGB_Light(0, 0, 80);
   }
 }
-/********************************************************  Initializing  ********************************************************/
+
 void setup() {
-// UART
+
   Serial_Init();
   WS_Log_Init();
   WS_Log_SetTimeProvider(WS_Time_NowEpoch);
-// Relay . RGB . Buzzer GPIO
+
   GPIO_Init();
   Buzzer_Startup_Melody(STARTUP_BUZZER_DURATION_MS);
   Update_Gate_Command_Availability();
@@ -968,23 +994,23 @@ void setup() {
   Alarm_LogTransitions();
   Ctrl_LoadIfNeeded();
 
-// WIFI
+
   MQTT_Init();
   if (WIFI_Connection == 1 && WiFi.status() == WL_CONNECTED) {
     WS_Time_OnWiFiConnected();
   }
 }
 
-/**********************************************************  While  **********************************************************/
+
 void loop() {
-// RS485 Read two ultrasonic level sensors
+
   Sensor_Read_Loop();
   Manual_Takeover_Loop();
   WS_Time_Loop();
   Ctrl_Automation_Loop();
   Gate_Action_Loop();
 
-  // Hard safety: if both gate direction relays are ON, stop immediately and latch an alarm.
+
   const bool ch1On = Relay_Flag[0] || (digitalRead(GPIO_PIN_CH1) == HIGH);
   const bool ch2On = Relay_Flag[1] || (digitalRead(GPIO_PIN_CH2) == HIGH);
   if (ch1On && ch2On) {
@@ -995,13 +1021,8 @@ void loop() {
   Update_Alarm_Status();
   Alarm_LogTransitions();
 
-// WIFI
+
   MQTT_Loop();
   Air780E_Loop();
   Offline_Network_RGB_Loop();
 }
-
-
-
-
-

@@ -24,6 +24,7 @@ const schema = z.object({
   MQTT_USERNAME: z.string().optional(),
   MQTT_PASSWORD: z.string().optional(),
   MQTT_TELEMETRY_SUB: z.string().min(1).default('+/device/telemetry'),
+  MQTT_REPLY_SUB: z.string().min(1).default('+/device/reply'),
   DEFAULT_DEVICE_ID: z.string().min(1).default('fish1'),
 
   DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
@@ -39,4 +40,3 @@ function loadConfig(processEnv) {
 }
 
 module.exports = { loadConfig };
-

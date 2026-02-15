@@ -2,12 +2,27 @@ const mqtt = require('mqtt');
 
 function inferDeviceIdFromTopic(topic) {
   const t = String(topic || '');
-  const m = /^([^/]+)\/device\/telemetry(?:\/.*)?$/.exec(t);
+  const m = /^([^/]+)\/device\/(?:telemetry|reply)(?:\/.*)?$/.exec(t);
   if (m && m[1]) return m[1];
   // Fallback: "fish1/device/telemetry" -> first segment still works even if suffix differs.
   const parts = t.split('/').filter(Boolean);
   if (parts.length >= 1) return parts[0];
   return '';
+}
+
+function isReplyTopic(topic) {
+  const t = String(topic || '');
+  return /\/device\/reply(?:\/.*)?$/.test(t);
+}
+
+function isTelemetryTopic(topic) {
+  const t = String(topic || '');
+  return /\/device\/telemetry(?:\/.*)?$/.test(t);
+}
+
+function makeReqId() {
+  // Simple, collision-resistant enough for in-process correlation.
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
 function createMqttClient(cfg, handlers) {
@@ -17,6 +32,8 @@ function createMqttClient(cfg, handlers) {
     lastError: '',
     lastConnectAt: 0
   };
+
+  const pending = new Map(); // reqId -> { deviceId, resolve, reject, timeout }
 
   const url = cfg.MQTT_URL;
   const opts = {
@@ -40,8 +57,12 @@ function createMqttClient(cfg, handlers) {
     state.lastError = '';
     state.lastConnectAt = Date.now();
     if (typeof h.onConnect === 'function') h.onConnect();
-    client.subscribe(cfg.MQTT_TELEMETRY_SUB, { qos: 0 }, (err) => {
-      if (err) setErr(err);
+    const subs = [cfg.MQTT_TELEMETRY_SUB, cfg.MQTT_REPLY_SUB].filter(Boolean);
+    const uniq = Array.from(new Set(subs));
+    uniq.forEach((topic) => {
+      client.subscribe(topic, { qos: 0 }, (err) => {
+        if (err) setErr(err);
+      });
     });
   });
 
@@ -73,16 +94,48 @@ function createMqttClient(cfg, handlers) {
       if (typeof h.onBadMessage === 'function') h.onBadMessage(topicStr, e);
       return;
     }
+
+    if (isReplyTopic(topicStr)) {
+      const reqId = payload && payload.req_id ? String(payload.req_id) : '';
+      if (reqId && pending.has(reqId)) {
+        const p = pending.get(reqId);
+        pending.delete(reqId);
+        try {
+          if (p && p.timeout) clearTimeout(p.timeout);
+        } catch (e) {}
+        // Best-effort: ensure device matches to avoid cross-device collisions.
+        if (p && p.deviceId && deviceId && p.deviceId !== deviceId) {
+          try {
+            p.reject(new Error('bad_device'));
+          } catch (e) {}
+          return;
+        }
+        try {
+          p.resolve(payload || {});
+        } catch (e) {}
+      }
+      if (typeof h.onReply === 'function') {
+        h.onReply({ deviceId, topic: topicStr, payload, receivedAt });
+      }
+      return;
+    }
+
+    if (!isTelemetryTopic(topicStr)) {
+      // Ignore unknown topics to avoid polluting telemetry storage.
+      return;
+    }
+
     if (typeof h.onTelemetry === 'function') {
       h.onTelemetry({ deviceId, topic: topicStr, payload, receivedAt });
     }
   });
 
-  function publishCommand(deviceId, cmd) {
+  function publishMessage(deviceId, msgObj) {
     const did = String(deviceId || '').trim();
     if (!did) throw new Error('missing deviceId');
     const topic = did + '/device/command';
-    const body = JSON.stringify({ cmd: String(cmd || '') });
+    if (!state.connected) throw new Error('mqtt_not_connected');
+    const body = JSON.stringify(msgObj || {});
     return new Promise((resolve, reject) => {
       client.publish(topic, body, { qos: 0, retain: false }, (err) => {
         if (err) return reject(err);
@@ -91,8 +144,48 @@ function createMqttClient(cfg, handlers) {
     });
   }
 
-  return { client, state, publishCommand };
+  function publishCommand(deviceId, cmd) {
+    return publishMessage(deviceId, { cmd: String(cmd || '') });
+  }
+
+  function rpc(deviceId, msgObj, options) {
+    const did = String(deviceId || '').trim();
+    if (!did) return Promise.reject(new Error('missing deviceId'));
+    if (!state.connected) return Promise.reject(new Error('mqtt_not_connected'));
+
+    const msg = msgObj && typeof msgObj === 'object' ? { ...msgObj } : {};
+    const cmd = String(msg.cmd || '').trim();
+    if (!cmd) return Promise.reject(new Error('missing_cmd'));
+
+    const timeoutMs = (options && Number.isFinite(options.timeoutMs)) ? Math.max(500, options.timeoutMs | 0) : 6000;
+    const reqId = makeReqId();
+    msg.req_id = reqId;
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pending.delete(reqId);
+        reject(new Error('timeout'));
+      }, timeoutMs);
+      pending.set(reqId, { deviceId: did, resolve, reject, timeout });
+
+      publishMessage(did, msg).catch((e) => {
+        pending.delete(reqId);
+        try {
+          clearTimeout(timeout);
+        } catch (e2) {}
+        reject(e);
+      });
+    }).then((reply) => {
+      const ok = !!(reply && reply.ok);
+      if (!ok) {
+        const err = reply && reply.error ? String(reply.error) : 'device_error';
+        throw new Error(err);
+      }
+      return reply;
+    });
+  }
+
+  return { client, state, publishCommand, publishMessage, rpc };
 }
 
 module.exports = { createMqttClient };
-

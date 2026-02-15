@@ -71,6 +71,7 @@ extern void End_Manual_Takeover();
 extern void Enable_Auto_Mode();
 extern void Latch_Auto_Off();
 extern void Pause_Auto_By_ManualTakeover();
+extern void WS_Ctrl_ForceReload();
 static char OtaLatestVersion[32] = "ElegantOTA";
 static char OtaLastCheck[24] = "n/a";
 static char OtaLastResult[96] = "web_update_only";
@@ -319,6 +320,78 @@ static void MQTT_PublishState(bool force)
     Mqtt_LastPublishMs = nowMs;
     Mqtt_State_Dirty = false;
   }
+}
+
+// ===================== MQTT RPC Replies (Cloud Panel) =====================
+// Cloud panel uses server-side MQTT and exposes HTTP APIs to browsers.
+// Device replies are published to "<device_id>/device/reply".
+static char g_mqttReplyTopic[96] = {0};
+
+static const char* MQTT_ReplyTopic()
+{
+  if (g_mqttReplyTopic[0] != '\0') {
+    return g_mqttReplyTopic;
+  }
+  // Derive topic from telemetry publish topic "<device_id>/device/telemetry".
+  const char* p = pub;
+  if (p && p[0] != '\0') {
+    const char* slash = strchr(p, '/');
+    const size_t didLen = slash ? (size_t)(slash - p) : strlen(p);
+    if (didLen > 0 && didLen < 48) {
+      snprintf(g_mqttReplyTopic, sizeof(g_mqttReplyTopic), "%.*s/device/reply", (int)didLen, p);
+      return g_mqttReplyTopic;
+    }
+  }
+  // Fallback to MQTT username (often equals device_id).
+  if (mqtt_user && mqtt_user[0] != '\0') {
+    snprintf(g_mqttReplyTopic, sizeof(g_mqttReplyTopic), "%s/device/reply", mqtt_user);
+    return g_mqttReplyTopic;
+  }
+  snprintf(g_mqttReplyTopic, sizeof(g_mqttReplyTopic), "device/reply");
+  return g_mqttReplyTopic;
+}
+
+static void MQTT_PublishReplyJson(const JsonDocument& doc)
+{
+  if (!MQTT_CLOUD_Enable || !client.connected()) {
+    return;
+  }
+  const char* t = MQTT_ReplyTopic();
+  if (!t || t[0] == '\0') {
+    return;
+  }
+  String out;
+  serializeJson(doc, out);
+  (void)client.publish(t, out.c_str(), false);
+}
+
+static void MQTT_RpcReplyError(const char* reqId, const char* cmd, const char* error)
+{
+  if (!reqId || reqId[0] == '\0') {
+    return; // no correlation id => no reply expected
+  }
+  JsonDocument doc;
+  doc["ok"] = false;
+  doc["req_id"] = reqId;
+  if (cmd && cmd[0] != '\0') {
+    doc["cmd"] = cmd;
+  }
+  doc["error"] = (error && error[0] != '\0') ? error : "error";
+  MQTT_PublishReplyJson(doc);
+}
+
+static void MQTT_RpcReplyOk(const char* reqId, const char* cmd)
+{
+  if (!reqId || reqId[0] == '\0') {
+    return;
+  }
+  JsonDocument doc;
+  doc["ok"] = true;
+  doc["req_id"] = reqId;
+  if (cmd && cmd[0] != '\0') {
+    doc["cmd"] = cmd;
+  }
+  MQTT_PublishReplyJson(doc);
 }
 
 // ===================== UI Files (LittleFS Only) =====================
@@ -1310,6 +1383,7 @@ void handleApiConfigPost()
     server.send(400, "text/plain", "invalid json");
     return;
   }
+  WS_Ctrl_ForceReload();
   // Mark telemetry dirty so MQTT can publish updated state quickly.
   MQTT_MarkStateDirty();
   server.send(200, "application/json", "{\"ok\":true}");
@@ -1413,14 +1487,183 @@ static void WS_HTTP_BeginOnce()
 // MQTT subscribes to callback functions for processing received messages
 void callback(char* topic, byte* payload, unsigned int length) {
   (void)topic;
-  uint8_t CH_Flag = 0;
-  bool commandHandled = false;
   String inputString;
-  for (int i = 0; i < (int)length; i++) {
+  inputString.reserve(length + 1);
+  for (unsigned int i = 0; i < length; i++) {
     inputString += (char)payload[i];
   }
-  printf("%s\r\n",inputString.c_str());                            // Supported formats: {"data":{"CH1":1}} / {"cmd":"gate_open"}
+  printf("%s\r\n", inputString.c_str()); // Supported formats: {"data":{"CH1":1}} / {"cmd":"gate_open"}
 
+  bool anyHandled = false;
+  bool stateChanged = false;
+
+  // Prefer strict JSON parsing (required for cloud config/log RPC).
+  {
+    JsonDocument doc;
+    const DeserializationError err = deserializeJson(doc, inputString);
+    if (!err) {
+      const char* reqId = doc["req_id"] | "";
+      const char* cmd = doc["cmd"];
+
+      if (cmd && cmd[0] != '\0') {
+        String c = String(cmd);
+        c.trim();
+        c.toLowerCase();
+
+        if (HandleCmdString(c)) {
+          anyHandled = true;
+          stateChanged = true;
+          MQTT_RpcReplyOk(reqId, c.c_str());
+        } else if (c == "get_config") {
+          anyHandled = true;
+          String raw = WS_Control_LoadRawJson();
+          if (raw.length() == 0) {
+            WS_ControlConfig cfg;
+            (void)WS_Control_Load(cfg);
+            raw = WS_Control_LoadRawJson();
+          }
+          if (reqId && reqId[0] != '\0') {
+            JsonDocument rep;
+            rep["ok"] = true;
+            rep["req_id"] = reqId;
+            rep["cmd"] = "get_config";
+            rep["raw"] = raw;
+            MQTT_PublishReplyJson(rep);
+          }
+        } else if (c == "set_config") {
+          anyHandled = true;
+          String rawIn;
+          if (!doc["raw"].isNull()) {
+            rawIn = String((const char*)(doc["raw"] | ""));
+          } else if (doc["config"].is<JsonObject>()) {
+            serializeJsonPretty(doc["config"], rawIn);
+          } else if (doc["cfg"].is<JsonObject>()) {
+            serializeJsonPretty(doc["cfg"], rawIn);
+          }
+          rawIn.trim();
+          if (rawIn.length() == 0) {
+            MQTT_RpcReplyError(reqId, "set_config", "missing_raw");
+          } else if (!WS_Control_SaveRawJson(rawIn.c_str())) {
+            MQTT_RpcReplyError(reqId, "set_config", "invalid_json");
+          } else {
+            WS_Ctrl_ForceReload();
+            stateChanged = true;
+            MQTT_RpcReplyOk(reqId, "set_config");
+          }
+        } else if (c == "get_log") {
+          anyHandled = true;
+          String name = String((const char*)(doc["name"] | "error"));
+          name.toLowerCase();
+          const bool bak = ((int)(doc["bak"] | 0)) != 0;
+          long tailL = (long)(doc["tail"] | 16384);
+          if (tailL < 0) tailL = 0;
+          if (tailL > 32768) tailL = 32768;
+
+          const char* basePath = LogPathFromName(name);
+          if (!basePath) {
+            MQTT_RpcReplyError(reqId, "get_log", "bad_name");
+          } else {
+            const String path = String(basePath) + (bak ? ".1" : "");
+            String out;
+            if (!ReadFileTailToString(path.c_str(), (size_t)tailL, out)) {
+              MQTT_RpcReplyError(reqId, "get_log", "read_failed");
+            } else if (reqId && reqId[0] != '\0') {
+              JsonDocument rep;
+              rep["ok"] = true;
+              rep["req_id"] = reqId;
+              rep["cmd"] = "get_log";
+              rep["name"] = name;
+              rep["bak"] = bak ? 1 : 0;
+              rep["text"] = out;
+              MQTT_PublishReplyJson(rep);
+            }
+          }
+        } else if (c == "clear_log") {
+          anyHandled = true;
+          String name = String((const char*)(doc["name"] | "error"));
+          name.toLowerCase();
+          const char* path = LogPathFromName(name);
+          if (!path) {
+            MQTT_RpcReplyError(reqId, "clear_log", "bad_name");
+          } else if (!TruncateFile(path)) {
+            MQTT_RpcReplyError(reqId, "clear_log", "clear_failed");
+          } else {
+            MQTT_RpcReplyOk(reqId, "clear_log");
+          }
+        } else {
+          anyHandled = true;
+          MQTT_RpcReplyError(reqId, cmd, "unknown_cmd");
+        }
+      }
+
+      // Relay control format: {"data":{"CH1":1}}.
+      if (doc["data"].is<JsonObject>()) {
+        JsonObject data = doc["data"].as<JsonObject>();
+        int chFlag = 0;
+        int val = 0;
+        if (!data["CH1"].isNull()) { chFlag = 1; val = data["CH1"] | 0; }
+        else if (!data["CH2"].isNull()) { chFlag = 2; val = data["CH2"] | 0; }
+        else if (!data["CH3"].isNull()) { chFlag = 3; val = data["CH3"] | 0; }
+        else if (!data["CH4"].isNull()) { chFlag = 4; val = data["CH4"] | 0; }
+        else if (!data["CH5"].isNull()) { chFlag = 5; val = data["CH5"] | 0; }
+        else if (!data["CH6"].isNull()) { chFlag = 6; val = data["CH6"] | 0; }
+        else if (!data["ALL"].isNull()) { chFlag = 7; val = data["ALL"] | 0; }
+
+        bool did = false;
+        if (chFlag != 0) {
+          if (chFlag < 7) {
+            if (chFlag == 1 || chFlag == 2) {
+              if (val == 1) {
+                uint8_t Data[1] = { static_cast<uint8_t>(chFlag + 48) };
+                Relay_Analysis(Data, MQTT_Mode);
+                did = true;
+              } else if (val == 0 && Relay_Flag[chFlag - 1]) {
+                uint8_t Data[1] = { '0' };
+                Relay_Analysis(Data, MQTT_Mode);
+                did = true;
+              }
+            } else {
+              if ((val == 1 && !Relay_Flag[chFlag - 1]) || (val == 0 && Relay_Flag[chFlag - 1])) {
+                uint8_t Data[1] = { static_cast<uint8_t>(chFlag + 48) };
+                Relay_Analysis(Data, MQTT_Mode);
+                did = true;
+              }
+            }
+          } else if (chFlag == 7) {
+            const bool allRelayOn = Relay_Flag[0] && Relay_Flag[1] && Relay_Flag[2] && Relay_Flag[3] && Relay_Flag[4] && Relay_Flag[5];
+            const bool anyRelayOn = Relay_Flag[0] || Relay_Flag[1] || Relay_Flag[2] || Relay_Flag[3] || Relay_Flag[4] || Relay_Flag[5];
+            if (val == 1 && !allRelayOn) {
+              uint8_t Data[1] = { static_cast<uint8_t>(7 + 48) };
+              Relay_Analysis(Data, MQTT_Mode);
+              did = true;
+            } else if (val == 0 && anyRelayOn) {
+              uint8_t Data[1] = { static_cast<uint8_t>(8 + 48) };
+              Relay_Analysis(Data, MQTT_Mode);
+              did = true;
+            }
+          }
+        }
+
+        if (did) {
+          anyHandled = true;
+          stateChanged = true;
+        }
+      }
+
+      if (stateChanged) {
+        MQTT_MarkStateDirty();
+        MQTT_PublishState(true);
+      }
+      if (!anyHandled) {
+        printf("Note : Non-instruction data was received - MQTT!\\r\\n");
+      }
+      return;
+    }
+  }
+
+  // Fallback legacy parser (keeps backward compatibility if JSON parse fails).
+  uint8_t CH_Flag = 0;
+  bool commandHandled = false;
   String lowerInput = inputString;
   lowerInput.toLowerCase();
   if (lowerInput.indexOf("\"cmd\"") != -1) {
@@ -1451,37 +1694,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
   }
 
-  const int dataBegin = inputString.indexOf("\"data\"");                 // Find if "data" exists in the string (quotes also)
+  const int dataBegin = inputString.indexOf("\"data\"");
   if (dataBegin != -1) {
     int CH_Begin = -1;
-    if (inputString.indexOf("\"CH1\"", dataBegin) != -1){             // Find if "CH1" is present in the string (quotes also)
-      CH_Flag = 1;
-      CH_Begin = inputString.indexOf("\"CH1\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"CH2\"", dataBegin) != -1){
-      CH_Flag = 2;
-      CH_Begin = inputString.indexOf("\"CH2\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"CH3\"", dataBegin) != -1){
-      CH_Flag = 3;
-      CH_Begin = inputString.indexOf("\"CH3\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"CH4\"", dataBegin) != -1){
-      CH_Flag = 4;
-      CH_Begin = inputString.indexOf("\"CH4\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"CH5\"", dataBegin) != -1){
-      CH_Flag = 5;
-      CH_Begin = inputString.indexOf("\"CH5\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"CH6\"", dataBegin) != -1){
-      CH_Flag = 6;
-      CH_Begin = inputString.indexOf("\"CH6\"", dataBegin);
-    }
-    else if (inputString.indexOf("\"ALL\"", dataBegin) != -1){
-      CH_Flag = 7;
-      CH_Begin = inputString.indexOf("\"ALL\"", dataBegin);
-    }
+    if (inputString.indexOf("\"CH1\"", dataBegin) != -1){ CH_Flag = 1; CH_Begin = inputString.indexOf("\"CH1\"", dataBegin); }
+    else if (inputString.indexOf("\"CH2\"", dataBegin) != -1){ CH_Flag = 2; CH_Begin = inputString.indexOf("\"CH2\"", dataBegin); }
+    else if (inputString.indexOf("\"CH3\"", dataBegin) != -1){ CH_Flag = 3; CH_Begin = inputString.indexOf("\"CH3\"", dataBegin); }
+    else if (inputString.indexOf("\"CH4\"", dataBegin) != -1){ CH_Flag = 4; CH_Begin = inputString.indexOf("\"CH4\"", dataBegin); }
+    else if (inputString.indexOf("\"CH5\"", dataBegin) != -1){ CH_Flag = 5; CH_Begin = inputString.indexOf("\"CH5\"", dataBegin); }
+    else if (inputString.indexOf("\"CH6\"", dataBegin) != -1){ CH_Flag = 6; CH_Begin = inputString.indexOf("\"CH6\"", dataBegin); }
+    else if (inputString.indexOf("\"ALL\"", dataBegin) != -1){ CH_Flag = 7; CH_Begin = inputString.indexOf("\"ALL\"", dataBegin); }
 
     int valueBegin = -1;
     if (CH_Begin != -1) {
@@ -1491,13 +1713,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (valueBegin != -1) {
       const int valueEndComma = inputString.indexOf(',', valueBegin + 1);
       const int valueEndBrace = inputString.indexOf('}', valueBegin + 1);
-      if (valueEndComma == -1) {
-        valueEnd = valueEndBrace;
-      } else if (valueEndBrace == -1) {
-        valueEnd = valueEndComma;
-      } else {
-        valueEnd = (valueEndComma < valueEndBrace) ? valueEndComma : valueEndBrace;
-      }
+      if (valueEndComma == -1) valueEnd = valueEndBrace;
+      else if (valueEndBrace == -1) valueEnd = valueEndComma;
+      else valueEnd = (valueEndComma < valueEndBrace) ? valueEndComma : valueEndBrace;
     }
 
     if (CH_Flag != 0 && valueBegin != -1 && valueEnd != -1) {
@@ -1544,7 +1762,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     MQTT_MarkStateDirty();
     MQTT_PublishState(true);
   } else if (dataBegin == -1 && lowerInput.indexOf("\"cmd\"") == -1) {
-    printf("Note : Non-instruction data was received - MQTT!\r\n");
+    printf("Note : Non-instruction data was received - MQTT!\\r\\n");
   }
 }
 

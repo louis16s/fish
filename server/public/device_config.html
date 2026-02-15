@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <title>设备配置 | 外网面板</title>
+  <style>
+    :root{
+      --bg0:#060812;
+      --bg1:#0b1730;
+      --text:rgba(231,238,252,.96);
+      --muted:rgba(165,180,207,.78);
+      --muted2:rgba(124,141,180,.68);
+
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+      --surface:rgba(255,255,255,.06);
+      --surface2:rgba(2,6,23,.32);
+      --shadow1:0 16px 50px rgba(0,0,0,.46);
+
+      --radius-panel:20px;
+      --radius-card:16px;
+      --radius-btn:14px;
+      --radius-pill:999px;
+
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+
+      --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{min-height:100%}
+    html{background:linear-gradient(180deg, var(--bg0), var(--bg1))}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1)),
+        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+      background-repeat:no-repeat,no-repeat,no-repeat;
+      background-position:18% 10%, top, center;
+      background-size:auto,auto,cover;
+      background-attachment:scroll,scroll,fixed;
+      padding:18px 14px 28px;
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+
+    .wrap{max-width:1180px;margin:0 auto}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      padding:14px 14px;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter:blur(8px);
+      margin-bottom:12px;
+    }
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+
+    .btn{
+      appearance:none;
+      min-height:48px;
+      padding:12px 12px;
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+      text-decoration:none;
+      display:inline-grid;
+      place-items:center;
+    }
+    .btn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.16)}
+    .btn.danger{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.14)}
+    .btn.good{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn.small{
+      min-height:40px;
+      padding:8px 10px;
+      border-radius:var(--radius-pill);
+      font-size:12px;
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter: blur(8px);
+      padding:14px;
+      overflow:hidden;
+    }
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .sec{
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius-card);
+      padding:12px;
+      background:rgba(2,6,23,.22);
+    }
+    .sec-title{font-weight:950;letter-spacing:.2px;margin-bottom:10px}
+    .list{display:grid;gap:10px}
+    .item{
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius-card);
+      padding:12px;
+      background:rgba(2,6,23,.22);
+    }
+    .item.alt{background:rgba(255,255,255,.03)}
+    .item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .item-title{font-weight:950;letter-spacing:.2px}
+    .mini{font-size:12px;color:var(--muted2);font-weight:900}
+    .miniLbl{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .check{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:950;user-select:none}
+    .check input{width:18px;height:18px;accent-color:rgba(34,211,238,.85)}
+
+    input,select,textarea{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-btn);
+      padding:10px 12px;
+      font-weight:950;
+      min-height:44px;
+      background:rgba(2,6,23,.22);
+      color:var(--text);
+      font-family:var(--font);
+      transition:border-color .18s ease, background .18s ease;
+    }
+    input:hover,select:hover,textarea:hover{border-color:var(--stroke2)}
+    input[type="number"]{width:120px;text-align:right}
+    input[type="time"]{width:150px}
+    select{min-width:160px}
+    textarea{width:100%;min-height:260px;font-family:var(--mono);font-size:12px;line-height:1.55}
+
+    .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
+    .hint.good{color:var(--good)}
+    .hint.warn{color:var(--warn)}
+    .hint.bad{color:var(--bad)}
+    #verLine{white-space:pre-line;display:inline-block;font-family:var(--mono);font-size:11px;color:var(--muted2)}
+    details{margin-top:12px}
+    summary{cursor:pointer}
+    .chip{
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      border-radius:var(--radius-pill);
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      font-family:var(--mono);
+    }
+    .chip.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
+    .chip.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
+    .chip.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
+
+    .dowRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .dowChk{position:absolute;opacity:0;pointer-events:none}
+    .dowPill{
+      display:inline-grid;place-items:center;
+      min-width:36px;min-height:36px;
+      padding:0 10px;
+      border-radius:var(--radius-pill);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      font-weight:950;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .dowPill:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .dowPill:active{transform:translateY(1px)}
+    .dowChk:checked + .dowPill{border-color:rgba(34,211,238,.34);background:rgba(34,211,238,.14);color:var(--text)}
+
+    :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
+    @media (max-width:980px){body{background-attachment:scroll,scroll,scroll}}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="row">
+        <a class="btn" href="/">返回面板</a>
+        <a class="btn" href="/replay">回放</a>
+        <a class="btn" href="/config">管理</a>
+        <label style="display:grid;gap:6px">
+          <span class="mini">设备</span>
+          <select id="devSel" aria-label="设备"></select>
+        </label>
+      </div>
+      <div class="row">
+        <span class="mini" id="who">--</span>
+        <button class="btn danger" onclick="logout()">退出</button>
+        <button class="btn" id="btnReload" onclick="loadCfg()">重新加载</button>
+        <button class="btn primary" id="btnSave" onclick="saveCfg()">保存</button>
+        <span class="chip" id="saveChip" style="display:none">已保存</span>
+        <span class="mini" id="verLine">UI --</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">规则配置（保存后立即生效）</div>
+
+      <div class="grid">
+        <div class="sec">
+          <div class="sec-title">基本</div>
+          <div class="row">
+            <label>模式</label>
+            <select id="mode">
+              <option value="mixed">混合(推荐)</option>
+              <option value="daily">仅定时</option>
+              <option value="cycle">仅循环</option>
+              <option value="leveldiff">仅水位差</option>
+            </select>
+            <label>时区</label>
+            <select id="tz_h" aria-label="时区小时偏移"></select>
+            <span class="mini" id="tz_label"></span>
+          </div>
+          <div class="hint">混合模式：若任意循环启用，则优先循环；否则触发定时；最后用水位差作为持续兜底。</div>
+          <div class="hint">定时 open_ms/close_ms：本地时区当天从 00:00 起的毫秒数（页面输入时间会自动换算）。</div>
+          <div class="hint">水位差阈值建议：打开阈值应 &lt;= 关闭阈值，避免频繁开关。</div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">说明</div>
+          <div class="hint">时区 tz_offset_ms：例如 UTC+8 = 8*3600*1000 = 28800000。</div>
+          <div class="hint">循环 steps：按顺序执行 state(open/close) + dur_ms（持续毫秒）。</div>
+          <div class="hint">水位差：delta = 内塘 - 外塘（mm）。当 delta &lt;= 打开阈值 开闸；当 delta &gt;= 关闭阈值 关闸。</div>
+          <div class="hint">页面会自动兼容旧配置字段并转换为 ms。</div>
+          <div class="hint">若提示“未授权”，说明未登录或会话过期，请重新登录。</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">定时规则</div>
+            <div class="mini">例如：08:00 开，09:00 关（开/关可分离启用）。</div>
+          </div>
+          <button class="btn small" onclick="addDaily()">添加定时</button>
+        </div>
+        <div class="list" id="dailyList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">循环规则</div>
+            <div class="mini">例如：开 8小时，关 3小时，再开 5小时（支持多段）。提示：该规则只能有一组启用的设置。</div>
+          </div>
+          <button class="btn small" onclick="addCycleRule()">添加一组循环</button>
+        </div>
+        <div class="list" id="cycleList"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="sec">
+        <div class="item-top">
+          <div>
+            <div class="item-title">水位差规则</div>
+            <div class="mini">当 delta &lt;= 打开阈值 时开闸；当 delta &gt;= 关闭阈值 时关闸。提示：该规则只能有一组启用的设置。</div>
+          </div>
+          <button class="btn small" onclick="addLevelDiff()">添加水位差</button>
+        </div>
+        <div class="list" id="ldList"></div>
+      </div>
+
+      <details>
+        <summary class="mini">高级：查看/编辑原始 JSON</summary>
+        <textarea id="cfgRaw"></textarea>
+      </details>
+
+      <div class="hint">配置文件存储在设备 LittleFS：`/ctrl.json`。保存后立即生效。</div>
+      <div class="hint" id="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const UI_VERSION = 'ui-2026.02.15-01';
+    const $=(id)=>document.getElementById(id);
+    const num=(v,def)=>{ const n=parseInt(v,10); return Number.isFinite(n)?n:def; };
+    const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+
+    function curDev(){
+      const sel = $('devSel');
+      return (sel && sel.value) ? String(sel.value) : '';
+    }
+
+    function withDev(url){
+      const did = curDev();
+      if(!did) return url;
+      const sep = (url.indexOf('?') >= 0) ? '&' : '?';
+      return url + sep + 'device_id=' + encodeURIComponent(did);
+    }
+
+    async function logout(){
+      try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
+      location.href = '/login';
+    }
+
+    async function loadMe(){
+      const el = $('who');
+      if(!el) return;
+      try{
+        const r = await fetch('/api/auth/me', {cache:'no-store'});
+        const j = await r.json();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        el.textContent = (j && j.user) ? ('用户 ' + j.user.username + ' | ' + j.user.role) : '--';
+      }catch(e){
+        el.textContent = '--';
+      }
+    }
+
+    async function loadDevices(){
+      const sel = $('devSel');
+      if(!sel) return;
+      sel.innerHTML = '';
+      try{
+        const r = await fetch('/api/devices', {cache:'no-store'});
+        const j = await r.json();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        const list = (j && Array.isArray(j.devices)) ? j.devices : [];
+        if(!list.length){
+          const op = document.createElement('option');
+          op.value = '';
+          op.textContent = '(暂无设备)';
+          sel.appendChild(op);
+          return;
+        }
+        list.forEach((d)=>{
+          const op = document.createElement('option');
+          op.value = d.device_id || '';
+          op.textContent = d.device_id || '';
+          sel.appendChild(op);
+        });
+      }catch(e){
+        const op = document.createElement('option');
+        op.value = '';
+        op.textContent = '(加载失败)';
+        sel.appendChild(op);
+      }
+    }
+
+    function setMsg(text, kind){
+      const el = $('msg');
+      if(!el) return;
+      const t = (text == null) ? '' : ('' + text);
+      el.textContent = t;
+      el.className = 'hint' + (kind ? (' ' + kind) : '');
+    }
+
+    let g_saveUiTimer = 0;
+    function saveUiClearTimer(){
+      if(g_saveUiTimer){
+        clearTimeout(g_saveUiTimer);
+        g_saveUiTimer = 0;
+      }
+    }
+
+    function setSaveChip(text, kind){
+      const el = $('saveChip');
+      if(!el) return;
+      const t = (text == null) ? '' : ('' + text).trim();
+      if(!t){
+        el.textContent = '';
+        el.className = 'chip';
+        el.style.display = 'none';
+        return;
+      }
+      el.textContent = t;
+      el.className = 'chip' + (kind ? (' ' + kind) : '');
+      el.style.display = '';
+    }
+
+    function saveUiSetIdle(){
+      const b = $('btnSave');
+      if(b){
+        b.textContent = '保存';
+        b.className = 'btn primary';
+      }
+      setSaveChip('', '');
+    }
+
+    function saveUiSetSaving(){
+      saveUiClearTimer();
+      const b = $('btnSave');
+      if(b){
+        b.textContent = '保存中…';
+        b.className = 'btn primary';
+      }
+      setSaveChip('保存中…', 'warn');
+    }
+
+    function saveUiSetSaved(){
+      saveUiClearTimer();
+      const b = $('btnSave');
+      if(b){
+        b.textContent = '已保存';
+        b.className = 'btn good';
+      }
+      setSaveChip('已保存', 'good');
+      setMsg('已保存', 'good');
+      g_saveUiTimer = setTimeout(()=>{
+        saveUiSetIdle();
+        setMsg('', '');
+      }, 5000);
+    }
+
+    async function fetchTelemetry(){
+      try{
+        const r = await fetch(withDev('/api/state'), {cache:'no-store'});
+        const j = await r.json();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return j.telemetry || j;
+      }catch(e){
+        const r2 = await fetch(withDev('/getData'), {cache:'no-store'});
+        const j2 = await r2.json();
+        if(!r2.ok) throw new Error('HTTP ' + r2.status);
+        return j2;
+      }
+    }
+
+    async function loadVerLine(){
+      try{
+        const t = await fetchTelemetry();
+        const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
+        $('verLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + '\nUI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+      }catch(e){
+        $('verLine').textContent = 'UI ' + UI_VERSION;
+      }
+    }
+
+    function hhmmToMs(s){
+      if(!s || s.length<4) return 0;
+      const parts = s.split(':');
+      if(parts.length<2) return 0;
+      const h = clamp(num(parts[0],0),0,23);
+      const m = clamp(num(parts[1],0),0,59);
+      return (h*3600 + m*60) * 1000;
+    }
+
+    function msToHHMM(ms){
+      const day = 24*3600*1000;
+      let v = num(ms,0);
+      v = ((v%day)+day)%day;
+      const h = Math.floor(v/3600000);
+      const m = Math.floor((v%3600000)/60000);
+      const pad=(x)=> (x<10?('0'+x):(''+x));
+      return pad(h)+':'+pad(m);
+    }
+
+    function migrate(raw){
+      const out = Object.assign({tz_offset_ms:28800000, mode:'mixed', daily:[], cycle:[], leveldiff:[]}, raw||{});
+
+      // tz
+      if(out.tz_offset_ms == null && out.tz_offset_s != null){
+        out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
+      }
+      if(out.tz_offset_ms == null) out.tz_offset_ms = 28800000;
+
+      // daily
+      out.daily = Array.isArray(out.daily) ? out.daily : [];
+      out.daily = out.daily.slice(0,8).map((r)=>{
+        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:28800000, close_ms:32400000, dow_mask:127}, r||{});
+        if(rr.open_ms == null && rr.open) rr.open_ms = hhmmToMs(rr.open);
+        if(rr.close_ms == null && rr.close) rr.close_ms = hhmmToMs(rr.close);
+        rr.open_ms = num(rr.open_ms, 0);
+        rr.close_ms = num(rr.close_ms, 0);
+        rr.dow_mask = num(rr.dow_mask, 127) & 127;
+        return rr;
+      });
+
+      // cycle
+      out.cycle = Array.isArray(out.cycle) ? out.cycle : [];
+      out.cycle = out.cycle.slice(0,5).map((r)=>{
+        const rr = Object.assign({en:false, steps:[]}, r||{});
+        rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
+        rr.steps = rr.steps.slice(0,10).map((st)=>{
+          const s = Object.assign({state:'open', dur_ms:3600000}, st||{});
+          if(s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
+          if(s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
+          s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+          s.state = (s.state === 'close') ? 'close' : 'open';
+          return s;
+        });
+        return rr;
+      });
+      {
+        // Enforce: cycle can only have one enabled group.
+        let seen = false;
+        out.cycle.forEach((r)=>{
+          if(!r || !r.en) return;
+          if(!seen){ seen = true; return; }
+          r.en = false;
+        });
+      }
+
+      // leveldiff
+      out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
+      out.leveldiff = out.leveldiff.slice(0,4).map((r)=>{
+        const rr = Object.assign({en:false, open_mm:-1, close_mm:0}, r||{});
+        rr.open_mm = num(rr.open_mm, -1);
+        rr.close_mm = num(rr.close_mm, 0);
+        return rr;
+      });
+      {
+        // Enforce: leveldiff can only have one enabled rule.
+        let seen = false;
+        out.leveldiff.forEach((r)=>{
+          if(!r || !r.en) return;
+          if(!seen){ seen = true; return; }
+          r.en = false;
+        });
+      }
+
+      return out;
+    }
+
+    let model = migrate({});
+    // "高级：原始 JSON" 默认只是镜像展示。只有用户手动编辑过 textarea，
+    // 保存时才会以 textarea 内容为准；否则以表单控件的当前值为准。
+    let g_rawDirty = false;
+    let g_rawLast = '';
+    function rawSet(v){
+      const el = $('cfgRaw');
+      if(!el) return;
+      el.value = v || '';
+      g_rawLast = el.value;
+      g_rawDirty = false;
+    }
+
+    function dailyTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">定时 #${i+1}</div>
+            <button class="btn small danger" onclick="delDaily(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label class="check"><input type="checkbox" id="d_en_${i}"> 启用</label>
+            <label class="check"><input type="checkbox" id="d_open_en_${i}"> 开闸</label>
+            <input type="time" id="d_open_${i}">
+            <label class="check"><input type="checkbox" id="d_close_en_${i}"> 关闸</label>
+            <input type="time" id="d_close_${i}">
+          </div>
+          <div class="dowRow" aria-label="周一到周日">
+            <span class="miniLbl">周</span>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_0"><label class="dowPill" for="d_dow_${i}_0">一</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_1"><label class="dowPill" for="d_dow_${i}_1">二</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_2"><label class="dowPill" for="d_dow_${i}_2">三</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_3"><label class="dowPill" for="d_dow_${i}_3">四</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_4"><label class="dowPill" for="d_dow_${i}_4">五</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_5"><label class="dowPill" for="d_dow_${i}_5">六</label>
+            <input class="dowChk" type="checkbox" id="d_dow_${i}_6"><label class="dowPill" for="d_dow_${i}_6">日</label>
+            <span class="mini">不选表示该定时不触发</span>
+          </div>
+        </div>`;
+    }
+
+    function cycleRuleTpl(ri){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">循环组 #${ri+1}</div>
+            <div class="row">
+              <button class="btn small" onclick="addCycleStep(${ri})">添加步骤</button>
+              <button class="btn small danger" onclick="delCycleRule(${ri})">删除本组</button>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <label class="check"><input type="checkbox" id="c_en_${ri}"> 启用本组</label>
+            <span class="mini">提示：循环规则只能有一组启用的设置（启用本组会自动关闭其他组）。</span>
+          </div>
+          <div class="list" id="cycleSteps_${ri}"></div>
+        </div>`;
+    }
+
+    function cycleStepTpl(ri, si){
+      return `
+        <div class="item alt">
+          <div class="item-top">
+            <div class="mini">步骤 #${si+1}</div>
+            <button class="btn small danger" onclick="delCycleStep(${ri},${si})">删除步骤</button>
+          </div>
+          <div class="row">
+            <label>动作</label>
+            <select id="c_${ri}_state_${si}">
+              <option value="open">开闸</option>
+              <option value="close">关闸</option>
+            </select>
+            <label>时长</label>
+            <input id="c_${ri}_h_${si}" type="number" min="0" max="999" step="1" value="0"><span class="mini">小时</span>
+            <input id="c_${ri}_m_${si}" type="number" min="0" max="59" step="1" value="0"><span class="mini">分钟</span>
+          </div>
+        </div>`;
+    }
+
+    function ldTpl(i){
+      return `
+        <div class="item">
+          <div class="item-top">
+            <div class="item-title">水位差 #${i+1}</div>
+            <button class="btn small danger" onclick="delLevelDiff(${i})">删除</button>
+          </div>
+          <div class="row">
+            <label class="check"><input type="checkbox" id="l_en_${i}"> 启用</label>
+            <label>打开阈值(mm)</label>
+            <input id="l_open_${i}" type="number" step="1" value="-1">
+            <label>关闭阈值(mm)</label>
+            <input id="l_close_${i}" type="number" step="1" value="0">
+          </div>
+        </div>`;
+    }
+
+    function bindRuleGuards(){
+      // Enforce: only one enabled cycle group (UI-side guard).
+      const cycleBox = $('cycleList');
+      if(cycleBox){
+        for(let ri=0; ri<cycleBox.children.length; ri++){
+          const el = $('c_en_' + ri);
+          if(!el) continue;
+          el.onchange = ()=>{
+            if(!el.checked) return;
+            for(let rj=0; rj<cycleBox.children.length; rj++){
+              if(rj === ri) continue;
+              const other = $('c_en_' + rj);
+              if(other) other.checked = false;
+            }
+          };
+        }
+      }
+
+      // Enforce: only one enabled leveldiff rule (UI-side guard).
+      const ldBox = $('ldList');
+      if(ldBox){
+        for(let i=0; i<ldBox.children.length; i++){
+          const el = $('l_en_' + i);
+          if(!el) continue;
+          el.onchange = ()=>{
+            if(!el.checked) return;
+            for(let j=0; j<ldBox.children.length; j++){
+              if(j === i) continue;
+              const other = $('l_en_' + j);
+              if(other) other.checked = false;
+            }
+          };
+        }
+      }
+    }
+
+    function render(){
+      $('mode').value = model.mode || 'mixed';
+      $('tz_h').value = Math.round(num(model.tz_offset_ms,28800000)/3600000);
+
+      const daily = (model.daily||[]).slice(0,8);
+      $('dailyList').innerHTML = daily.map((_,i)=>dailyTpl(i)).join('');
+      daily.forEach((r,i)=>{
+        $('d_en_'+i).checked = !!r.en;
+        $('d_open_en_'+i).checked = (r.open_en!==false);
+        $('d_close_en_'+i).checked = (r.close_en!==false);
+        $('d_open_'+i).value = msToHHMM(r.open_ms);
+        $('d_close_'+i).value = msToHHMM(r.close_ms);
+        const mask = num(r.dow_mask, 127) & 127;
+        for(let d=0; d<7; d++){
+          const el = $('d_dow_'+i+'_'+d);
+          if(el) el.checked = !!(mask & (1<<d));
+        }
+      });
+
+      const cycle = (model.cycle||[]).slice(0,5);
+      $('cycleList').innerHTML = cycle.map((_,ri)=>cycleRuleTpl(ri)).join('');
+      let cycleSeen = false;
+      cycle.forEach((r,ri)=>{
+        const en = !!r.en && !cycleSeen;
+        if(en) cycleSeen = true;
+        $('c_en_'+ri).checked = en;
+        const steps = (r.steps||[]).slice(0,10);
+        $('cycleSteps_'+ri).innerHTML = steps.map((_,si)=>cycleStepTpl(ri,si)).join('');
+        steps.forEach((st,si)=>{
+          const ms = Math.max(1, num(st.dur_ms, 60000));
+          const min = Math.floor(ms/60000);
+          const h = Math.floor(min/60);
+          const m = min%60;
+          $('c_'+ri+'_state_'+si).value = (st.state==='close') ? 'close' : 'open';
+          $('c_'+ri+'_h_'+si).value = h;
+          $('c_'+ri+'_m_'+si).value = m;
+        });
+      });
+
+      const ld = (model.leveldiff||[]).slice(0,4);
+      $('ldList').innerHTML = ld.map((_,i)=>ldTpl(i)).join('');
+      let ldSeen = false;
+      ld.forEach((r,i)=>{
+        const en = !!r.en && !ldSeen;
+        if(en) ldSeen = true;
+        $('l_en_'+i).checked = en;
+        $('l_open_'+i).value = num(r.open_mm, -1);
+        $('l_close_'+i).value = num(r.close_mm, 0);
+      });
+
+      rawSet(JSON.stringify(model, null, 2));
+      bindRuleGuards();
+    }
+
+    function collect(){
+      const tzH = num($('tz_h').value, 8);
+      const mode = $('mode').value || 'mixed';
+
+      const daily=[];
+      for(let i=0;i<$('dailyList').children.length;i++){
+        let dow_mask = 0;
+        for(let d=0; d<7; d++){
+          const el = $('d_dow_'+i+'_'+d);
+          if(el && el.checked) dow_mask |= (1<<d);
+        }
+        daily.push({
+          en: $('d_en_'+i).checked,
+          open_en: $('d_open_en_'+i).checked,
+          open_ms: hhmmToMs($('d_open_'+i).value),
+          close_en: $('d_close_en_'+i).checked,
+          close_ms: hhmmToMs($('d_close_'+i).value),
+          dow_mask,
+        });
+      }
+
+      const cycle=[];
+      let cycleSeen = false;
+      for(let ri=0;ri<$('cycleList').children.length;ri++){
+        const steps=[];
+        for(let si=0;si<$('cycleSteps_'+ri).children.length;si++){
+          const state = $('c_'+ri+'_state_'+si).value === 'close' ? 'close' : 'open';
+          const h = Math.max(0, num($('c_'+ri+'_h_'+si).value, 0));
+          const m = Math.max(0, Math.min(59, num($('c_'+ri+'_m_'+si).value, 0)));
+          const dur_ms = Math.max(1, (h*3600 + m*60) * 1000);
+          steps.push({state, dur_ms});
+        }
+        const enRaw = $('c_en_'+ri).checked;
+        const en = enRaw && !cycleSeen;
+        if(en) cycleSeen = true;
+        cycle.push({en, steps});
+      }
+
+      const leveldiff=[];
+      let ldSeen = false;
+      for(let i=0;i<$('ldList').children.length;i++){
+        const enRaw = $('l_en_'+i).checked;
+        const en = enRaw && !ldSeen;
+        if(en) ldSeen = true;
+        leveldiff.push({
+          en,
+          open_mm: num($('l_open_'+i).value, -1),
+          close_mm: num($('l_close_'+i).value, 0),
+        });
+      }
+
+      return {tz_offset_ms: tzH*3600000, mode, daily, cycle, leveldiff};
+    }
+
+    function addDaily(){
+      model.daily = model.daily || [];
+      if(model.daily.length>=8){ setMsg('定时最多 8 组', 'warn'); return; }
+      model.daily.push({en:true, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00'), dow_mask:127});
+      render();
+    }
+    function delDaily(i){ model.daily.splice(i,1); render(); }
+
+    function addCycleRule(){
+      model.cycle = model.cycle || [];
+      if(model.cycle.length>=5){ setMsg('循环最多 5 组', 'warn'); return; }
+      model.cycle.push({en:false, steps:[{state:'open',dur_ms:8*3600000},{state:'close',dur_ms:3*3600000},{state:'open',dur_ms:5*3600000}]});
+      render();
+    }
+    function delCycleRule(i){ model.cycle.splice(i,1); render(); }
+    function addCycleStep(ri){
+      const r = model.cycle[ri];
+      r.steps = r.steps || [];
+      if(r.steps.length>=10){ setMsg('每组最多 10 段', 'warn'); return; }
+      r.steps.push({state:'open',dur_ms:3600000});
+      render();
+    }
+    function delCycleStep(ri,si){ model.cycle[ri].steps.splice(si,1); render(); }
+
+    function addLevelDiff(){
+      model.leveldiff = model.leveldiff || [];
+      if(model.leveldiff.length>=4){ setMsg('水位差最多 4 组', 'warn'); return; }
+      const anyOn = model.leveldiff.some(r => r && r.en);
+      model.leveldiff.push({en:!anyOn, open_mm:-1, close_mm:0});
+      render();
+    }
+    function delLevelDiff(i){ model.leveldiff.splice(i,1); render(); }
+
+    function tzLabelFromHours(h){
+      const hh = num(h, 8);
+      const sign = hh >= 0 ? '+' : '';
+      if (hh === 8) return 'UTC+8 Shanghai';
+      return 'UTC' + sign + hh;
+    }
+
+    function updateTzLabel(){
+      $('tz_label').textContent = tzLabelFromHours($('tz_h').value);
+    }
+
+    function initTzSelect(){
+      const sel = $('tz_h');
+      if(!sel) return;
+      sel.innerHTML = '';
+      for(let h=-12; h<=14; h++){
+        const opt = document.createElement('option');
+        const sign = h >= 0 ? '+' : '';
+        opt.value = String(h);
+        opt.textContent = (h === 8) ? ('UTC+8 Shanghai') : ('UTC' + sign + h);
+        sel.appendChild(opt);
+      }
+      if(!sel.value) sel.value = '8';
+    }
+
+    async function loadCfg(){
+      setMsg('加载中…', 'warn');
+      saveUiSetIdle();
+      try{
+        const r = await fetch(withDev('/api/config'), {cache:'no-store'});
+        const t = await r.text();
+        if (!r.ok) {
+          setMsg((r.status === 401) ? '加载失败：未授权（需要登录）' : ('加载失败：HTTP ' + r.status + ' ' + t), 'bad');
+          return;
+        }
+        model = migrate(JSON.parse(t));
+        render();
+        updateTzLabel();
+        setMsg('', '');
+      }catch(e){
+        setMsg('加载失败：网络错误或配置 JSON 解析失败', 'bad');
+      }
+    }
+
+    async function saveCfg(){
+      const btns = document.querySelectorAll('button');
+      btns.forEach(b=>b.disabled=true);
+      saveUiSetSaving();
+      setMsg('', '');
+      try{
+        let bodyObj;
+        if(g_rawDirty){
+          try{
+            bodyObj = migrate(JSON.parse(($('cfgRaw').value || '').trim() || ''));
+          }catch(e){
+            setMsg('保存失败：原始 JSON 解析失败（请检查格式）', 'bad');
+            setSaveChip('保存失败', 'bad');
+            return;
+          }
+        }else{
+          bodyObj = collect();
+        }
+        const body = JSON.stringify(bodyObj, null, 2);
+        const r = await fetch(withDev('/api/config'), {method:'POST', headers:{'Content-Type':'application/json'}, body});
+        const tx = await r.text();
+        if (!r.ok) {
+          setMsg((r.status === 401) ? '保存失败：未授权（需要登录）' : ('保存失败：HTTP ' + r.status + ' ' + tx), 'bad');
+          setSaveChip('保存失败', 'bad');
+          return;
+        }
+        model = bodyObj;
+        render();
+        updateTzLabel();
+        saveUiSetSaved();
+      }catch(e){
+        setMsg('保存失败：网络错误', 'bad');
+        setSaveChip('保存失败', 'bad');
+      }finally{
+        btns.forEach(b=>b.disabled=false);
+        // If save didn't succeed, revert button label.
+        if(!g_saveUiTimer){
+          const b = $('btnSave');
+          if(b) b.textContent = '保存';
+          setSaveChip('', '');
+        }
+      }
+    }
+
+    window.addDaily=addDaily; window.delDaily=delDaily;
+    window.addCycleRule=addCycleRule; window.delCycleRule=delCycleRule;
+    window.addCycleStep=addCycleStep; window.delCycleStep=delCycleStep;
+    window.addLevelDiff=addLevelDiff; window.delLevelDiff=delLevelDiff;
+    window.loadCfg=loadCfg; window.saveCfg=saveCfg;
+
+    (function init(){
+      initTzSelect();
+      $('tz_h').addEventListener('change', updateTzLabel);
+      updateTzLabel();
+
+      // Track manual edits of raw JSON textarea.
+      if($('cfgRaw')){
+        $('cfgRaw').addEventListener('input', ()=>{
+          const v = $('cfgRaw').value;
+          // Mark dirty only when user changes it away from the last rendered JSON.
+          g_rawDirty = (v !== g_rawLast);
+        });
+      }
+
+      loadMe();
+      loadDevices().then(()=>{
+        const sel = $('devSel');
+        if(sel){
+          sel.addEventListener('change', ()=>{
+            loadVerLine();
+            loadCfg();
+          });
+        }
+        loadVerLine();
+        loadCfg();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -193,6 +193,10 @@ async function main() {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'config.html'));
   });
+  app.get('/device-config', requireAuthPage, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(PUBLIC_DIR, 'device_config.html'));
+  });
   app.get('/replay', requireAuthPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'replay.html'));
@@ -435,52 +439,90 @@ async function main() {
     res.json({ ok: true });
   });
 
-  // --- Compatibility stubs for the built-in UI (device logs/config) ---
+  // --- Device config/logs via MQTT RPC (keeps browser isolated from MQTT creds) ---
   app.get('/api/config', requireAuthApi, async (req, res) => {
-    // Cloud panel does not push ctrl.json to devices yet; return a safe default shape.
-    res.setHeader('Cache-Control', 'no-store');
-    res.type('application/json').send(
-      JSON.stringify(
-        { mode: 'mixed', tz_offset_ms: 28800000, daily: [], cycle: [], leveldiff: [] },
-        null,
-        0
-      )
-    );
+    const deviceId = pickDeviceId(req);
+    try {
+      const rep = await mqtt.rpc(deviceId, { cmd: 'get_config' }, { timeoutMs: 8000 });
+      const raw = (rep && typeof rep.raw === 'string') ? rep.raw : '';
+      if (!raw) return res.status(502).type('text/plain').send('empty_config');
+      res.setHeader('Cache-Control', 'no-store');
+      res.type('application/json').send(raw);
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
+      const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+      res.status(code).type('text/plain').send(msg);
+    }
   });
 
-  app.post('/api/config', requireAuthApi, async (req, res) => {
-    // Accept and ignore for now (future: could store and sync to device).
-    res.json({ ok: true });
+  app.post('/api/config', requireAuthApi, requireSameOrigin, async (req, res) => {
+    const deviceId = pickDeviceId(req);
+    let raw = '';
+    try {
+      raw = JSON.stringify(req.body || {}, null, 2);
+    } catch (e) {
+      raw = '';
+    }
+    if (!raw || raw === 'null') return res.status(400).type('text/plain').send('invalid_json');
+    try {
+      await mqtt.rpc(deviceId, { cmd: 'set_config', raw }, { timeoutMs: 12_000 });
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
+      const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 400);
+      res.status(code).type('text/plain').send(msg);
+    }
   });
 
   app.get('/api/log', requireAuthApi, async (req, res) => {
-    const name = String((req.query && req.query.name) || 'error');
-    const text =
-      'Cloud panel note:\\n' +
-      '- Device logs are stored on the ESP32 (LittleFS) and are not exposed via MQTT by default.\\n' +
-      '- Use /replay to query historical telemetry stored on the server.\\n\\n' +
-      'Requested log: ' +
-      name +
-      '\\n';
-    res.setHeader('Cache-Control', 'no-store');
-    res.type('text/plain').send(text);
+    const deviceId = pickDeviceId(req);
+    const name = String((req.query && req.query.name) || 'error').toLowerCase();
+    const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
+    const bak = !!(req.query && (String(req.query.bak || '') === '1'));
+    try {
+      const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });
+      const text = (rep && typeof rep.text === 'string') ? rep.text : '';
+      res.setHeader('Cache-Control', 'no-store');
+      res.type('text/plain; charset=utf-8').send(text);
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
+      const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+      res.status(code).type('text/plain').send(msg);
+    }
   });
 
-  app.post('/api/log/clear', requireAuthApi, async (req, res) => {
-    res.json({ ok: true });
+  app.post('/api/log/clear', requireAuthApi, requireSameOrigin, async (req, res) => {
+    const deviceId = pickDeviceId(req);
+    const name = String((req.body && req.body.name) || 'error').toLowerCase();
+    try {
+      await mqtt.rpc(deviceId, { cmd: 'clear_log', name }, { timeoutMs: 10_000 });
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
+      const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+      res.status(code).type('text/plain').send(msg);
+    }
   });
 
   app.get('/api/log/download', requireAuthApi, async (req, res) => {
-    const name = String((req.query && req.query.name) || 'error');
-    const text =
-      'Cloud panel note: device logs are not available here.\\n' +
-      'Use /replay for telemetry history.\\n' +
-      'Requested log: ' +
-      name +
-      '\\n';
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Disposition', `attachment; filename=\"log_${name}.txt\"`);
-    res.type('text/plain').send(text);
+    const deviceId = pickDeviceId(req);
+    const name = String((req.query && req.query.name) || 'error').toLowerCase();
+    const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
+    const bak = !!(req.query && (String(req.query.bak || '') === '1'));
+    try {
+      const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });
+      const text = (rep && typeof rep.text === 'string') ? rep.text : '';
+      const filename = `log_${name}${bak ? '_1' : ''}.txt`;
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`);
+      res.type('text/plain; charset=utf-8').send(text);
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
+      const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+      res.status(code).type('text/plain').send(msg);
+    }
   });
 
   // --- Start ---
