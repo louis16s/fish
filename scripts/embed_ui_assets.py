@@ -5,6 +5,7 @@ Input (source of truth):
   - data/ui/index.html
   - data/ui/config.html
   - data/ui/logs.html
+  - data/ui/favicon.svg
   - data/ui/pond_gate.svg
   - data/ui/bg_long.svg
 
@@ -38,6 +39,12 @@ ASSETS: list[dict[str, str]] = [
         "src": "data/ui/logs.html",
         "path": "/ui/logs.html",
         "content_type": "text/html; charset=utf-8",
+    },
+    {
+        "id": "UI_FAVICON_SVG",
+        "src": "data/ui/favicon.svg",
+        "path": "/ui/favicon.svg",
+        "content_type": "image/svg+xml",
     },
     {
         "id": "UI_POND_GATE_SVG",

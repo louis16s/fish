@@ -2201,9 +2201,14 @@
       cfgSetChip('CFG 加载中', '');
       cfgSetMsg('加载中…');
       try{
-        // Prefer server cache (fed by MQTT RPC success). Avoid blocking on device RPC on flaky links.
-        const r = await fetch('/api/config?source=cache', {cache:'no-store'});
-        const tx = await r.text();
+        // Prefer server cache (fed by MQTT RPC success), but fall back to device RPC when cache is missing.
+        let r = await fetch('/api/config?source=cache', {cache:'no-store'});
+        let tx = await r.text();
+        if(!r.ok && r.status === 503){
+          // cache_miss: fall back to MQTT RPC (may be slower)
+          r = await fetch('/api/config', {cache:'no-store'});
+          tx = await r.text();
+        }
         if(!r.ok){
           cfgSetChip('CFG ERR', 'bad');
           const head = (tx || '').slice(0, 220);
@@ -2312,13 +2317,21 @@
       const box = $('logBox');
       const autoScroll = box ? logShouldAutoScroll(box) : true;
       try{
-        // Prefer cache (fed by device MQTT log push). Avoid device RPC timeouts on public links.
-        const url = '/api/log?name=' + encodeURIComponent(tab) + '&tail=' + LOG_TAIL_BYTES + '&source=cache&t=' + Date.now();
-        const r = ctrl ? (await fetch(url, {signal: ctrl.signal})) : (await fetch(url));
-        const tx = await r.text();
+        // Prefer pushed cache for speed/reliability, but fall back to device RPC when cache is missing.
+        const urlCache = '/api/log?name=' + encodeURIComponent(tab) + '&tail=' + LOG_TAIL_BYTES + '&source=cache&t=' + Date.now();
+        let r = ctrl ? (await fetch(urlCache, {signal: ctrl.signal})) : (await fetch(urlCache));
+        let tx = await r.text();
         if(reqId !== g_logReqId) return;
 
         const msg = $('logMsg');
+        let usedFallback = false;
+        if(!r.ok && r.status === 503){
+          usedFallback = true;
+          const urlRpc = '/api/log?name=' + encodeURIComponent(tab) + '&tail=' + LOG_TAIL_BYTES + '&t=' + Date.now();
+          r = ctrl ? (await fetch(urlRpc, {signal: ctrl.signal})) : (await fetch(urlRpc));
+          tx = await r.text();
+          if(reqId !== g_logReqId) return;
+        }
         if(msg){
           if(!r.ok){
             const head = (tx || '').slice(0, 220);
@@ -2328,7 +2341,7 @@
               ? '读取失败：未授权（需要登录）'
               : ('读取失败：HTTP ' + r.status + detail);
           }else{
-            msg.textContent = '';
+            msg.textContent = usedFallback ? '缓存未命中，已通过设备 RPC 读取（较慢）' : '';
           }
         }
         if(r.ok){
@@ -2377,7 +2390,7 @@
 
     function logExportCur(){
       const name = g_logTab || 'error';
-      const url = '/api/log/download?name=' + encodeURIComponent(name) + '&source=cache&t=' + Date.now();
+      const url = '/api/log/download?name=' + encodeURIComponent(name) + '&t=' + Date.now();
       const a = document.createElement('a');
       a.href = url;
       a.download = 'log_' + name + '_' + nowFileStamp() + '.txt';
