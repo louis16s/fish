@@ -64,6 +64,28 @@ function pickDeviceId(req, fallback) {
   return fallback || cfg.DEFAULT_DEVICE_ID;
 }
 
+function sameOriginOk(req) {
+  // CSRF mitigation: browsers send Origin on cross-site POST/fetch. For same-origin, Origin may
+  // be present or absent depending on UA; we only enforce when it exists to keep CLI/curl usable.
+  const origin = req.get('origin');
+  if (!origin) return true;
+  const host = req.get('host') || '';
+  try {
+    const u = new URL(origin);
+    if (!host) return true;
+    if (u.host !== host) return false;
+    if (cfg.cookieSecure && u.protocol !== 'https:') return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function requireSameOrigin(req, res, next) {
+  if (sameOriginOk(req)) return next();
+  res.status(403).json({ ok: false, error: 'bad_origin' });
+}
+
 async function main() {
   const pool = makePool(cfg.DATABASE_URL);
   await initDb(pool);
@@ -196,16 +218,27 @@ async function main() {
     const ok = await verifyPassword(password, u.password_hash);
     if (!ok) return res.status(401).json({ ok: false, error: 'bad_credentials' });
 
-    req.session.user = { id: u.id, username: u.username, role: u.role };
-    res.json({ ok: true });
+    // Avoid session fixation: rotate session id on login.
+    try {
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).json({ ok: false, error: 'session_error' });
+        req.session.user = { id: u.id, username: u.username, role: u.role };
+        req.session.save(() => res.json({ ok: true }));
+      });
+    } catch (e) {
+      req.session.user = { id: u.id, username: u.username, role: u.role };
+      res.json({ ok: true });
+    }
   });
 
   app.post('/api/auth/logout', (req, res) => {
     try {
       req.session.destroy(() => {
+        res.clearCookie('fish_sid');
         res.json({ ok: true });
       });
     } catch (e) {
+      res.clearCookie('fish_sid');
       res.json({ ok: true });
     }
   });
@@ -257,7 +290,14 @@ async function main() {
     'manual_end'
   ]);
 
-  app.post('/api/cmd', requireAuthApi, async (req, res) => {
+  const cmdLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  app.post('/api/cmd', requireAuthApi, requireSameOrigin, cmdLimiter, async (req, res) => {
     let cmd = '';
     try {
       const body = cmdSchema.parse(req.body || {});
@@ -338,23 +378,30 @@ async function main() {
   });
 
   // --- Admin APIs ---
-  app.get('/api/admin/settings', requireAuthApi, requireAdmin, async (req, res) => {
+  const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  app.get('/api/admin/settings', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
     const v = await getSetting(pool, 'retention_days');
     res.json({ ok: true, retention_days: clampInt(v, 1, 3650, cfg.DATA_RETENTION_DAYS) });
   });
 
-  app.post('/api/admin/settings', requireAuthApi, requireAdmin, async (req, res) => {
+  app.post('/api/admin/settings', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
     const n = clampInt(req.body && req.body.retention_days, 1, 3650, cfg.DATA_RETENTION_DAYS);
     await setSetting(pool, 'retention_days', String(n));
     res.json({ ok: true, retention_days: n });
   });
 
-  app.get('/api/admin/users', requireAuthApi, requireAdmin, async (req, res) => {
+  app.get('/api/admin/users', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
     const users = await listUsers(pool);
     res.json({ ok: true, users });
   });
 
-  app.post('/api/admin/users', requireAuthApi, requireAdmin, async (req, res) => {
+  app.post('/api/admin/users', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
     const body = req.body || {};
     const username = String(body.username || '').trim();
     const password = String(body.password || '');
@@ -370,7 +417,7 @@ async function main() {
     }
   });
 
-  app.post('/api/admin/users/:id/password', requireAuthApi, requireAdmin, async (req, res) => {
+  app.post('/api/admin/users/:id/password', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
     const id = clampInt(req.params.id, 1, 1_000_000_000, 0);
     const password = String((req.body && req.body.password) || '');
     if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
@@ -380,7 +427,7 @@ async function main() {
     res.json({ ok: true });
   });
 
-  app.post('/api/admin/users/:id/disable', requireAuthApi, requireAdmin, async (req, res) => {
+  app.post('/api/admin/users/:id/disable', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
     const id = clampInt(req.params.id, 1, 1_000_000_000, 0);
     const disabled = !!(req.body && req.body.disabled);
     if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
@@ -448,4 +495,3 @@ main().catch((e) => {
   console.error('[fatal]', e);
   process.exit(1);
 });
-

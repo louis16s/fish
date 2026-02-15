@@ -141,6 +141,13 @@
 6. `WIFI_OFFLINE_RGB_BLINK_Enable`
 7. `WIFI_OFFLINE_RGB_BLINK_INTERVAL_MS`
 
+开机蜂鸣器（提示音）：
+
+1. 触发：开机 `setup()` 中会调用 `Buzzer_Startup_Melody(STARTUP_BUZZER_DURATION_MS)` 播放提示音（默认 `1500ms`）。
+2. 关闭：`STARTUP_BUZZER_Enable=false` 或把 `STARTUP_BUZZER_DURATION_MS=0`。
+3. 说明：提示音内部使用阻塞式 `delay`，持续时间越长，设备进入主循环越晚。
+4. 代码位置：`src/MAIN_ALL.ino`、`src/WS_GPIO.cpp`。
+
 ## 5. Wi-Fi连接流程
 
 `setup_wifi()` 的连接顺序：
@@ -180,6 +187,17 @@
 6. 关闭自动（锁定关闭）
 7. 单位切换（mm / m）
 8. 打开 OTA 升级页
+
+规则配置页（控制策略）：`http://<设备IP>/config`
+
+1. 作用：编辑自动闸门控制策略（存储在 LittleFS：`/ctrl.json`，保存后立即生效）。
+2. 模式：`mixed/daily/cycle/leveldiff`。
+3. 定时（daily）：支持多组，支持“开/关分离启用”，并可选择周一到周日。
+4. 循环（cycle）：最多 5 组，每组最多 10 段（open/close + 持续时长）；同一时间只允许启用 1 组（页面会自动关闭其他组；固件按“第一组启用的”执行）。
+5. 水位差（leveldiff）：最多 4 组；同一时间只允许启用 1 组（页面会自动关闭其他组；固件按“第一组启用的”执行）。
+6. 保存反馈：点击“保存”后 5 秒内会显示“已保存”，并有颜色变化（绿色）。
+
+日志查看页：`http://<设备IP>/logs`（读取设备 LittleFS 上的日志文件末尾内容，用于快速排查）。
 
 ## 7. HTTP 接口
 
@@ -354,6 +372,14 @@ JSON 示例：
 1. `tz_offset_ms`：时区偏移毫秒（例如 UTC+8 => `28800000`）
 2. `daily.open_ms` / `daily.close_ms`：当天从 00:00 起的毫秒数（页面以 HH:MM 方式编辑）
 3. `cycle.steps.dur_ms`：每段持续毫秒数
+
+字段补充：
+
+1. `daily.dow_mask`：周一到周日的位掩码（bit0=周一 ... bit6=周日）。例如：
+- `127 (0b1111111)`：每天
+- `31 (0b0011111)`：仅工作日（周一到周五）
+2. 循环/水位差“多组”行为：固件侧都会按顺序选择“第一组启用的规则”；页面侧会额外保证同类型最多只有 1 组处于启用状态。
+3. 兼容性：页面与固件都会兼容旧字段（例如 `daily.open:"08:00"` / `cycle.steps.min`），并自动转换到新的 `*_ms` 结构。
 
 ## 9.6 日志（新增）
 
