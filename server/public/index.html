@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
-  <title>控制面板</title>
+  <title>水闸控制面板</title>
   <script>
     // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
     (function(){
@@ -2505,17 +2505,24 @@
         const tx = await r.text();
         if(reqId !== g_logReqId) return;
 
-        g_logCache[tab] = tx;
-        if(tab === g_logTab && box){
-          box.textContent = tx.length ? tx : '(空)';
-          if((forceScroll || autoScroll)) box.scrollTop = box.scrollHeight;
-        }
         const msg = $('logMsg');
         if(msg){
           if(!r.ok){
-            msg.textContent = (r.status === 401) ? '读取失败：未授权（需要登录）' : ('读取失败：HTTP ' + r.status + ' ' + tx);
+            const head = (tx || '').slice(0, 220);
+            const looksHtml = /^\s*</.test(head) && /<(?:!doctype|html|head|body)\b/i.test(head);
+            const detail = looksHtml ? '' : (' ' + head);
+            msg.textContent = (r.status === 401)
+              ? '读取失败：未授权（需要登录）'
+              : ('读取失败：HTTP ' + r.status + detail);
           }else{
             msg.textContent = '';
+          }
+        }
+        if(r.ok){
+          g_logCache[tab] = tx;
+          if(tab === g_logTab && box){
+            box.textContent = tx.length ? tx : '(空)';
+            if((forceScroll || autoScroll)) box.scrollTop = box.scrollHeight;
           }
         }
       }catch(e){

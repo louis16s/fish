@@ -13,6 +13,10 @@
 #define CONTENT_LENGTH_UNKNOWN ((size_t)-1)
 #endif
 
+#ifndef MQTT_LOG_PUSH_Enable
+#define MQTT_LOG_PUSH_Enable true
+#endif
+
 // The name and password of the WiFi access point
 const char* ssid = STASSID;
 const char* password = STAPSK;
@@ -363,6 +367,58 @@ static void MQTT_PublishReplyJson(const JsonDocument& doc)
   String out;
   serializeJson(doc, out);
   (void)client.publish(t, out.c_str(), false);
+}
+
+// ===================== MQTT Log Push (Device -> Cloud) =====================
+// Pushed log lines are published to "<device_id>/device/log/<name>" as plain text.
+// This lets the cloud server cache logs locally and serve /api/log without an RPC round-trip.
+static char g_mqttLogTopicBase[96] = {0};
+
+static const char* MQTT_LogTopicBase()
+{
+  if (g_mqttLogTopicBase[0] != '\0') {
+    return g_mqttLogTopicBase;
+  }
+  // Derive from telemetry publish topic "<device_id>/device/telemetry".
+  const char* p = pub;
+  if (p && p[0] != '\0') {
+    const char* slash = strchr(p, '/');
+    const size_t didLen = slash ? (size_t)(slash - p) : strlen(p);
+    if (didLen > 0 && didLen < 48) {
+      snprintf(g_mqttLogTopicBase, sizeof(g_mqttLogTopicBase), "%.*s/device/log", (int)didLen, p);
+      return g_mqttLogTopicBase;
+    }
+  }
+  // Fallback to MQTT username (often equals device_id).
+  if (mqtt_user && mqtt_user[0] != '\0') {
+    snprintf(g_mqttLogTopicBase, sizeof(g_mqttLogTopicBase), "%s/device/log", mqtt_user);
+    return g_mqttLogTopicBase;
+  }
+  snprintf(g_mqttLogTopicBase, sizeof(g_mqttLogTopicBase), "device/log");
+  return g_mqttLogTopicBase;
+}
+
+static void MQTT_PublishLogLine(const char* name, const char* line)
+{
+  if (!MQTT_CLOUD_Enable || !MQTT_LOG_PUSH_Enable || !client.connected()) {
+    return;
+  }
+  if (!name || name[0] == '\0' || !line || line[0] == '\0') {
+    return;
+  }
+  const char* base = MQTT_LogTopicBase();
+  if (!base || base[0] == '\0') {
+    return;
+  }
+  char topic[128];
+  snprintf(topic, sizeof(topic), "%s/%s", base, name);
+  (void)client.publish(topic, line, false);
+}
+
+static void WS_LogSink_Mqtt(const char* name, const char* line)
+{
+  // Avoid any logging inside this sink to prevent recursion.
+  MQTT_PublishLogLine(name, line);
 }
 
 static void MQTT_RpcReplyError(const char* reqId, const char* cmd, const char* error)
@@ -1971,7 +2027,9 @@ void MQTT_Init()
     client.setCallback(callback);
     // PubSubClient default buffer is too small for the /getData-style JSON payload.
     client.setBufferSize(3072);
+    WS_Log_SetLineSink(WS_LogSink_Mqtt);
   } else {
+    WS_Log_SetLineSink(nullptr);
     printf("MQTT disabled, Web panel + ElegantOTA are available.\r\n");
   }
 }

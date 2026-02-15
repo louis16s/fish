@@ -25,10 +25,14 @@ const schema = z.object({
   MQTT_PASSWORD: z.string().optional(),
   MQTT_TELEMETRY_SUB: z.string().min(1).default('+/device/telemetry'),
   MQTT_REPLY_SUB: z.string().min(1).default('+/device/reply'),
+  MQTT_LOG_SUB: z.string().min(1).default('+/device/log/#'),
   DEFAULT_DEVICE_ID: z.string().min(1).default('fish1'),
 
   DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
-  HISTORY_MAX_POINTS: z.coerce.number().int().min(100).max(5000).default(1200)
+  HISTORY_MAX_POINTS: z.coerce.number().int().min(100).max(5000).default(1200),
+
+  // In-memory log cache for pushed logs. Keeps the cloud panel responsive even when device RPC is slow/unavailable.
+  LOG_CACHE_MAX_BYTES: z.coerce.number().int().min(16 * 1024).max(2 * 1024 * 1024).default(256 * 1024)
 });
 
 function loadConfig(processEnv) {

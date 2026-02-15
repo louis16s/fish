@@ -30,6 +30,7 @@ const {
   queryHistoryDownsampled
 } = require('./db');
 const { createMqttClient } = require('./mqtt');
+const { LogCache } = require('./log_cache');
 const {
   hashPassword,
   verifyPassword,
@@ -106,6 +107,7 @@ async function main() {
 
   // In-memory latest cache (fast /api/state).
   const latest = new Map(); // deviceId -> {receivedAt:number, payload:object}
+  const logCache = new LogCache({ maxBytes: cfg.LOG_CACHE_MAX_BYTES });
 
   const mqtt = createMqttClient(cfg, {
     onTelemetry: async ({ deviceId, topic, payload, receivedAt }) => {
@@ -118,6 +120,15 @@ async function main() {
         // eslint-disable-next-line no-console
         console.error('[mqtt] store failed:', e && e.message ? e.message : e);
       }
+    },
+    onLog: ({ deviceId, name, text }) => {
+      try {
+        if (!deviceId) return;
+        const n = String(name || 'error').toLowerCase();
+        if (!['error', 'measure', 'action'].includes(n)) return;
+        if (!text) return;
+        logCache.append(deviceId, n, text);
+      } catch (e) {}
     },
     onBadMessage: (topic, err) => {
       // eslint-disable-next-line no-console
@@ -480,14 +491,33 @@ async function main() {
     const name = String((req.query && req.query.name) || 'error').toLowerCase();
     const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
     const bak = !!(req.query && (String(req.query.bak || '') === '1'));
+    const source = String((req.query && req.query.source) || '').toLowerCase(); // '', 'cache', 'rpc'
     try {
+      // Prefer pushed cache for speed/reliability. bak isn't meaningful for push-cache, so only use cache when bak=0.
+      if (!bak && source !== 'rpc' && logCache.has(deviceId, name)) {
+        const text = logCache.tail(deviceId, name, tail);
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Log-Source', 'cache');
+        return res.type('text/plain; charset=utf-8').send(text);
+      }
+
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });
       const text = (rep && typeof rep.text === 'string') ? rep.text : '';
       res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Log-Source', 'rpc');
       res.type('text/plain; charset=utf-8').send(text);
     } catch (e) {
       const msg = (e && e.message) ? String(e.message) : 'rpc_failed';
       const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
+
+      // If RPC failed but we have pushed cache, serve it as best-effort to keep UI usable.
+      if (!bak && source !== 'rpc' && logCache.has(deviceId, name)) {
+        const text = logCache.tail(deviceId, name, tail);
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Log-Source', 'cache');
+        return res.status(200).type('text/plain; charset=utf-8').send(text);
+      }
+
       res.status(code).type('text/plain').send(msg);
     }
   });
@@ -496,6 +526,7 @@ async function main() {
     const deviceId = pickDeviceId(req);
     const name = String((req.body && req.body.name) || 'error').toLowerCase();
     try {
+      try { logCache.clear(deviceId, name); } catch (e2) {}
       await mqtt.rpc(deviceId, { cmd: 'clear_log', name }, { timeoutMs: 10_000 });
       res.setHeader('Cache-Control', 'no-store');
       res.json({ ok: true });
@@ -511,11 +542,22 @@ async function main() {
     const name = String((req.query && req.query.name) || 'error').toLowerCase();
     const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
     const bak = !!(req.query && (String(req.query.bak || '') === '1'));
+    const source = String((req.query && req.query.source) || '').toLowerCase();
     try {
+      if (!bak && source !== 'rpc' && logCache.has(deviceId, name)) {
+        const text = logCache.tail(deviceId, name, tail);
+        const filename = `log_${name}.txt`;
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Log-Source', 'cache');
+        res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`);
+        return res.type('text/plain; charset=utf-8').send(text);
+      }
+
       const rep = await mqtt.rpc(deviceId, { cmd: 'get_log', name, tail, bak: bak ? 1 : 0 }, { timeoutMs: 10_000 });
       const text = (rep && typeof rep.text === 'string') ? rep.text : '';
       const filename = `log_${name}${bak ? '_1' : ''}.txt`;
       res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Log-Source', 'rpc');
       res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`);
       res.type('text/plain; charset=utf-8').send(text);
     } catch (e) {

@@ -2,7 +2,7 @@ const mqtt = require('mqtt');
 
 function inferDeviceIdFromTopic(topic) {
   const t = String(topic || '');
-  const m = /^([^/]+)\/device\/(?:telemetry|reply)(?:\/.*)?$/.exec(t);
+  const m = /^([^/]+)\/device\/(?:telemetry|reply|log)(?:\/.*)?$/.exec(t);
   if (m && m[1]) return m[1];
   // Fallback: "fish1/device/telemetry" -> first segment still works even if suffix differs.
   const parts = t.split('/').filter(Boolean);
@@ -18,6 +18,19 @@ function isReplyTopic(topic) {
 function isTelemetryTopic(topic) {
   const t = String(topic || '');
   return /\/device\/telemetry(?:\/.*)?$/.test(t);
+}
+
+function isLogTopic(topic) {
+  const t = String(topic || '');
+  return /\/device\/log(?:\/.*)?$/.test(t);
+}
+
+function inferLogNameFromTopic(topic) {
+  const parts = String(topic || '').split('/').filter(Boolean);
+  // <deviceId>/device/log/<name>
+  const i = parts.findIndex((p) => p === 'log');
+  if (i >= 0 && parts[i + 1]) return String(parts[i + 1]).toLowerCase();
+  return 'error';
 }
 
 function makeReqId() {
@@ -57,7 +70,7 @@ function createMqttClient(cfg, handlers) {
     state.lastError = '';
     state.lastConnectAt = Date.now();
     if (typeof h.onConnect === 'function') h.onConnect();
-    const subs = [cfg.MQTT_TELEMETRY_SUB, cfg.MQTT_REPLY_SUB].filter(Boolean);
+    const subs = [cfg.MQTT_TELEMETRY_SUB, cfg.MQTT_REPLY_SUB, cfg.MQTT_LOG_SUB].filter(Boolean);
     const uniq = Array.from(new Set(subs));
     uniq.forEach((topic) => {
       client.subscribe(topic, { qos: 0 }, (err) => {
@@ -86,6 +99,17 @@ function createMqttClient(cfg, handlers) {
     const receivedAt = Date.now();
     const topicStr = String(topic || '');
     const deviceId = inferDeviceIdFromTopic(topicStr) || cfg.DEFAULT_DEVICE_ID;
+
+    // Logs are pushed as plain text (not JSON). Parse by topic type first.
+    if (isLogTopic(topicStr)) {
+      const text = payloadBuf ? payloadBuf.toString('utf8') : '';
+      const name = inferLogNameFromTopic(topicStr);
+      if (typeof h.onLog === 'function') {
+        h.onLog({ deviceId, name, topic: topicStr, text, receivedAt });
+      }
+      return;
+    }
+
     let payload = null;
     try {
       const s = payloadBuf ? payloadBuf.toString('utf8') : '';

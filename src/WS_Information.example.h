@@ -47,6 +47,8 @@
 #define MQTT_Sub                     "fish1/device/command"
 #define MQTT_TELEMETRY_INTERVAL_MS   3000UL
 #define MQTT_PUBLISH_ON_CHANGE_Enable true
+// Push appended log lines to "<device_id>/device/log/<name>" (plain text), for cloud panel caching.
+#define MQTT_LOG_PUSH_Enable        true
 
 // ===================== 4G Module (Air780E AT) =====================
 #define AIR780E_Enable             false

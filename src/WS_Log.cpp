@@ -7,6 +7,7 @@
 #include <time.h>
 
 static uint32_t (*g_nowEpoch)() = nullptr;
+static WS_LogLineSink g_sink = nullptr;
 
 static const char* kErrorPath = "/log_error.txt";
 static const char* kMeasurePath = "/log_measure.txt";
@@ -56,7 +57,7 @@ static void RotateIfNeeded(const char* path)
   LittleFS.rename(path, bak);
 }
 
-static void AppendLine(const char* path, const char* tag, const char* fmt, va_list ap)
+static void AppendLine(const char* path, const char* name, const char* tag, const char* fmt, va_list ap)
 {
   if (!WS_FS_EnsureMounted()) {
     return;
@@ -91,6 +92,16 @@ static void AppendLine(const char* path, const char* tag, const char* fmt, va_li
   }
   f.print(line);
   f.close();
+
+  // Best-effort: send to external sink (do not block / recurse).
+  if (g_sink && name && name[0] != '\0') {
+    g_sink(name, line);
+  }
+}
+
+void WS_Log_SetLineSink(WS_LogLineSink sink)
+{
+  g_sink = sink;
 }
 
 void WS_Log_SetTimeProvider(uint32_t (*nowEpoch)())
@@ -107,7 +118,7 @@ void WS_Log_Error(const char* fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  AppendLine(kErrorPath, "ERR", fmt, ap);
+  AppendLine(kErrorPath, "error", "ERR", fmt, ap);
   va_end(ap);
 }
 
@@ -115,7 +126,7 @@ void WS_Log_Measure(const char* fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  AppendLine(kMeasurePath, "MEAS", fmt, ap);
+  AppendLine(kMeasurePath, "measure", "MEAS", fmt, ap);
   va_end(ap);
 }
 
@@ -123,6 +134,6 @@ void WS_Log_Action(const char* fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  AppendLine(kActionPath, "ACT", fmt, ap);
+  AppendLine(kActionPath, "action", "ACT", fmt, ap);
   va_end(ap);
 }

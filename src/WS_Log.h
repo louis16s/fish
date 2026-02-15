@@ -14,9 +14,14 @@ void WS_Log_Error(const char* fmt, ...);
 void WS_Log_Measure(const char* fmt, ...);
 void WS_Log_Action(const char* fmt, ...);
 
+// Optional: stream each appended log line to a sink (e.g. MQTT push).
+// name: "error" | "measure" | "action"
+// line: full line with trailing CRLF
+typedef void (*WS_LogLineSink)(const char* name, const char* line);
+void WS_Log_SetLineSink(WS_LogLineSink sink);
+
 // Optional: set a human-readable timestamp prefix for log lines.
 // If not set, logs will use millis().
 void WS_Log_SetTimeProvider(uint32_t (*nowEpoch)());
 
 #endif
-
