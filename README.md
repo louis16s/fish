@@ -394,6 +394,27 @@ JSON 示例：
 1. 已同步时间：`YYYY-MM-DD HH:MM:SS [TAG] message`
 2. 未同步时间：`ms=<millis> [TAG] message`
 
+## 9.7 云端日志推送（推荐）
+
+背景：外网面板在公网环境下通过 MQTT RPC 读取日志，可能因为设备离线/链路差/反向代理超时等原因出现超时（例如 504）。因此固件支持“日志行实时推送”，云端面板收到后本地缓存，`/api/log` 优先读缓存，显著提高可用性。
+
+1. 固件侧开关（`src/WS_Information.h`）
+- `MQTT_LOG_PUSH_Enable=true`：开启日志推送（默认开启）
+
+2. 主题（设备 -> MQTT，纯文本）
+- `<device_id>/device/log/error`
+- `<device_id>/device/log/measure`
+- `<device_id>/device/log/action`
+
+说明：
+- payload 为“完整一行日志”（包含末尾 `\\r\\n`），不是 JSON
+- 云端面板会按 `(device_id, name)` 缓存最近 `LOG_CACHE_MAX_BYTES` 字节
+- 云端 HTTP 接口会返回 `X-Log-Source: cache|rpc` 便于排查来源
+
+3. MQTT Broker / ACL（最小权限建议）
+- 设备账号：allow publish `fish1/device/telemetry`、`fish1/device/reply`、`fish1/device/log/#`；allow subscribe `fish1/device/command`
+- 服务器账号：allow subscribe `+/device/telemetry`、`+/device/reply`、`+/device/log/#`；allow publish `+/device/command`
+
 ## 10. OTA 说明
 
 当前固件采用 `ElegantOTA` 网页升级模式：
@@ -456,7 +477,7 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 1. 面板前端文件位于 `data/ui/`：默认不内置进固件，需要上传到设备 LittleFS 才能访问（`/ui/...`）。
 2. MQTT 已实现“遥测上报 + 下行控制”（见 `## 9. MQTT 使用说明`），并支持外网面板通过 MQTT RPC：
 - 读取/下发设备 `ctrl.json`（规则配置）
-- 读取/清空设备 LittleFS 日志（默认读取末尾 16KB）
+- 日志读取：优先使用“日志推送缓存”（见 `## 9.7 云端日志推送`），缓存缺失/禁用时再通过 MQTT RPC 读取/清空设备 LittleFS 日志（默认读取末尾 16KB）
 仍不包含“设备日志上云落库/长期存储”（外网面板以“遥测历史回放”为主）。
 
 ## 15. 云端外网面板（EMQX + 登录 + 历史回放）
@@ -468,6 +489,7 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 - 服务端订阅设备遥测（MQTT）并写入 PostgreSQL
 - 提供 HTTPS Web 面板（登录、用户管理）
 - `历史水位`/`回放`：从服务器数据库查询历史数据（可导出 JSON/CSV）
-- `设备配置`/`日志`：通过 MQTT RPC 读写 `ctrl.json`、读取/清空日志（不落库）
+- `设备配置`：通过 MQTT RPC 读写 `ctrl.json`
+- `日志`：优先读取 MQTT 日志推送缓存（避免 RPC/代理超时），缓存缺失时再通过 MQTT RPC 读取；清空日志通过 MQTT RPC（不落库）
 
 OpenClaw 部署请直接看：`openclaw_read.md`（包含 `docker compose` 文件和安全建议）。

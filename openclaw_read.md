@@ -25,6 +25,9 @@
 
 - 遥测上报主题（设备 -> MQTT）：`MQTT_Pub`，默认 `fish1/device/telemetry`
 - 控制下发主题（MQTT -> 设备）：`MQTT_Sub`，默认 `fish1/device/command`
+- 日志推送主题（设备 -> MQTT，推荐开启）：`<device_id>/device/log/<name>`（纯文本）
+  - `name`：`error` / `measure` / `action`
+  - 开关：`MQTT_LOG_PUSH_Enable=true`
 - 遥测内容：与设备 HTTP 的 `GET /getData` 基本一致（详见仓库 `README.md` 的示例 JSON）
 - 下发命令（推荐格式）：
   - `{"cmd":"gate_open"}`
@@ -48,8 +51,16 @@
    - 至少做到：`allow_anonymous=false`（或等价设置）
    - 给“设备”和“服务器”使用不同账号
    - ACL 最小权限：
-     - 设备账号：只能 `publish fish1/device/telemetry`，只能 `subscribe fish1/device/command`
-     - 服务器账号：只能 `subscribe +/device/telemetry`，只能 `publish +/device/command`
+     - 设备账号：
+       - allow publish：`fish1/device/telemetry`（遥测）
+       - allow publish：`fish1/device/reply`（RPC reply：config/log）
+       - allow publish：`fish1/device/log/#`（日志推送，推荐开启）
+       - allow subscribe：`fish1/device/command`（下行控制 + RPC request）
+     - 服务器账号（供 `server/` 外网面板使用）：
+       - allow subscribe：`+/device/telemetry`
+       - allow subscribe：`+/device/reply`
+       - allow subscribe：`+/device/log/#`
+       - allow publish：`+/device/command`
    - 示例 ACL 见 `openclaw/emqx/acl.conf`（如你的 EMQX 版本不吃该文件，请在 Dashboard 里做同样的授权规则）
 
 3. **面板必须 HTTPS**
@@ -85,6 +96,7 @@
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD`：首个管理员账号（只在“没有任何 admin”时自动创建）
 - `MQTT_SERVER_USERNAME` / `MQTT_SERVER_PASSWORD`：面板服务端连接 EMQX 的账号
 - `MQTT_TELEMETRY_SUB`：建议 `+/device/telemetry`（支持多设备）
+- `MQTT_LOG_SUB`：建议 `+/device/log/#`（日志推送订阅；不配也有默认值）
 - `DEFAULT_DEVICE_ID`：单设备时可写 `fish1`
 - `DATA_RETENTION_DAYS`：历史数据保留天数
 
@@ -134,10 +146,12 @@ docker compose --env-file .env up -d --build
    - `fish1`：
      - allow publish: `fish1/device/telemetry`
      - allow publish: `fish1/device/reply`
+     - allow publish: `fish1/device/log/#`
      - allow subscribe: `fish1/device/command`
    - `fish_srv`：
      - allow subscribe: `+/device/telemetry`
      - allow subscribe: `+/device/reply`
+     - allow subscribe: `+/device/log/#`
      - allow publish: `+/device/command`
 
 6. 配置完成后，建议把 `openclaw/docker-compose.yml` 里的 Dashboard 端口映射删掉/注释掉（保持不对公网开放）。
@@ -161,10 +175,12 @@ docker compose --env-file .env up -d --build
   - 设备用户 `fish1`：
     - allow publish：`fish1/device/telemetry`
     - allow publish：`fish1/device/reply`
+    - allow publish：`fish1/device/log/#`
     - allow subscribe：`fish1/device/command`
   - 服务器用户 `fish_srv`：
     - allow subscribe：`+/device/telemetry`
     - allow subscribe：`+/device/reply`
+    - allow subscribe：`+/device/log/#`
     - allow publish：`+/device/command`
 - [ ] 对齐配置：
   - `openclaw/.env` 的 `MQTT_SERVER_USERNAME/MQTT_SERVER_PASSWORD` 要与 EMQX 里创建的“服务器用户”一致
@@ -196,7 +212,8 @@ docker compose --env-file .env up -d --build
   - 历史水位：自动调用 `GET /api/history?window_s=...` 从服务器拉取历史（默认固定 0-5m，超过 5m 才自动扩展标尺）
 - 设备配置：`/device-config`
   - `GET /api/config` / `POST /api/config` 通过 MQTT RPC 读写设备 `ctrl.json`
-  - `GET /api/log` / `POST /api/log/clear` / `GET /api/log/download` 通过 MQTT RPC 读取/清空日志（默认读取末尾 16KB）
+  - 日志读取优先使用“MQTT 日志推送缓存”（设备发布 `<device_id>/device/log/<name>`，服务端订阅 `+/device/log/#` 并本地缓存）；缓存缺失时再通过 MQTT RPC 兜底读取
+  - `POST /api/log/clear`：清空日志通过 MQTT RPC（设备侧清空 LittleFS 文件）
 - 回放：`/replay`
   - 可按时间范围查询服务器保存的所有遥测并导出 JSON/CSV
 - 配置：`/config`（管理员）
