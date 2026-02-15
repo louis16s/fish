@@ -140,8 +140,15 @@
       overflow:hidden;
     }
     .vizMain{padding:12px}
-    .schem{display:block}
-    .schem svg{width:100%;height:auto;display:block}
+    .chartCanvas{
+      width:100%;
+      height:340px;
+      display:block;
+      border-radius:12px;
+      background:
+        radial-gradient(900px 520px at 14% 10%, rgba(34,211,238,.12), transparent 55%),
+        rgba(4,9,20,.68);
+    }
     .vizHud{
       padding:10px 12px;
       border-top:1px solid rgba(255,255,255,.06);
@@ -222,9 +229,7 @@
 
         <div class="vizWrap">
           <div class="vizMain">
-            <div class="schem" id="schemWrap">
-              <div class="hint" id="schemMsg">示意图加载中…</div>
-            </div>
+            <canvas id="chart" class="chartCanvas" role="img" aria-label="水位曲线"></canvas>
           </div>
           <div class="vizHud" aria-label="回放读数">
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -268,13 +273,8 @@
     let g_curIdx = 0;
     let g_playing = false;
     let g_playTimer = 0;
-
-    // Schematic handles (same SVG ids as /ui/pond_gate.svg used on the main panel)
-    let g_svg = null;
-    let g_waterL = null, g_waterR = null, g_chan = null;
-    let g_surfL = null, g_surfR = null, g_surfC = null;
-    let g_gatePlateGroup = null;
-    let g_gateRatio = 0;
+    let g_chartData = [];
+    let g_chartRange = null;
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -370,91 +370,213 @@
       }catch(e){ return ''; }
     }
 
-    function mountSchematicFromSvgText(tx){
-      const wrap = $('schemWrap');
-      if(!wrap) return false;
-      const s = (tx == null) ? '' : ('' + tx);
-      if(!s || s.indexOf('<svg') === -1) return false;
-      wrap.innerHTML = s;
-      g_svg = wrap.querySelector('svg');
-      g_waterL = g_svg && g_svg.querySelector('#water_left');
-      g_waterR = g_svg && g_svg.querySelector('#water_right');
-      g_chan  = g_svg && g_svg.querySelector('#channel_water');
-      g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
-      g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
-      g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
-      g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
-      return !!g_svg;
-    }
-
-    async function loadSchematic(){
-      const msg = $('schemMsg');
+    function fmtTick(ts){
       try{
-        const r = await fetch('/ui/pond_gate.svg', {cache:'no-store'});
-        const tx = await r.text();
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        if(mountSchematicFromSvgText(tx)){
-          if(msg) msg.textContent = '';
-          setGateRatio(0);
-          return true;
+        const d = new Date(ts);
+        const pad = (n)=> (n<10?('0'+n):(''+n));
+        return pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      }catch(e){ return '--'; }
+    }
+
+    function niceStep(range, target){
+      const t = target || 5;
+      if(!Number.isFinite(range) || range <= 0) return 10;
+      const rough = range / t;
+      const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+      const norm = rough / pow;
+      let nice = 1;
+      if(norm < 1.5) nice = 1;
+      else if(norm < 3) nice = 2;
+      else if(norm < 7) nice = 5;
+      else nice = 10;
+      return nice * pow;
+    }
+
+    function buildTicks(min, max, target){
+      const step = niceStep((max - min) || 1, target || 5);
+      const start = Math.floor(min / step) * step;
+      const end = Math.ceil(max / step) * step;
+      const ticks = [];
+      for(let v = start; v <= end + step * 0.5; v += step){
+        ticks.push(Math.round(v));
+      }
+      return ticks;
+    }
+
+    function prepareChartData(rows){
+      const data = (Array.isArray(rows) ? rows : []).map((r)=>{
+        const t = r && r.payload ? r.payload : {};
+        const s1 = t.sensor1 || {};
+        const s2 = t.sensor2 || {};
+        return {
+          ts: new Date(r.ts).getTime(),
+          inner: (s1 && s1.valid) ? (s1.mm|0) : null,
+          outer: (s2 && s2.valid) ? (s2.mm|0) : null,
+        };
+      });
+      g_chartData = data;
+      const vals = [];
+      data.forEach((d)=>{
+        if(d.inner != null) vals.push(d.inner);
+        if(d.outer != null) vals.push(d.outer);
+      });
+      const yMin = vals.length ? Math.min(...vals) : 0;
+      const yMax = vals.length ? Math.max(...vals) : 0;
+      const pad = vals.length ? Math.max(30, Math.round((yMax - yMin || 60) * 0.18)) : 60;
+      const tMin = data.length ? Math.min(...data.map(d=>d.ts)) : null;
+      const tMax = data.length ? Math.max(...data.map(d=>d.ts)) : null;
+      g_chartRange = {
+        tMin,
+        tMax: (tMax === tMin && tMax != null) ? (tMax + 1000) : tMax,
+        yMin: vals.length ? Math.max(0, yMin - pad) : 0,
+        yMax: vals.length ? (yMax + pad) : 120,
+      };
+    }
+
+    function renderChart(highlightIdx){
+      const canvas = $('chart');
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth || canvas.offsetWidth || 800;
+      const height = canvas.clientHeight || 320;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const pad = {l:72, r:18, t:16, b:44};
+      const plotW = Math.max(10, width - pad.l - pad.r);
+      const plotH = Math.max(10, height - pad.t - pad.b);
+
+      ctx.fillStyle = 'rgba(4,9,20,.68)';
+      ctx.fillRect(0, 0, width, height);
+
+      const range = g_chartRange || {};
+      const hasData = g_chartData.length && range.tMin != null && range.tMax != null;
+      if(!hasData){
+        ctx.fillStyle = 'rgba(148,163,184,.84)';
+        ctx.font = '14px var(--font, \"Bahnschrift\")';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('暂无数据，请先查询。', pad.l, pad.t + 28);
+        ctx.restore();
+        return;
+      }
+
+      const tMin = range.tMin;
+      const tMax = range.tMax;
+      const yMin = range.yMin;
+      const yMax = range.yMax;
+      const mapX = (ts)=> pad.l + ((ts - tMin) / (tMax - tMin)) * plotW;
+      const mapY = (v)=> pad.t + plotH - ((v - yMin) / ((yMax - yMin) || 1)) * plotH;
+
+      // Grid Y
+      ctx.lineWidth = 1;
+      const yTicks = buildTicks(yMin, yMax, 5);
+      yTicks.forEach((v)=>{
+        const y = mapY(v);
+        ctx.strokeStyle = 'rgba(255,255,255,.08)';
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y + 0.5);
+        ctx.lineTo(width - pad.r, y + 0.5);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(148,163,184,.9)';
+        ctx.font = '12px var(--font, \"Bahnschrift\")';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(v + ' mm', pad.l - 10, y);
+      });
+
+      // Grid X
+      const xTicks = 4;
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
+      for(let i=0;i<=xTicks;i++){
+        const ts = tMin + ((tMax - tMin) * i / xTicks);
+        const x = mapX(ts);
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, pad.t);
+        ctx.lineTo(x + 0.5, pad.t + plotH);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(148,163,184,.9)';
+        ctx.font = '12px var(--font, \"Bahnschrift\")';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(fmtTick(ts), x, pad.t + plotH + 8);
+      }
+
+      function drawSeries(selector, color, shadow){
+        ctx.beginPath();
+        let started = false;
+        g_chartData.forEach((d)=>{
+          const v = selector(d);
+          if(v == null){ started = false; return; }
+          const x = mapX(d.ts);
+          const y = mapY(v);
+          if(!started){ ctx.moveTo(x, y); started = true; }
+          else ctx.lineTo(x, y);
+        });
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = color;
+        ctx.shadowColor = shadow || 'transparent';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.stroke();
+        ctx.shadowColor = 'transparent';
+      }
+
+      drawSeries((d)=>d.outer, '#38bdf8', 'rgba(56,189,248,.30)');
+      drawSeries((d)=>d.inner, '#4ade80', 'rgba(74,222,128,.30)');
+
+      // Legend
+      const legend = [
+        {label:'外塘', color:'#38bdf8'},
+        {label:'内塘', color:'#4ade80'},
+      ];
+      legend.forEach((l, i)=>{
+        const y = pad.t + 6 + i * 20;
+        ctx.fillStyle = l.color;
+        ctx.fillRect(pad.l, y, 18, 4);
+        ctx.fillStyle = 'rgba(226,232,240,.94)';
+        ctx.font = '13px var(--font, \"Bahnschrift\")';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(l.label, pad.l + 26, y + 2);
+      });
+
+      // Highlight current
+      if(typeof highlightIdx === 'number'){
+        const d = g_chartData[highlightIdx];
+        if(d){
+          const x = mapX(d.ts);
+          ctx.strokeStyle = 'rgba(255,255,255,.24)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, pad.t);
+          ctx.lineTo(x + 0.5, pad.t + plotH);
+          ctx.stroke();
+
+          const drawDot = (v, color)=>{
+            if(v == null) return;
+            const y = mapY(v);
+            ctx.fillStyle = color;
+            ctx.strokeStyle = 'rgba(0,0,0,.45)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          };
+          drawDot(d.outer, '#38bdf8');
+          drawDot(d.inner, '#4ade80');
         }
-        throw new Error('mount_failed');
-      }catch(e){
-        if(msg) msg.textContent = '示意图加载失败';
-        return false;
       }
-    }
 
-    function setWaterRect(el, surf, mm, valid){
-      if(!el) return;
-      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
-      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
-      const maxMm = 5000;
-      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
-      const h = Math.max(0, baseH * ratio);
-      const y = baseY + (baseH - h);
-      el.setAttribute('y', y.toFixed(2));
-      el.setAttribute('height', h.toFixed(2));
-      el.setAttribute('data-valid', valid ? '1' : '0');
-
-      if(!surf) return;
-      const show = valid && h > 2;
-      surf.style.display = show ? '' : 'none';
-      if(show){
-        const sy = Math.max(baseY, y - 4);
-        surf.setAttribute('y', sy.toFixed(2));
-      }
-    }
-
-    function setGateRatio(ratio){
-      g_gateRatio = clamp(ratio, 0, 1);
-      if(g_gatePlateGroup){
-        const openDy = parseFloat(g_gatePlateGroup.getAttribute('data-open-dy') || '-600');
-        const closedDy = parseFloat(g_gatePlateGroup.getAttribute('data-closed-dy') || '0');
-        const dy = closedDy + (openDy - closedDy) * g_gateRatio;
-        g_gatePlateGroup.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
-      }
-      if(g_chan){
-        // Keep channel hidden in replay to reduce visual noise.
-        g_chan.style.display = 'none';
-      }
-    }
-
-    function deriveGateTarget(t){
-      const cand = [
-        t && t.gate_open_pct,
-        t && t.gate_open_percent,
-        t && t.gate_open_ratio,
-        t && t.gate_ratio,
-      ].find(v => typeof v === 'number' && isFinite(v));
-
-      if(typeof cand === 'number'){
-        if(cand > 1.2) return clamp(cand/100, 0, 1);
-        return clamp(cand, 0, 1);
-      }
-      if(t && t.gate_state === 1) return 1;
-      if(t && t.gate_state === 2) return 0;
-      return (t && t.gate_position_open) ? 1 : 0;
+      ctx.restore();
     }
 
     function setTag(id, text, kind){
@@ -485,9 +607,6 @@
         setTag('hudDelta', 'Δ --', '');
         setTag('hudGate', '闸门 --', '');
         setTag('hudAuto', '自动 --', '');
-        setGateRatio(0);
-        setWaterRect(g_waterL, g_surfL, 0, false);
-        setWaterRect(g_waterR, g_surfR, 0, false);
         return;
       }
 
@@ -517,11 +636,6 @@
       setTag('hudGate', '闸门 ' + gateStateText(t.gate_state), '');
       const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
       setTag('hudAuto', '自动 ' + auto, t.auto_latched ? 'bad' : (t.auto_gate ? 'good' : ''));
-
-      // Left is outer pond, right is inner pond (matches main panel).
-      setWaterRect(g_waterL, g_surfL, outer==null?0:outer, outerOk);
-      setWaterRect(g_waterR, g_surfR, inner==null?0:inner, innerOk);
-      setGateRatio(deriveGateTarget(t));
     }
 
     function stopPlay(){
@@ -567,6 +681,7 @@
       if(!n){
         g_curIdx = 0;
         renderVizRow(null, 0);
+        renderChart(null);
         updateTableSel();
         return;
       }
@@ -578,6 +693,7 @@
         sc.value = String(idx);
       }
       renderVizRow(g_last[idx], idx);
+      renderChart(idx);
       updateTableSel();
     }
     window.selectIdx = selectIdx;
@@ -609,6 +725,7 @@
         const j = await apiJson(url);
         const rows = (j && Array.isArray(j.rows)) ? j.rows : [];
         g_last = rows;
+        prepareChartData(rows);
         const tb = $('tbody');
         if(tb){
           if(!rows.length){
@@ -713,9 +830,9 @@
     (function init(){
       $('verLine').textContent = 'UI ' + UI_VERSION;
       loadMe();
-      loadSchematic().then(()=>{
-        renderVizRow(null, 0);
-      });
+      prepareChartData([]);
+      renderChart(null);
+      renderVizRow(null, 0);
       const sp = $('speed');
       if(sp){
         sp.addEventListener('change', ()=>{
@@ -725,6 +842,7 @@
           }
         });
       }
+      window.addEventListener('resize', ()=>renderChart(g_curIdx));
       loadDevices().then(()=>{
         const now = new Date();
         const from = new Date(now.getTime() - 60*60*1000);

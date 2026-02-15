@@ -41,6 +41,8 @@ char ipStr[16];
 static bool g_httpRoutesRegistered = false;
 static bool g_httpStarted = false;
 static uint32_t g_wifiRetryLastMs = 0;
+static bool g_uiFsChecked = false;
+static bool g_uiFsAvailable = false;
 
 extern uint16_t Sensor_Level_mm_1;
 extern uint16_t Sensor_Level_mm_2;
@@ -458,9 +460,24 @@ static const char* kUiIndexPath = "/ui/index.html";
 static const char* kUiConfigPath = "/ui/config.html";
 static const char* kUiLogsPath = "/ui/logs.html";
 
+static bool WS_UI_IsFsAvailable()
+{
+  if (g_uiFsChecked) {
+    return g_uiFsAvailable;
+  }
+  g_uiFsChecked = true;
+  g_uiFsAvailable = WS_FS_EnsureMounted() && LittleFS.exists(kUiIndexPath);
+  if (!g_uiFsAvailable) {
+    printf("UI: LittleFS assets not found, serving embedded panel bundle.\r\n");
+  } else {
+    printf("UI: LittleFS assets detected, filesystem will be preferred.\r\n");
+  }
+  return g_uiFsAvailable;
+}
+
 static bool WS_HTTP_StreamFileFromLittleFS(const char* path, const String& contentType)
 {
-  if (!WS_FS_EnsureMounted()) return false;
+  if (!WS_UI_IsFsAvailable()) return false;
   if (!LittleFS.exists(path)) return false;
   File f = LittleFS.open(path, "r");
   if (!f) return false;
@@ -876,6 +893,7 @@ static void WS_HTTP_BeginOnce()
   if (g_httpStarted) {
     return;
   }
+  (void)WS_UI_IsFsAvailable(); // Detect UI presence once to decide FS vs embedded path.
   WS_HTTP_RegisterRoutesOnce();
   server.begin();
   g_httpStarted = true;
@@ -1406,7 +1424,6 @@ void MQTT_Loop()
   client.loop();
   MQTT_PublishState(false);
 }
-
 
 
 
