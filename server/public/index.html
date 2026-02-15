@@ -1,0 +1,2702 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <title>控制面板</title>
+  <script>
+    // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
+    (function(){
+      try{
+        var rm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        var narrow = !!(window.matchMedia && window.matchMedia('(max-width: 680px)').matches);
+        var dm = (typeof navigator !== 'undefined' && navigator.deviceMemory) ? navigator.deviceMemory : 0;
+        var hc = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : 0;
+        var lite = !!(rm || narrow || (dm && dm <= 2) || (hc && hc <= 4));
+        if(lite) document.documentElement.classList.add('lite');
+      }catch(e){}
+    })();
+  </script>
+  <style>
+    :root{
+      --bg0:#060812;
+      --bg1:#0b1730;
+      --text:rgba(231,238,252,.96);
+      --muted:rgba(165,180,207,.78);
+      --muted2:rgba(124,141,180,.68);
+
+      /* Global tokens (single source of truth) */
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+      --surface:rgba(255,255,255,.06);
+      --surface2:rgba(2,6,23,.32);
+      --shadow1:0 16px 50px rgba(0,0,0,.46);
+
+      --radius-panel:20px;
+      --radius-card:16px;
+      --radius-btn:14px;
+      --radius-pill:999px;
+
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+      --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{min-height:100%}
+    html{background:linear-gradient(180deg, var(--bg0), var(--bg1))}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1)),
+        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+      background-repeat:no-repeat,no-repeat,no-repeat;
+      background-position:18% 10%, top, center;
+      background-size:auto,auto,cover;
+      background-attachment:scroll,scroll,fixed;
+      padding:18px 14px 28px;
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+    .wrap{max-width:1180px;margin:0 auto}
+
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+      padding:14px 14px;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter:blur(8px);
+    }
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .statusDot{
+      width:12px;height:12px;border-radius:999px;
+      background:rgba(148,163,184,.55);
+      box-shadow:0 0 0 6px rgba(148,163,184,.08);
+      flex:0 0 auto;
+    }
+    .statusDot.on{background:var(--good);box-shadow:0 0 0 6px rgba(34,197,94,.15), 0 0 26px rgba(34,197,94,.20)}
+    .statusDot.bad{background:var(--bad);box-shadow:0 0 0 6px rgba(251,113,133,.12), 0 0 26px rgba(251,113,133,.20)}
+    .brandTxt{min-width:0}
+    .brandTitle{
+      font-weight:850;letter-spacing:.2px;
+      font-size:18px;line-height:1.15;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .brandSub{
+      font-size:12px;color:var(--muted);
+      margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .topbar > .nav{margin-left:auto}
+    .quickLinks{justify-content:flex-start}
+    .navbtn{
+      display:inline-grid;place-items:center;
+      min-height:44px;padding:10px 12px;border-radius:var(--radius-pill);
+      border:1px solid var(--stroke);
+      text-decoration:none;
+      color:var(--text);
+      background:rgba(255,255,255,.04);
+      font-weight:900;
+      font-size:13px;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .navbtn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .navbtn:active{transform:translateY(1px)}
+
+    .topInfo{
+      flex:1 1 420px;
+      min-width:0;
+      font-family:var(--mono);
+      font-size:12px;
+      color:var(--muted2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .topV{color:var(--text);font-weight:900}
+
+    @media (max-width:980px){
+      body{background-attachment:scroll,scroll,scroll}
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1.45fr 1fr;
+      align-items:stretch;
+      gap:14px;
+      margin-top:14px;
+    }
+    #cfgPanel{grid-column:1 / -1}
+    #logPanel{grid-column:1 / -1}
+    .panel{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter: blur(8px);
+      overflow:hidden;
+    }
+    .panelHd{
+      display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+      padding:14px 14px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .panelTitle{font-size:16px;font-weight:850;letter-spacing:.2px}
+    .panelSub{margin-top:4px;color:var(--muted2);font-size:12px;line-height:1.6}
+
+    .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .chip{
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      border-radius:var(--radius-pill);
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      font-family:var(--mono);
+    }
+    .chip.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
+    .chip.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
+    .chip.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
+
+    .segs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .seg{
+      appearance:none;
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:var(--radius-pill);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      font-weight:950;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .seg:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .seg:active{transform:translateY(1px)}
+    .seg.on{border-color:rgba(34,211,238,.34);background:rgba(34,211,238,.14);color:var(--text)}
+
+    .vizBody{padding:14px}
+    .vizWrap{
+      border-radius:var(--radius-card);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(2,6,23,.22));
+      overflow:hidden;
+    }
+    .vizHud{
+      padding:12px;
+      border-top:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+    }
+    .vizMain{padding:12px}
+    .schem{display:block}
+    .schem .ph{
+      padding:12px 12px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted2);
+    }
+    .schem svg{display:block;width:100%;height:auto}
+    .readouts{display:grid;grid-template-columns: 1fr 1fr;gap:10px;align-content:start}
+    .metric{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:10px 10px;
+    }
+    .mk{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+    .swatch{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+    .swatch.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 4px rgba(37,99,235,.10)}
+    .swatch.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 4px rgba(6,182,212,.10)}
+    .mv{margin-top:6px;font-size:18px;font-weight:980;letter-spacing:.2px}
+    .ms{margin-top:2px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+    .meterRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .meterK{font-size:12px;color:var(--muted2);font-weight:950}
+    .meterV{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+    .bar{
+      margin-top:8px;height:10px;border-radius:999px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block;height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(56,189,248,.95), rgba(34,197,94,.95));
+      transition:width .20s ease;
+    }
+    .meterHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.4}
+
+    .stack{display:flex;flex-direction:column;gap:14px;align-content:stretch;height:100%}
+    #histPanel{flex:1;display:flex;flex-direction:column}
+    #histPanel .panelBody{flex:1;display:flex;flex-direction:column}
+    .panelBody{padding:14px}
+    .kv{display:grid;grid-template-columns: 92px 1fr;gap:10px 10px;align-items:center}
+    .k{color:var(--muted2);font-size:12px;font-weight:950}
+    .v{font-size:18px;font-weight:980}
+    .v.small{font-size:14px;font-family:var(--mono);color:var(--muted)}
+    .preline{white-space:pre-line}
+
+    .formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:grid;gap:6px}
+    .fieldK{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .rowInline{display:flex;gap:10px;align-items:center}
+    .fieldNote{
+      min-height:44px;
+      display:flex;align-items:center;justify-content:center;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-btn);
+      padding:0 10px;
+      color:var(--muted);
+      background:rgba(255,255,255,.04);
+      font-family:var(--mono);
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .inp{
+      width:100%;
+      min-height:44px;
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.22);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:950;
+      font-family:var(--font);
+      transition:border-color .18s ease, background .18s ease;
+    }
+    .inp:hover{border-color:var(--stroke2)}
+    .inp:disabled{opacity:.6}
+    .inp[type="number"]{text-align:right}
+    .check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:950;user-select:none}
+    .check input{width:18px;height:18px;accent-color:rgba(34,211,238,.85)}
+
+    .rule{
+      margin-top:12px;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius-card);
+      background:rgba(2,6,23,.22);
+      padding:12px;
+    }
+    .ruleHd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .ruleTitle{font-weight:950;letter-spacing:.2px}
+    .ruleSub{margin-top:2px;font-size:12px;color:var(--muted2);line-height:1.45}
+    .ruleGrid{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:10px}
+    .ruleGrid3{display:grid;gap:10px;margin-top:10px}
+    .ruleCols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .durRow{display:grid;grid-template-columns:1fr 86px 86px;gap:10px;align-items:center}
+    .miniLbl{font-size:12px;color:var(--muted2);font-weight:950}
+    .miniHint{font-size:12px;color:var(--muted2);line-height:1.5}
+    .btnRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+    .cfgTop{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:end;
+      padding-bottom:12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .cfgTop .btnRow{margin-top:0}
+    .rulesRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+    .rulesRow .rule{margin-top:0}
+    /* Rules: make the "基本" card a full-width horizontal bar. */
+    .ruleBasic{grid-column:1 / -1}
+    .ruleBasic .roList{grid-template-columns:1fr 1fr}
+
+    .ctlGroup{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+    .kv + .ctlGroup{margin-top:12px;padding-top:0;border-top:none}
+    .kv + .ctlGroup.quickLinksGroup{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+    .ctlTitle{font-size:12px;color:var(--muted2);font-weight:850;letter-spacing:.2px}
+    .controls{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin-top:10px}
+    /* Force 2-up even on small screens (used by Auto Control). */
+    .controls.two{grid-template-columns: 1fr 1fr}
+    .span2{grid-column:1 / -1}
+    .btn{
+      appearance:none;
+      min-height:48px;
+      padding:12px 12px;
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .btn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.16)}
+    .btn.danger{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.14)}
+    .btn.warn{
+      border-color:rgba(245,158,11,.80);
+      background:linear-gradient(180deg, rgba(254,240,138,.98), rgba(245,158,11,.92));
+      color:rgba(17,24,39,.96);
+      box-shadow:0 14px 34px rgba(245,158,11,.18);
+    }
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+
+    .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:12px}
+    pre.logPre{
+      margin:0;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:var(--radius-card);
+      background:rgba(2,6,23,.55);
+      color:#e2e8f0;
+      padding:12px;
+      min-height:360px;
+      max-height:70vh;
+      overflow:auto;
+      font-family:var(--mono);
+      font-size:12px;
+      line-height:1.55;
+      box-shadow:0 10px 24px rgba(0,0,0,.25) inset;
+    }
+
+    .roList{display:grid;gap:10px;margin-top:10px}
+    .roItem{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:10px 10px;
+    }
+    .roItem.on{
+      border-color:rgba(255,255,255,.22);
+      background:rgba(255,255,255,.03);
+    }
+    .roItemTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .roItemTitle{font-size:12px;color:var(--muted2);font-weight:950}
+    .roItemVal{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+
+    .statusCard{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+      margin-top:12px;
+    }
+    .statusCard.on{border-color:rgba(251,113,133,.34);background:rgba(251,113,133,.08)}
+    .statusTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .statusTop .title{font-size:12px;color:var(--muted2);font-weight:950}
+    .statusTop .value{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:900}
+    .divider{height:1px;background:rgba(255,255,255,.06);margin:10px 0}
+    .alarmRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .alarmTag{font-size:12px;color:var(--muted2);font-family:var(--font);font-weight:980}
+    .alarmText{font-family:var(--mono);font-weight:950}
+    .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
+    .hint.good{color:var(--good)}
+    .hint.warn{color:var(--warn)}
+    .hint.bad{color:var(--bad)}
+    a.inlineLink{color:rgba(34,211,238,.95);font-weight:950;text-decoration:underline}
+    a.inlineLink:hover{opacity:.9}
+
+    .histCard{
+      margin-top:12px;
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+    }
+    .histHd{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+    .histTitle{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
+    .histMeta{font-family:var(--mono);font-size:11px;color:var(--muted2);font-weight:900}
+    canvas.histCanvas{
+      width:100%;
+      flex:1 1 auto;
+      height:auto;
+      min-height:170px;
+      display:block;
+      margin-top:10px;
+      border-radius:var(--radius-card);
+      border:1px solid rgba(255,255,255,.08);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(2,6,23,.20));
+    }
+    .histLegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;color:var(--muted2);font-size:12px;font-weight:950}
+    .histLegend .lg{display:flex;align-items:center;gap:8px}
+    .histLegend .dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+    .histLegend .dot.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 3px rgba(37,99,235,.10)}
+    .histLegend .dot.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 3px rgba(6,182,212,.10)}
+
+    .timerCard{
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(2,6,23,.22);
+      border-radius:var(--radius-card);
+      padding:12px 12px;
+      margin-bottom:12px;
+    }
+    .timerCard.good{border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.06)}
+    .timerCard.warn{border-color:rgba(245,158,11,.26);background:rgba(245,158,11,.06)}
+    .timerCard.bad{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.07)}
+    .bar.cooldown > i{background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(34,211,238,.88), rgba(34,197,94,.90))}
+    .timerHint{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+
+
+    .rule.active{
+      border-color:rgba(34,211,238,.18);
+      background:linear-gradient(180deg, rgba(34,211,238,.10), rgba(2,6,23,.22));
+    }
+    .rule.active .ruleTitle{color:rgba(231,238,252,.98)}
+
+    @supports (content-visibility: auto){
+      /* Big below-the-fold panels: skip layout/paint until scrolled into view. */
+      #cfgPanel, #logPanel{content-visibility:auto; contain-intrinsic-size: 900px}
+    }
+
+    html.lite .panel,
+    html.lite .topbar{
+      backdrop-filter:none;
+      box-shadow:0 10px 28px rgba(0,0,0,.28);
+    }
+    html.lite pre.logPre{box-shadow:none}
+    html.lite body{background-attachment:scroll,scroll,scroll}
+
+    :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .rulesRow{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:680px){
+      .rulesRow{grid-template-columns:1fr}
+    }
+    @media (max-width:520px){
+      .readouts{grid-template-columns:1fr}
+      .controls{grid-template-columns:1fr}
+      .nav{gap:8px}
+      .formGrid{grid-template-columns:1fr}
+      .ruleCols{grid-template-columns:1fr}
+      .btnRow{grid-template-columns:1fr}
+      .cfgTop{grid-template-columns:1fr}
+      .rulesRow{grid-template-columns:1fr}
+      .durRow{grid-template-columns:1fr 1fr}
+      .durRow .miniLbl{grid-column:1 / -1}
+      .actions{justify-content:stretch}
+      .actions .btn{flex:1}
+      canvas.histCanvas{height:140px;min-height:140px}
+    }
+    @media (prefers-reduced-motion: reduce){
+      *{scroll-behavior:auto !important;transition:none !important;animation:none !important}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <span class="statusDot" id="statusDot" aria-hidden="true"></span>
+        <div class="brandTxt">
+          <div class="brandTitle">控制面板</div>
+          <div class="brandSub" id="statusLine">连接中…</div>
+        </div>
+      </div>
+      <div class="topInfo" aria-label="网络信息">
+        Wi-Fi <span class="topV" id="infoWifi">--</span>
+        | RSSI <span class="topV" id="infoRssi">--</span>
+        | IP <span class="topV" id="infoIp">--</span>
+        | MQTT <span class="topV" id="infoMqtt">--</span>
+        <span id="infoCellRowK" style="display:none"> | 4G </span><span id="infoCellRowV" style="display:none"><span class="topV" id="infoCell">--</span></span>
+        | 刷新 <span class="topV" id="infoLastSeen">--</span>
+        | <span class="topV" id="infoVer">--</span>
+      </div>
+      <nav class="nav" aria-label="快捷入口">
+        <a class="navbtn" href="/config">配置</a>
+        <a class="navbtn" href="/replay">回放</a>
+        <a class="navbtn" href="http://67.209.185.215:18083/#/login?to=/authentication" target="_blank" rel="noopener noreferrer">MQTT</a>
+        <a class="navbtn" href="https://github.com/louis16s/fish" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="navbtn" href="#" onclick="logout();return false;">退出</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">水闸可视化</div>
+            <div class="panelSub">水位范围 0-5m。闸门开度会以“闸板上下移动”显示，开闸后两侧水体连通并出现流向。</div>
+          </div>
+          <div class="chips">
+            <span class="chip" id="chipDelta">Δ 0 mm</span>
+            <span class="chip" id="chipFlow">连通 OFF</span>
+          </div>
+        </div>
+        <div class="vizBody">
+          <div class="vizWrap">
+            <div class="vizMain">
+              <div class="schem" id="schemWrap">
+                <div class="ph" id="schemMsg">示意图加载中…</div>
+              </div>
+            </div>
+            <div class="vizHud" aria-label="实时读数">
+              <div class="readouts" aria-hidden="true">
+                <div class="metric">
+                  <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘水位</div>
+                  <div class="mv" id="outerLevelM">0.000 m</div>
+                  <div class="ms" id="outerLevelMm">0 mm</div>
+                </div>
+                <div class="metric">
+                  <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘水位</div>
+                  <div class="mv" id="innerLevelM">0.000 m</div>
+                  <div class="ms" id="innerLevelMm">0 mm</div>
+                </div>
+                <div class="metric">
+                  <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘传感器ID002</div>
+                  <div class="mv" id="outerOnline">离线</div>
+                  <div class="ms" id="outerTemp">0.0 °C</div>
+                </div>
+                <div class="metric">
+                  <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘传感器ID001</div>
+                  <div class="mv" id="innerOnline">离线</div>
+                  <div class="ms" id="innerTemp">0.0 °C</div>
+                </div>
+              </div>
+
+              <div class="statusCard" id="alarmBox" aria-label="闸门与告警">
+                <div class="statusTop">
+                  <div class="title">闸门开度</div>
+                  <div class="value" id="gatePct">0%</div>
+                </div>
+                <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="闸门开度进度条">
+                  <i id="gateBar" style="width:0%"></i>
+                </div>
+                <div class="hint" id="gateState">状态：--</div>
+                <div class="divider"></div>
+              <div class="alarmRow">
+                  <div class="alarmTag">告警</div>
+                  <div class="alarmText" id="alarmLine">--</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hint" id="interlock">互锁：--</div>
+        </div>
+      </section>
+
+      <aside class="stack">
+        <section class="panel" id="histPanel" aria-label="历史水位曲线">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">历史水位</div>
+              <div class="panelSub histMeta" id="histMeta">最近 60 分钟</div>
+            </div>
+            <div class="segs" role="tablist" aria-label="历史时间范围">
+              <button class="seg" id="histRange30" role="tab" onclick="histSetRange('30m')" aria-selected="false">30分钟</button>
+              <button class="seg on" id="histRange60" role="tab" onclick="histSetRange('60m')" aria-selected="true">60分钟</button>
+              <button class="seg" id="histRange24" role="tab" onclick="histSetRange('24h')" aria-selected="false">24小时</button>
+            </div>
+          </div>
+          <div class="panelBody">
+            <canvas class="histCanvas" id="histCanvas" height="170"></canvas>
+            <div class="histLegend" aria-hidden="true">
+              <div class="lg"><span class="dot outer" aria-hidden="true"></span>外塘</div>
+              <div class="lg"><span class="dot inner" aria-hidden="true"></span>内塘</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panelHd">
+            <div>
+              <div class="panelTitle">控制</div>
+              <div class="panelSub">按钮调用 POST</div>
+            </div>
+            <div class="chips">
+              <span class="chip" id="autoState">自动 --</span>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="timerCard" id="timerCard" aria-label="保护倒计时">
+              <div class="statusTop">
+                <div class="title" id="timerTitle">保护</div>
+                <div class="value" id="timerValue">--</div>
+              </div>
+              <div class="bar cooldown" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="保护倒计时进度条">
+                <i id="timerBar" style="width:100%"></i>
+              </div>
+              <div class="timerHint" id="timerHint">--</div>
+            </div>
+
+            <div class="ctlGroup">
+              <div class="ctlTitle">阀门控制</div>
+              <div class="controls two" role="group" aria-label="阀门控制">
+                <button class="btn primary" id="btnOpen" onclick="gateCmd('gate_open')">开闸</button>
+                <button class="btn" id="btnClose" onclick="gateCmd('gate_close')">关闸</button>
+                <button class="btn danger" id="btnStop" onclick="gateCmd('gate_stop')">停止</button>
+                <button class="btn" id="btnLatch" onclick="confirmLatch()">关闭自动</button>
+              </div>
+              <div class="hint" id="cmdMsg" aria-live="polite" style="display:none"></div>
+            <div class="hint" id="authHint" style="display:none">
+              未登录或会话过期，请先 <a class="inlineLink" href="/login">点击这里登录</a> 后再操作。
+            </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel" id="cfgPanel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">规则</div>
+            <div class="panelSub">主页只展示当前设置，如需修改请到「配置」页</div>
+          </div>
+          <div class="chips">
+            <span class="chip" id="cfgChip">CFG --</span>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="rulesRow" aria-label="规则只读展示">
+            <div class="rule ruleBasic">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">基本</div>
+                  <div class="ruleSub">模式 / 时区</div>
+                </div>
+              </div>
+              <div class="roList">
+                <div class="roItem">
+                  <div class="roItemTop">
+                    <div class="roItemTitle">模式</div>
+                    <div class="roItemVal" id="roMode">--</div>
+                  </div>
+                </div>
+                <div class="roItem">
+                  <div class="roItemTop">
+                    <div class="roItemTitle">时区</div>
+                    <div class="roItemVal" id="roTz">--</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">定时</div>
+                  <div class="ruleSub">每天固定时间开/关闸</div>
+                </div>
+              </div>
+              <div class="roList" id="roDailyList"></div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">循环</div>
+                  <div class="ruleSub">按时长循环开/关</div>
+                </div>
+              </div>
+              <div class="roList" id="roCycleList"></div>
+            </div>
+
+            <div class="rule">
+              <div class="ruleHd">
+                <div>
+                  <div class="ruleTitle">水位差</div>
+                  <div class="ruleSub">delta = 内塘 - 外塘（mm）</div>
+                </div>
+              </div>
+              <div class="roList" id="roLdList"></div>
+            </div>
+          </div>
+
+          <div class="hint" id="cfgMsg"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="logPanel">
+        <div class="panelHd">
+          <div>
+            <div class="panelTitle">日志</div>
+            <div class="panelSub">默认读取末尾 16KB（LittleFS）</div>
+          </div>
+          <div class="segs" role="tablist" aria-label="日志类型">
+            <button class="seg on" id="logTab_error" role="tab" aria-selected="true" onclick="logSetTab('error')">错误</button>
+            <button class="seg" id="logTab_measure" role="tab" aria-selected="false" onclick="logSetTab('measure')">测量</button>
+            <button class="seg" id="logTab_action" role="tab" aria-selected="false" onclick="logSetTab('action')">动作</button>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="actions">
+            <button class="btn" id="logRefreshBtn" onclick="logRefreshNow()">刷新</button>
+            <button class="btn" id="logExportBtn" onclick="logExportCur()">导出当前</button>
+            <button class="btn danger" id="logClearBtn" onclick="logClearCur()">清空当前日志</button>
+          </div>
+          <pre id="logBox" class="logPre">加载中…</pre>
+          <div class="hint" id="logMsg"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="schemInlineSvg">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1600"
+  height="900"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-label="外塘/内塘水位与水闸示意图">
+  <title>水位与水闸示意</title>
+  <desc>左侧外塘、右侧内塘，中间水闸。水体为独立对象：water_left/water_right/channel_water。闸门为可滑动闸板：gate_plate_group（由页面脚本设置开度）。</desc>
+
+  <defs>
+    <linearGradient id="gradWaterOuter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#60a5fa" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#2563eb" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1e3a8a" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterInner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#06b6d4" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0e7490" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterChannel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd3fc" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#38bdf8" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1d4ed8" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterOffline" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fb7185" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#be123c" stop-opacity="0.90" />
+    </linearGradient>
+    <linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cbd5e1"/>
+      <stop offset="0.45" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#64748b"/>
+    </linearGradient>
+    <linearGradient id="gradWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#0b1224" stop-opacity="0.98"/>
+    </linearGradient>
+
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b1224" flood-opacity="0.18"/>
+    </filter>
+
+    <clipPath id="clip_gate_inner">
+      <rect x="752" y="192" width="96" height="576" rx="12" />
+    </clipPath>
+
+    <style>
+      #layer_scale text.scaleText{
+        font-size: 32px;
+        paint-order: stroke fill;
+        stroke: rgba(11,18,32,0.85);
+        stroke-width: 3.4px;
+      }
+    </style>
+  </defs>
+
+  <style>
+    #water_left { fill: url(#gradWaterOuter); }
+    #water_right { fill: url(#gradWaterInner); }
+    #channel_water { fill: url(#gradWaterChannel); }
+    #channel_water[data-src="outer"] { fill: url(#gradWaterOuter); }
+    #channel_water[data-src="inner"] { fill: url(#gradWaterInner); }
+
+    #water_left[data-valid="0"], #water_right[data-valid="0"] { fill: url(#gradWaterOffline); opacity: 0.85; }
+    .water-surface { fill: rgba(255,255,255,0.38); mix-blend-mode: screen; }
+    #grid line { stroke: rgba(148,163,184,0.20); stroke-width: 2; }
+    #grid .major { stroke: rgba(148,163,184,0.28); }
+    #flow_fx { opacity: 0.0; }
+    #flow_fx[data-on="1"] { opacity: 1.0; }
+    .flow-line { transform-box: fill-box; transform-origin: center; }
+    @media (prefers-reduced-motion: no-preference) {
+      #flow_fx[data-on="1"] #flow_dir_right .flow-line { animation: flowMoveR 1.1s linear infinite; }
+      #flow_fx[data-on="1"] #flow_dir_left .flow-line { animation: flowMoveL 1.1s linear infinite; }
+      #water_left_surface, #water_right_surface, #channel_water_surface {
+        animation: surfaceBlink 2.2s ease-in-out infinite;
+      }
+    }
+    @keyframes flowMoveR {
+      from { transform: translateX(-70px); opacity: 0.35; }
+      25% { opacity: 0.9; }
+      75% { opacity: 0.9; }
+      to { transform: translateX(70px); opacity: 0.35; }
+    }
+    @keyframes flowMoveL {
+      from { transform: translateX(70px); opacity: 0.35; }
+      25% { opacity: 0.9; }
+      75% { opacity: 0.9; }
+      to { transform: translateX(-70px); opacity: 0.35; }
+    }
+    @keyframes surfaceBlink {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 0.60; }
+    }
+  </style>
+
+  <g id="grid" aria-hidden="true">
+    <line x1="120" y1="200" x2="1480" y2="200" class="major"/>
+    <line x1="120" y1="316" x2="1480" y2="316"/>
+    <line x1="120" y1="432" x2="1480" y2="432"/>
+    <line x1="120" y1="548" x2="1480" y2="548"/>
+    <line x1="120" y1="664" x2="1480" y2="664"/>
+    <line x1="120" y1="780" x2="1480" y2="780" class="major"/>
+  </g>
+
+  <g id="layer_water" filter="url(#shadowSoft)">
+    <rect id="water_left"
+      x="140" y="780"
+      width="580" height="0"
+      data-valid="1"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="water_left_surface" class="water-surface"
+      x="140" y="780"
+      width="580" height="8"
+      style="display:none" />
+
+    <rect id="water_right"
+      x="880" y="780"
+      width="580" height="0"
+      data-valid="1"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="water_right_surface" class="water-surface"
+      x="880" y="780"
+      width="580" height="8"
+      style="display:none" />
+
+    <rect id="channel_water"
+      x="760" y="780"
+      width="80" height="0"
+      clip-path="url(#clip_gate_inner)"
+      style="display:none"
+      data-base-y="200"
+      data-base-h="580" />
+    <rect id="channel_water_surface" class="water-surface"
+      x="760" y="780"
+      width="80" height="8"
+      clip-path="url(#clip_gate_inner)"
+      style="display:none" />
+
+    <g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
+      <g id="flow_dir_right" style="display:none">
+        <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+      <g id="flow_dir_left" style="display:none">
+        <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+    </g>
+  </g>
+
+  <g id="layer_containers" fill="none" stroke="rgba(226,232,240,0.92)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path id="pond_outer" d="M120 180 V780 H740" />
+    <path id="pond_inner" d="M1480 180 V780 H860" />
+    <rect id="gate_frame" x="740" y="180" width="120" height="600" rx="14" />
+  </g>
+
+  <g id="layer_scale" stroke="#FF8A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+     font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"
+     font-size="30" font-weight="900" fill="#FF8A00">
+    <line x1="120" y1="200" x2="120" y2="780" />
+    <line x1="110" y1="200" x2="130" y2="200" /><text class="scaleText" x="102" y="206" text-anchor="end">5m</text>
+    <line x1="110" y1="316" x2="130" y2="316" /><text class="scaleText" x="102" y="322" text-anchor="end">4m</text>
+    <line x1="110" y1="432" x2="130" y2="432" /><text class="scaleText" x="102" y="438" text-anchor="end">3m</text>
+    <line x1="110" y1="548" x2="130" y2="548" /><text class="scaleText" x="102" y="554" text-anchor="end">2m</text>
+    <line x1="110" y1="664" x2="130" y2="664" /><text class="scaleText" x="102" y="670" text-anchor="end">1m</text>
+    <line x1="110" y1="780" x2="130" y2="780" /><text class="scaleText" x="102" y="786" text-anchor="end">0m</text>
+
+    <line x1="1480" y1="200" x2="1480" y2="780" />
+    <line x1="1470" y1="200" x2="1490" y2="200" /><text class="scaleText" x="1498" y="206">5m</text>
+    <line x1="1470" y1="316" x2="1490" y2="316" /><text class="scaleText" x="1498" y="322">4m</text>
+    <line x1="1470" y1="432" x2="1490" y2="432" /><text class="scaleText" x="1498" y="438">3m</text>
+    <line x1="1470" y1="548" x2="1490" y2="548" /><text class="scaleText" x="1498" y="554">2m</text>
+    <line x1="1470" y1="664" x2="1490" y2="664" /><text class="scaleText" x="1498" y="670">1m</text>
+    <line x1="1470" y1="780" x2="1490" y2="780" /><text class="scaleText" x="1498" y="786">0m</text>
+  </g>
+
+  <g id="layer_gate" filter="url(#shadowSoft)">
+    <g id="gate_plate_group" transform="translate(0 0)" data-closed-dy="0" data-open-dy="-600">
+      <rect id="gate_plate" x="760" y="100" width="80" height="680" rx="12" fill="url(#gradSteel)" stroke="#0b1224" stroke-opacity="0.55" stroke-width="10" />
+      <path d="M775 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M800 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M825 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <g id="layer_text" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" fill="rgba(226,232,240,0.95)">
+    <text x="160" y="155" font-size="22" font-weight="900">外塘</text>
+    <text x="880" y="155" font-size="22" font-weight="900">内塘</text>
+    <text x="800" y="155" text-anchor="middle" font-size="18" font-weight="800" fill="rgba(165,180,207,0.95)">水闸</text>
+  </g>
+</svg>
+  </template>
+
+  <script>
+    // Cache DOM lookups (including null) to avoid repeated getElementById in hot paths.
+    const _elCache = Object.create(null);
+    const _hasOwn = Object.prototype.hasOwnProperty;
+    const $ = (id) => {
+      if(_hasOwn.call(_elCache, id)) return _elCache[id];
+      const el = document.getElementById(id);
+      _elCache[id] = el;
+      return el;
+    };
+    const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+    const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
+    const UI_VERSION = 'ui-2026.02.15-01';
+    const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const fmtHHMMSS = (sec) => {
+      const s = Math.max(0, Math.round(sec || 0));
+      const pad = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      if (h > 0) return h + ':' + pad(m) + ':' + pad(ss);
+      return pad(m) + ':' + pad(ss);
+    };
+
+    const nowHHMMSS = () => {
+      const d = new Date();
+      const p = (x) => (x<10?('0'+x):(''+x));
+      return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+    };
+
+    const nowFileStamp = () => {
+      const d = new Date();
+      const p = (x) => (x<10?('0'+x):(''+x));
+      return '' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+    };
+
+    function setStatus(text, state){
+      $('statusLine').textContent = text;
+      const dot = $('statusDot');
+      dot.className = 'statusDot' + (state === 'on' ? ' on' : (state === 'bad' ? ' bad' : ''));
+    }
+
+    let g_needAuth = false;
+    function setNeedAuth(v){
+      g_needAuth = !!v;
+      const el = $('authHint');
+      if(el) el.style.display = g_needAuth ? '' : 'none';
+    }
+
+    let g_cmdMsgTimer = 0;
+    function showCmdMsg(text, kind, keep){
+      const el = $('cmdMsg');
+      if(!el) return;
+      if(g_cmdMsgTimer){
+        clearTimeout(g_cmdMsgTimer);
+        g_cmdMsgTimer = 0;
+      }
+      const t = (text == null) ? '' : ('' + text).trim();
+      if(!t){
+        el.textContent = '';
+        el.className = 'hint';
+        el.style.display = 'none';
+        return;
+      }
+      el.textContent = t;
+      el.className = 'hint' + (kind ? (' ' + kind) : '');
+      el.style.display = '';
+      if(!keep){
+        g_cmdMsgTimer = setTimeout(()=>showCmdMsg('', '', false), 6500);
+      }
+    }
+
+    function cmdLabel(c){
+      const map = {
+        gate_open:'开闸',
+        gate_close:'关闸',
+        gate_stop:'停止',
+        auto_on:'开启自动',
+        auto_off:'手动接管',
+        auto_latch_off:'锁定关闭自动',
+        manual_end:'恢复自动',
+      };
+      return map[c] || c || '--';
+    }
+
+    function gateStateText(s, ratio){
+      if(s===1) return '开闸中';
+      if(s===2) return '关闸中';
+      if(ratio >= 0.98) return '已开启';
+      if(ratio <= 0.02) return '已关闭';
+      return '已停止(半开)';
+    }
+
+    function cnInterlockReason(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'Interlock: close relay is active':'关闸继电器已吸合',
+        'Interlock: open relay is active':'开闸继电器已吸合',
+        'Interlock: both relays cannot be active':'开闸/关闸继电器不可同时吸合',
+        'Gate is already opening':'闸门已在开闸中',
+        'Gate is already closing':'闸门已在关闸中',
+        'Gate is running, repeat action blocked':'闸门运行中，重复动作已禁止（请先点“停止”）',
+        'Cooldown active: wait before next action':'冷却中，请稍后再试',
+        'Cooldown active: min action interval':'冷却中（最小动作间隔）',
+      };
+      return map[v] || v;
+    }
+
+    function cnAlarmText(raw){
+      const v = (raw == null) ? '' : ('' + raw).trim();
+      if(!v) return '';
+      const map = {
+        'normal':'正常',
+        'Alarm: relay interlock triggered':'严重：继电器互锁触发',
+        'Alarm: gate execution timeout':'严重：闸门动作超时',
+        'Alarm: gate runtime timeout, stopped':'严重：闸门运行超时，已停止',
+        'Alarm: sensor offline or data timeout':'严重：传感器离线或数据超时',
+        'Warning: abnormal level jump':'警告：水位突变异常',
+        'Warning: level out of safe range':'警告：水位超出安全范围',
+      };
+      return map[v] || v;
+    }
+
+    // SVG handles
+    let g_svg=null;
+    let g_waterL=null, g_waterR=null, g_chan=null;
+    let g_surfL=null, g_surfR=null, g_surfC=null;
+    let g_gatePlateGroup=null, g_gateBadgeText=null;
+    let g_flowFx=null, g_flowLeft=null, g_flowRight=null;
+    let g_flowRowsL=[], g_flowRowsR=[];
+
+    // animation state
+    let g_gateRatio=0; // 0..1
+    let g_gateTarget=0;
+    const GATE_ANIM_TRAVEL_S = 10; // 0->100% gate plate animation duration
+    let g_gateTravelS=GATE_ANIM_TRAVEL_S;
+    let g_lastTelemetry=null;
+    let g_manualActiveLast=false;
+    let g_gatePctIntLast=null;
+    let g_connectedLast=null;
+    let g_gateStateLast='';
+    let g_timerUiLastTs=0;
+    let g_lastOkAt=0;
+    // In-flight command counter (supports STOP preemption without prematurely re-enabling buttons).
+    // Busy = (g_reqBusy > 0). Note: telemetry polling uses a separate flag (g_polling).
+    let g_reqBusy=0;
+    // "Auto latch off" intent: used to keep auto closed across manual Open/Close (firmware clears latch on manual actions).
+    let g_autoOffWanted=false;
+    let g_autoOffPinUntilMs=0;
+    // Latch button 2-step confirmation (UI-only).
+    const LATCH_CONFIRM_MS = 5000;
+    let g_latchArmed=false;
+    let g_latchArmTimer=0;
+    let g_polling=0;
+    let g_refreshQueued=0;
+    let g_cfg=null;
+    let g_lastFrameTs=0;
+    let g_ruleBound=0;
+    let g_ctlUiLastMs=0;
+
+    // --- History Chart (client-side, not stored on device) ---
+    const HIST_MAX_MM = 5000; // base scale: 0-5m (mm)
+    const HIST_RETENTION_S = 24 * 3600; // keep 24h in memory (1Hz)
+    const HIST_MAX = HIST_RETENTION_S;
+    const HIST_RANGE = {'30m':30*60, '60m':60*60, '24h':24*3600};
+    let g_histWindowKey = '60m';
+    let g_histWindowS = HIST_RANGE['60m'];
+    const g_histT = new Int32Array(HIST_MAX);
+    const g_histIn = new Int32Array(HIST_MAX);
+    const g_histOut = new Int32Array(HIST_MAX);
+    let g_histIdx = 0;
+    let g_histN = 0;
+    let g_histLastSec = 0;
+    let g_histDrawPending = 0;
+    let g_histResizeTimer = 0;
+
+    // UI-only safety lock: after pressing Open/Close, lock both buttons briefly to prevent spam.
+    // Note: manual takeover mode bypasses this lock.
+    const GATE_BTN_LOCK_S = 12;
+    let g_gateBtnLockUntilMs = 0;
+
+    // Countdown bar state (manual takeover > cooldown > ready).
+    const g_timer = {kind:'ready', untilMs:0, totalS:0, lastRemainS:0, reason:''};
+
+    function renderNoDataUi(){
+      if(g_lastTelemetry) return;
+      const set = (id, text) => { const el = $(id); if(el) el.textContent = text; };
+      set('outerLevelM', fmtM(0));
+      set('outerLevelMm', '0 mm');
+      set('innerLevelM', fmtM(0));
+      set('innerLevelMm', '0 mm');
+      set('outerOnline', '离线');
+      set('innerOnline', '离线');
+      set('outerTemp', '0.0 °C');
+      set('innerTemp', '0.0 °C');
+      const cd = $('chipDelta');
+      if(cd){
+        cd.textContent = 'Δ 0 mm';
+        cd.className = 'chip';
+      }
+      const cf = $('chipFlow');
+      if(cf){
+        cf.textContent = '连通 OFF';
+        cf.className = 'chip';
+      }
+      g_gateTarget = 0;
+      setGateRatio(0);
+      setFlowFx(false);
+      if(g_chan){
+        const geom = setChannelWater(g_chan, g_surfC, 0, false, 0);
+        layoutFlowRows(geom);
+      }
+      latchRender();
+    }
+
+    function updateTimerFromTelemetry(t){
+      const now = Date.now();
+      const manual = t && t.manual ? t.manual : null;
+      const ctrl = t && t.ctrl ? t.ctrl : null;
+      const manualRemain = manual && typeof manual.remain_s === 'number' ? manual.remain_s : 0;
+      const manualTotal = manual && typeof manual.total_s === 'number' ? manual.total_s : 0;
+      const coolRemain = ctrl && typeof ctrl.cooldown_remain_s === 'number' ? ctrl.cooldown_remain_s : 0;
+      const coolTotal = ctrl && typeof ctrl.min_interval_s === 'number' ? ctrl.min_interval_s : 0;
+      const reason = ctrl && typeof ctrl.reason === 'string' ? ctrl.reason : '';
+
+      if(manual && manual.active && manualRemain > 0){
+        const restarting = (g_timer.kind === 'manual') && (manualRemain > (g_timer.lastRemainS + 1.2));
+        const entering = (g_timer.kind !== 'manual') || restarting;
+        g_timer.kind = 'manual';
+        g_timer.untilMs = now + manualRemain * 1000;
+        if(manualTotal > 0) g_timer.totalS = manualTotal;
+        else if(entering || !g_timer.totalS) g_timer.totalS = manualRemain;
+        else g_timer.totalS = Math.max(g_timer.totalS, manualRemain);
+        g_timer.lastRemainS = manualRemain;
+        g_timer.reason = '';
+        return;
+      }
+      if(coolRemain > 0){
+        const restarting = (g_timer.kind === 'cooldown') && (coolRemain > (g_timer.lastRemainS + 1.2));
+        const entering = (g_timer.kind !== 'cooldown') || restarting;
+        g_timer.kind = 'cooldown';
+        g_timer.untilMs = now + coolRemain * 1000;
+        if(coolTotal > 0) g_timer.totalS = coolTotal;
+        else if(entering || !g_timer.totalS) g_timer.totalS = coolRemain;
+        else g_timer.totalS = Math.max(g_timer.totalS, coolRemain);
+        g_timer.lastRemainS = coolRemain;
+        g_timer.reason = '';
+        return;
+      }
+      g_timer.kind = 'ready';
+      g_timer.untilMs = now;
+      g_timer.totalS = 0;
+      g_timer.lastRemainS = 0;
+      const rr = (reason || '').trim();
+      g_timer.reason = rr;
+    }
+
+    function renderTimerNow(){
+      const card = $('timerCard');
+      if(!card) return;
+      const now = Date.now();
+      const remainS = Math.max(0, (g_timer.untilMs - now) / 1000);
+      const done = (g_timer.kind !== 'ready') && (remainS <= 0.01);
+
+      let title='保护';
+      let value='就绪';
+      let hint='可动作';
+      let klass='timerCard good';
+      let progress=1;
+
+      if(g_timer.kind === 'manual' && !done){
+        title='手动接管';
+        value=fmtHHMMSS(remainS);
+        hint='倒计时结束后将自动恢复规则控制';
+        klass='timerCard warn';
+        const total = Math.max(1, g_timer.totalS || 1);
+        progress = clamp((remainS / total), 0, 1);
+      }else if(g_timer.kind === 'cooldown' && !done){
+        title='最小动作间隔';
+        value=fmtHHMMSS(remainS);
+        hint='冷却中：倒计时结束后才允许再次开/关闸';
+        klass='timerCard warn';
+        const total = Math.max(1, g_timer.totalS || 1);
+        progress = clamp((remainS / total), 0, 1);
+      }else{
+        const r = (g_timer.reason || '').trim();
+        if(r && r !== 'normal'){
+          hint = '状态：' + (cnInterlockReason(r) || r);
+          klass = 'timerCard warn';
+        }
+      }
+
+      $('timerTitle').textContent = title;
+      $('timerValue').textContent = value;
+      $('timerHint').textContent = hint;
+      card.className = klass;
+
+      const w = (progress * 100);
+      const bar = $('timerBar');
+      if(bar) bar.style.width = w.toFixed(1) + '%';
+      const pb = bar && bar.parentElement;
+      if(pb) pb.setAttribute('aria-valuenow', String(Math.round(w)));
+    }
+
+    function histScheduleDraw(){
+      if(g_histDrawPending) return;
+      g_histDrawPending = 1;
+      requestAnimationFrame(()=>{
+        g_histDrawPending = 0;
+        histDraw();
+      });
+    }
+
+    function histAdd(innerMm, innerOk, outerMm, outerOk){
+      const sec = Math.floor(Date.now() / 1000);
+      if(sec === g_histLastSec) return;
+      g_histLastSec = sec;
+      g_histT[g_histIdx] = sec;
+      g_histIn[g_histIdx] = innerOk ? (innerMm | 0) : -1;
+      g_histOut[g_histIdx] = outerOk ? (outerMm | 0) : -1;
+      g_histIdx = (g_histIdx + 1) % HIST_MAX;
+      if(g_histN < HIST_MAX) g_histN++;
+      histScheduleDraw();
+    }
+
+    function histSetupCanvas(ctx, c){
+      const rect = c.getBoundingClientRect();
+      const cssW = Math.max(1, rect.width);
+      const cssH = Math.max(1, rect.height);
+      const dpr = window.devicePixelRatio || 1;
+      const pxW = Math.max(1, Math.round(cssW * dpr));
+      const pxH = Math.max(1, Math.round(cssH * dpr));
+      if(c.width !== pxW || c.height !== pxH){
+        c.width = pxW;
+        c.height = pxH;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return {w: cssW, h: cssH};
+    }
+
+    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color, yMaxMm){
+      const xSpan = w - padL - padR;
+      const ySpan = h - padT - padB;
+      const yMax = Math.max(1, (yMaxMm | 0) || HIST_MAX_MM);
+      let started = false;
+      let segN = 0;
+      ctx.beginPath();
+      for(let i = 0; i < n; i += stride){
+        const idx = (startIdx + i) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0 || t < x0) continue;
+        const mm = arr[idx] | 0;
+        if(mm < 0){
+          started = false;
+          continue;
+        }
+        const x = padL + ((t - x0) / windowS) * xSpan;
+        const y = padT + (1 - (clamp(mm, 0, yMax) / yMax)) * ySpan;
+        if(!started){
+          ctx.moveTo(x, y);
+          started = true;
+        }else{
+          ctx.lineTo(x, y);
+          segN++;
+        }
+      }
+      if(segN > 0){
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      }
+      return segN;
+    }
+
+    function histRangeLabel(k){
+      if(k === '30m') return '最近 30 分钟';
+      if(k === '60m') return '最近 60 分钟';
+      if(k === '24h') return '最近 24 小时';
+      return '历史水位';
+    }
+
+    function histTimeStepS(windowS){
+      if(windowS <= 30*60) return 10*60;
+      if(windowS <= 60*60) return 15*60;
+      return 6*60*60;
+    }
+
+    function histFmtTime(sec){
+      const d = new Date(sec * 1000);
+      const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      return p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    let g_histLoadBusy = 0;
+    async function histLoadFromServer(){
+      if(g_histLoadBusy) return;
+      g_histLoadBusy = 1;
+      const meta = $('histMeta');
+      const baseLabel = histRangeLabel(g_histWindowKey);
+      if(meta) meta.textContent = baseLabel + '（加载中…）';
+      try{
+        const url = '/api/history?window_s=' + encodeURIComponent(g_histWindowS) + '&t=' + Date.now();
+        const r = await fetch(url, {cache:'no-store'});
+        if(r.status === 401){
+          setNeedAuth(true);
+          throw new Error('HTTP 401');
+        }
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        setNeedAuth(false);
+        const pts = (j && Array.isArray(j.points)) ? j.points : [];
+
+        // Reset buffers then fill using the returned points (already sorted ASC).
+        g_histIdx = 0;
+        g_histN = 0;
+        g_histLastSec = 0;
+        for(let i=0;i<pts.length;i++){
+          const p = pts[i] || {};
+          const sec = (typeof p.ts_s === 'number' && isFinite(p.ts_s)) ? Math.floor(p.ts_s) :
+                      ((typeof p.ts === 'number' && isFinite(p.ts)) ? Math.floor(p.ts) : 0);
+          if(sec <= 0) continue;
+          const innerOk = !!p.inner_ok;
+          const outerOk = !!p.outer_ok;
+          const innerMm = (typeof p.inner_mm === 'number' && isFinite(p.inner_mm)) ? (p.inner_mm|0) : 0;
+          const outerMm = (typeof p.outer_mm === 'number' && isFinite(p.outer_mm)) ? (p.outer_mm|0) : 0;
+          g_histT[g_histIdx] = sec;
+          g_histIn[g_histIdx] = innerOk ? innerMm : -1;
+          g_histOut[g_histIdx] = outerOk ? outerMm : -1;
+          g_histIdx = (g_histIdx + 1) % HIST_MAX;
+          if(g_histN < HIST_MAX) g_histN++;
+          g_histLastSec = sec;
+        }
+      }catch(e){
+        // Keep whatever we already have (live points will continue to append).
+      }finally{
+        const meta2 = $('histMeta');
+        if(meta2) meta2.textContent = histRangeLabel(g_histWindowKey);
+        g_histLoadBusy = 0;
+        histScheduleDraw();
+      }
+    }
+
+    function histSetRange(k){
+      const w = HIST_RANGE[k];
+      if(!w) return;
+      g_histWindowKey = k;
+      g_histWindowS = w;
+      const meta = $('histMeta');
+      if(meta) meta.textContent = histRangeLabel(k);
+      const map = {'30m':'histRange30', '60m':'histRange60', '24h':'histRange24'};
+      Object.keys(map).forEach((kk)=>{
+        const el = $(map[kk]);
+        if(!el) return;
+        const on = (kk === k);
+        el.className = on ? 'seg on' : 'seg';
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      histLoadFromServer();
+      histScheduleDraw();
+    }
+    window.histSetRange = histSetRange;
+
+    function histDraw(){
+      const c = $('histCanvas');
+      if(!c) return;
+      const ctx = c.getContext && c.getContext('2d');
+      if(!ctx) return;
+      const rect = c.getBoundingClientRect();
+      if(rect.width < 2 || rect.height < 2) return;
+
+      const dim = histSetupCanvas(ctx, c);
+      const w = dim.w, h = dim.h;
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 44, padR = 12, padT = 12, padB = 28;
+      const xSpan = Math.max(1, w - padL - padR);
+      const ySpan = Math.max(1, h - padT - padB);
+
+      ctx.font = '11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(165,180,207,.72)';
+
+      const now = Math.floor(Date.now() / 1000);
+      const x0 = now - g_histWindowS;
+
+      // Windowing: walk backwards from newest to count samples within the selected range.
+      let n = 0;
+      for(let j = 0; j < g_histN; j++){
+        const idx = (g_histIdx - 1 - j + HIST_MAX) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0) break;
+        if(t < x0) break;
+        n++;
+      }
+      const startIdx = (g_histIdx - Math.max(1, n) + HIST_MAX) % HIST_MAX;
+
+      // Y axis: keep 0-5m unless data exceeds 5m (then auto-scale).
+      let dataMaxMm = 0;
+      if(n >= 2){
+        for(let i = 0; i < n; i++){
+          const idx = (startIdx + i) % HIST_MAX;
+          const a = g_histIn[idx] | 0;
+          const b = g_histOut[idx] | 0;
+          if(a > dataMaxMm) dataMaxMm = a;
+          if(b > dataMaxMm) dataMaxMm = b;
+        }
+      }
+      let yMaxMm = HIST_MAX_MM;
+      let yStepMm = 1000;
+      if(dataMaxMm > HIST_MAX_MM){
+        // Start with 1m ticks, then coarsen if ticks get too dense.
+        yStepMm = 1000;
+        while(true){
+          yMaxMm = Math.ceil(dataMaxMm / yStepMm) * yStepMm;
+          if((yMaxMm / yStepMm) <= 8) break;
+          if(yStepMm === 1000) yStepMm = 2000;
+          else if(yStepMm === 2000) yStepMm = 5000;
+          else yStepMm = yStepMm * 2;
+        }
+      }
+
+      // Grid lines.
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
+      for(let mm = 0; mm <= yMaxMm; mm += yStepMm){
+        const y = padT + (1 - (mm / yMaxMm)) * ySpan;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + xSpan, y);
+        ctx.stroke();
+        ctx.fillText((mm / 1000) + 'm', padL - 6, y);
+      }
+
+      if(g_histN < 2) return;
+
+      // Time ticks along X axis.
+      {
+        const step = histTimeStepS(g_histWindowS);
+        const start = Math.ceil(x0 / step) * step;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = 'rgba(165,180,207,.60)';
+        ctx.strokeStyle = 'rgba(255,255,255,.04)';
+        const yText = padT + ySpan + 8;
+        for(let t = start; t <= now; t += step){
+          const x = padL + ((t - x0) / g_histWindowS) * xSpan;
+          ctx.beginPath();
+          ctx.moveTo(x, padT);
+          ctx.lineTo(x, padT + ySpan);
+          ctx.stroke();
+          ctx.fillText(histFmtTime(t), x, yText);
+        }
+      }
+
+      if(n < 2) return;
+      const stride = Math.max(1, Math.floor(n / Math.max(1, Math.round(xSpan))));
+
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      // Draw inner (solid) then outer (dashed on top) so both curves remain visible even when levels overlap.
+      if(ctx.setLineDash) ctx.setLineDash([]);
+      ctx.lineWidth = 1.7;
+      const segIn = histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)', yMaxMm);
+
+      if(ctx.setLineDash) ctx.setLineDash([7, 5]);
+      ctx.lineWidth = 2.0;
+      const segOut = histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)', yMaxMm);
+
+      if(ctx.setLineDash) ctx.setLineDash([]);
+
+      // If a series has no segments (no data), render a deterministic 0m baseline instead of "missing line".
+      const yZero = padT + ySpan;
+      if(segIn <= 0){
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(34,211,238,.40)';
+        ctx.beginPath();
+        ctx.moveTo(padL, yZero);
+        ctx.lineTo(padL + xSpan, yZero);
+        ctx.stroke();
+      }
+      if(segOut <= 0){
+        if(ctx.setLineDash) ctx.setLineDash([7, 5]);
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = 'rgba(96,165,250,.40)';
+        ctx.beginPath();
+        ctx.moveTo(padL, yZero);
+        ctx.lineTo(padL + xSpan, yZero);
+        ctx.stroke();
+        if(ctx.setLineDash) ctx.setLineDash([]);
+      }
+    }
+
+    window.addEventListener('resize', ()=>{
+      if(g_histResizeTimer) clearTimeout(g_histResizeTimer);
+      g_histResizeTimer = setTimeout(()=>{
+        g_histResizeTimer = 0;
+        histScheduleDraw();
+      }, 120);
+    });
+
+    function gateBtnLockRemainS(){
+      return Math.max(0, (g_gateBtnLockUntilMs - Date.now()) / 1000);
+    }
+
+    function applyControlDisabledState(){
+      const t = g_lastTelemetry;
+      const manual = t && t.manual ? t.manual : null;
+      const manualActive = !!(manual && manual.active);
+
+      const lock = (!manualActive) && (gateBtnLockRemainS() > 0.05);
+      const remain = lock ? Math.ceil(gateBtnLockRemainS()) : 0;
+
+      const open = $('btnOpen');
+      const close = $('btnClose');
+      const stop = $('btnStop');
+      const manualBtn = $('btnManualToggle');
+      const latch = $('btnLatch');
+
+      if(open){
+        open.disabled = !!g_reqBusy || lock;
+        open.title = lock ? ('冷却中：' + remain + 's') : '';
+      }
+      if(close){
+        close.disabled = !!g_reqBusy || lock;
+        close.title = lock ? ('冷却中：' + remain + 's') : '';
+      }
+      if(stop) stop.disabled = false; // highest priority
+      if(manualBtn) manualBtn.disabled = !!g_reqBusy;
+      if(latch) latch.disabled = !!g_reqBusy;
+    }
+
+    function mountSchematicFromSvgText(tx){
+      const wrap = $('schemWrap');
+      if(!wrap) return false;
+      const s = (tx == null) ? '' : ('' + tx);
+      if(!s || s.indexOf('<svg') === -1) return false;
+      wrap.innerHTML = s;
+      g_svg = wrap.querySelector('svg');
+      g_waterL = g_svg && g_svg.querySelector('#water_left');
+      g_waterR = g_svg && g_svg.querySelector('#water_right');
+      g_chan  = g_svg && g_svg.querySelector('#channel_water');
+      g_surfL = g_svg && g_svg.querySelector('#water_left_surface');
+      g_surfR = g_svg && g_svg.querySelector('#water_right_surface');
+      g_surfC = g_svg && g_svg.querySelector('#channel_water_surface');
+      g_gatePlateGroup = g_svg && g_svg.querySelector('#gate_plate_group');
+      g_gateBadgeText = g_svg && g_svg.querySelector('#gate_badge_text');
+      g_flowFx = g_svg && g_svg.querySelector('#flow_fx');
+      g_flowLeft = g_svg && g_svg.querySelector('#flow_dir_left');
+      g_flowRight = g_svg && g_svg.querySelector('#flow_dir_right');
+      g_flowRowsL = g_flowLeft ? Array.from(g_flowLeft.querySelectorAll('.flow-row')) : [];
+      g_flowRowsR = g_flowRight ? Array.from(g_flowRight.querySelectorAll('.flow-row')) : [];
+      return !!g_svg;
+    }
+
+    async function loadSchematic(){
+      try{
+        const r = await fetch('/ui/pond_gate.svg', {cache:'no-store'});
+        const tx = await r.text();
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        if(mountSchematicFromSvgText(tx)) return;
+        throw new Error('mount failed');
+      }catch(e){
+        const tpl = $('schemInlineSvg');
+        if(tpl && mountSchematicFromSvgText(tpl.innerHTML)) return;
+        const msg = $('schemMsg');
+        if(msg) msg.textContent = '示意图加载失败';
+      }
+    }
+
+    function setWaterRect(el, surf, mm, valid){
+      if(!el) return;
+      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
+      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
+      const maxMm = 5000;
+      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
+      const h = Math.max(0, baseH * ratio);
+      const y = baseY + (baseH - h);
+      el.setAttribute('y', y.toFixed(2));
+      el.setAttribute('height', h.toFixed(2));
+      el.setAttribute('data-valid', valid ? '1' : '0');
+
+      if(!surf) return;
+      const show = valid && h > 2;
+      surf.style.display = show ? '' : 'none';
+      if(show){
+        const sy = Math.max(baseY, y - 4);
+        surf.setAttribute('y', sy.toFixed(2));
+      }
+    }
+
+    function setChannelWater(el, surf, mm, valid, gateRatio){
+      if(!el) return;
+      const baseY = parseFloat(el.getAttribute('data-base-y') || '0');
+      const baseH = parseFloat(el.getAttribute('data-base-h') || '0');
+      const maxMm = 5000;
+      const ratio = valid ? (clamp(mm, 0, maxMm) / maxMm) : 0;
+      const hFull = Math.max(0, baseH * ratio);
+      const hOpen = baseH * clamp(gateRatio, 0, 1);
+      const h = Math.max(0, Math.min(hFull, hOpen));
+      const y = baseY + (baseH - h);
+
+      const show = valid && h > 1.5 && gateRatio > 0.03;
+      el.style.display = show ? '' : 'none';
+      if(show){
+        el.setAttribute('y', y.toFixed(2));
+        el.setAttribute('height', h.toFixed(2));
+      }
+
+      if(surf){
+        surf.style.display = show ? '' : 'none';
+        if(show){
+          const sy = Math.max(baseY, y - 4);
+          surf.setAttribute('y', sy.toFixed(2));
+        }
+      }
+      return {show, y, h, baseY, baseH};
+    }
+
+    function setGateRatio(ratio){
+      g_gateRatio = clamp(ratio, 0, 1);
+      const pctInt = Math.round(g_gateRatio*100);
+      if(g_gatePctIntLast !== pctInt){
+        g_gatePctIntLast = pctInt;
+        const pctEl = $('gatePct');
+        if(pctEl) pctEl.textContent = pctInt + '%';
+      }
+      const barEl = $('gateBar');
+      if(barEl){
+        barEl.style.width = (g_gateRatio*100).toFixed(1) + '%';
+        const pb = barEl.parentElement;
+        if(pb) pb.setAttribute('aria-valuenow', String(pctInt));
+      }
+
+      if(g_gatePlateGroup){
+        const openDy = parseFloat(g_gatePlateGroup.getAttribute('data-open-dy') || '-600');
+        const closedDy = parseFloat(g_gatePlateGroup.getAttribute('data-closed-dy') || '0');
+        const dy = closedDy + (openDy - closedDy) * g_gateRatio;
+        g_gatePlateGroup.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
+      }
+      if(g_gateBadgeText){
+        g_gateBadgeText.textContent = '开度 ' + Math.round(g_gateRatio*100) + '%';
+      }
+    }
+
+    function setFlowFx(on, dir){
+      if(!g_flowFx) return;
+      g_flowFx.setAttribute('data-on', on ? '1' : '0');
+      if(g_flowLeft) g_flowLeft.style.display = (on && dir === 'left') ? '' : 'none';
+      if(g_flowRight) g_flowRight.style.display = (on && dir === 'right') ? '' : 'none';
+    }
+
+    function layoutFlowRows(chan){
+      const rowsL = g_flowRowsL || [];
+      const rowsR = g_flowRowsR || [];
+      if(!rowsL.length && !rowsR.length) return;
+
+      // Reset to SVG defaults when the channel water is not shown.
+      if(!chan || !chan.show || !(chan.h > 1.5)){
+        rowsL.forEach((row)=> row && row.setAttribute('transform',''));
+        rowsR.forEach((row)=> row && row.setAttribute('transform',''));
+        return;
+      }
+
+      const margin = 22; // keep arrowheads away from top/bottom edges
+      const y0 = chan.y + margin;
+      const y1 = chan.y + chan.h - margin;
+      const span = Math.max(0, y1 - y0);
+
+      const layout = (rows)=>{
+        const n = rows.length;
+        rows.forEach((row, i)=>{
+          if(!row) return;
+          const baseY = parseFloat(row.getAttribute('data-base-y') || '0');
+          const targetY = (span >= 8) ? (y0 + span * ((i+1)/(n+1))) : (chan.y + chan.h/2);
+          const dy = targetY - baseY;
+          row.setAttribute('transform', 'translate(0 ' + dy.toFixed(2) + ')');
+        });
+      };
+      layout(rowsL);
+      layout(rowsR);
+    }
+
+    function deriveGateTarget(t){
+      const cand = [
+        t && t.gate_open_pct,
+        t && t.gate_open_percent,
+        t && t.gate_open_ratio,
+        t && t.gate_ratio,
+      ].find(v => typeof v === 'number' && isFinite(v));
+
+      if(typeof cand === 'number'){
+        if(cand > 1.2) return clamp(cand/100, 0, 1);
+        return clamp(cand, 0, 1);
+      }
+
+      if(t && t.gate_state === 1) return 1;
+      if(t && t.gate_state === 2) return 0;
+      return (t && t.gate_position_open) ? 1 : 0;
+    }
+
+    function renderTelemetry(t){
+      if(!t) return;
+      g_lastTelemetry = t;
+      syncAutoOffWantedFromTelemetry(t);
+
+      const s1=t.sensor1||{}, s2=t.sensor2||{};
+      const innerOk=!!s1.valid, outerOk=!!s2.valid;
+      const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
+      const innerTempOk=!!s1.temp_valid, outerTempOk=!!s2.temp_valid;
+
+      // When sensor has no valid data yet, keep UI stable by showing 0 (while still marking online/offline separately).
+      $('innerLevelM').textContent = innerOk ? fmtM(innerMm) : fmtM(0);
+      $('innerLevelMm').textContent = innerOk ? (innerMm + ' mm') : '0 mm';
+      $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : fmtM(0);
+      $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '0 mm';
+
+      $('innerOnline').textContent = s1.online ? '在线' : '离线';
+      $('outerOnline').textContent = s2.online ? '在线' : '离线';
+      $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
+      $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
+
+      const deltaOk = innerOk && outerOk;
+      const deltaMm = innerMm - outerMm;
+      $('chipDelta').textContent = 'Δ ' + deltaMm + ' mm';
+      $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
+
+      // UI animation duration is fixed to keep open/close feel consistent.
+      g_gateTravelS = GATE_ANIM_TRAVEL_S;
+      g_gateTarget = deriveGateTarget(t);
+
+      setWaterRect(g_waterL, g_surfL, outerMm, outerOk);
+      setWaterRect(g_waterR, g_surfR, innerMm, innerOk);
+      histAdd(innerMm, innerOk, outerMm, outerOk);
+
+      {
+        const gs = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+        if(g_gateStateLast !== gs){
+          g_gateStateLast = gs;
+          const el = $('gateState');
+          if(el) el.textContent = gs;
+        }
+      }
+      const autoText = t.auto_latched ? '锁定关闭' : (t.auto_gate ? '已启用' : '已关闭');
+      const autoEl = $('autoState');
+      if(autoEl){
+        autoEl.textContent = '自动 ' + autoText;
+        autoEl.className = 'chip' + (t.auto_latched ? ' bad' : (t.auto_gate ? ' good' : ''));
+      }
+
+      const reason=(t.ctrl&&t.ctrl.reason)?t.ctrl.reason:'';
+      $('interlock').textContent = '互锁：' + (cnInterlockReason(reason) || '正常');
+
+      // Timer strip (hysteresis / minimum action interval) - at top of control panel.
+      updateTimerFromTelemetry(t);
+      // renderTimerNow() is driven by tick() (throttled) to keep UI smooth.
+
+      // Auto control: merge manual takeover + resume into a single toggle button.
+      const manual = t && t.manual ? t.manual : null;
+      const manualActive = !!(manual && manual.active);
+      if(manualActive && !g_manualActiveLast){
+        // Manual takeover should allow immediate open/close without UI lock.
+        g_gateBtnLockUntilMs = 0;
+      }
+      g_manualActiveLast = manualActive;
+      const mb = $('btnManualToggle');
+      if(mb){
+        const autoGate = !!t.auto_gate;
+        // "开启自动" and "恢复自动" are conceptually the same action: go back to auto mode.
+        mb.textContent = manualActive ? '恢复自动' : (autoGate ? '手动接管' : '恢复自动');
+        mb.className = (manualActive || !autoGate) ? 'btn primary' : 'btn';
+      }
+      latchRender();
+
+      // Info panel (network / 4G / firmware)
+      const net = t.net || null;
+      if(net){
+        const wifiOn = !!net.wifi;
+        const mqttOn = !!net.mqtt;
+        const ip = net.ip || '--';
+        const rssiNum = (typeof net.rssi === 'number' && isFinite(net.rssi)) ? net.rssi : null;
+        const rssi = (rssiNum != null) ? (rssiNum + ' dBm') : '--';
+
+        $('infoWifi').textContent = wifiOn ? '在线' : '离线';
+        $('infoRssi').textContent = rssi;
+        $('infoIp').textContent = ip;
+        $('infoMqtt').textContent = mqttOn ? '在线' : '离线';
+
+        setStatus('在线', 'on');
+      }else{
+        if($('infoWifi')) $('infoWifi').textContent = '--';
+        if($('infoRssi')) $('infoRssi').textContent = '--';
+        if($('infoIp')) $('infoIp').textContent = '--';
+        if($('infoMqtt')) $('infoMqtt').textContent = '--';
+        setStatus('在线', 'on');
+      }
+
+      const cell = t.cell || null;
+      const cellEnabled = !!(cell && cell.enabled);
+      const kCell = $('infoCellRowK');
+      const vCellRow = $('infoCellRowV');
+      const vCell = $('infoCell');
+      if(cellEnabled){
+        if(kCell) kCell.style.display = '';
+        if(vCellRow) vCellRow.style.display = '';
+
+        const online = !!cell.online;
+        const sim = !!cell.sim_ready;
+        const attached = !!cell.attached;
+        const csq = (typeof cell.csq === 'number' && isFinite(cell.csq)) ? cell.csq : null;
+        const rdbm = (typeof cell.rssi_dbm === 'number' && isFinite(cell.rssi_dbm)) ? cell.rssi_dbm : null;
+        const age = (typeof cell.last_rx_age_s === 'number' && isFinite(cell.last_rx_age_s)) ? cell.last_rx_age_s : null;
+        const parts = [];
+        parts.push(online ? '在线' : '离线');
+        parts.push(sim ? 'SIM OK' : 'SIM --');
+        parts.push(attached ? 'ATT' : 'NO-ATT');
+        if(rdbm != null) parts.push(rdbm + ' dBm');
+        if(csq != null) parts.push('CSQ ' + csq);
+        if(age != null) parts.push('RX ' + age + 's');
+        if(vCell) vCell.textContent = parts.join(' | ');
+      }else{
+        if(kCell) kCell.style.display = 'none';
+        if(vCellRow) vCellRow.style.display = 'none';
+        if(vCell) vCell.textContent = '--';
+      }
+
+      const alarmActive = !!(t.alarm && t.alarm.active);
+      const alarmTextRaw = (t.alarm && t.alarm.text) ? t.alarm.text : '';
+      $('alarmLine').textContent = alarmActive ? (cnAlarmText(alarmTextRaw) || '告警') : '正常';
+      const ab = $('alarmBox');
+      if(ab) ab.className = 'statusCard' + (alarmActive ? ' on' : '');
+
+      const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
+      const ver = '固件 ' + ((fw && fw !== '--') ? fw : '--');
+      $('infoVer').textContent = ver;
+    }
+
+    async function fetchTelemetry(){
+      try{
+        const r = await fetch('/api/state', {cache:'no-store'});
+        if(r.status === 401){
+          setNeedAuth(true);
+          throw new Error('HTTP 401');
+        }
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        setNeedAuth(false);
+        return j.telemetry || j;
+      }catch(e){
+        const r2 = await fetch('/getData', {cache:'no-store'});
+        const j2 = await r2.json();
+        if(!r2.ok) throw new Error('HTTP ' + r2.status);
+        return j2;
+      }
+    }
+
+    function setBusy(b){
+      if(b){
+        g_reqBusy = (g_reqBusy|0) + 1;
+      }else{
+        g_reqBusy = Math.max(0, (g_reqBusy|0) - 1);
+      }
+      applyControlDisabledState();
+    }
+
+    async function readTextSafe(r){ try{ return await r.text(); }catch(e){ return ''; } }
+
+    async function sendCmdOnce(c){
+      // Prefer unified command API, but keep backward compatibility with legacy GET endpoints.
+      const map = {
+        gate_open:'/GateOpen',
+        gate_close:'/GateClose',
+        gate_stop:'/GateStop',
+        auto_on:'/AutoGateOn',
+        auto_off:'/AutoGateOff',
+        auto_latch_off:'/AutoGateLatchOff',
+        manual_end:'/ManualEnd',
+      };
+
+      let apiRes = null;
+      try{
+        apiRes = await fetch('/api/cmd', {method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cmd:c})});
+        if(apiRes && apiRes.ok){
+          setNeedAuth(false);
+          return {ok:true, via:'api', status:apiRes.status};
+        }
+        if(apiRes && apiRes.status === 401){
+          setNeedAuth(true);
+        }
+      }catch(e){
+        apiRes = null;
+      }
+
+      const url = map[c];
+      if(url){
+        try{
+          const r2 = await fetch(url, {cache:'no-store'});
+          if(r2 && r2.ok){
+            setNeedAuth(false);
+            return {ok:true, via:'legacy', status:r2.status};
+          }
+          if(r2 && r2.status === 401){
+            setNeedAuth(true);
+          }
+          return {ok:false, via:'legacy', status:r2 ? r2.status : 0, text: r2 ? (await readTextSafe(r2)) : ''};
+        }catch(e2){
+          return {ok:false, via:'legacy', status:0, error:e2};
+        }
+      }
+
+      return {ok:false, via:'api', status: apiRes ? apiRes.status : 0, text: apiRes ? (await readTextSafe(apiRes)) : ''};
+    }
+
+    function pinAutoOffWanted(wanted, pinMs){
+      g_autoOffWanted = !!wanted;
+      const ms = (typeof pinMs === 'number' && isFinite(pinMs)) ? pinMs : 4000;
+      g_autoOffPinUntilMs = Date.now() + Math.max(800, ms);
+    }
+
+    function syncAutoOffWantedFromTelemetry(t){
+      const now = Date.now();
+      const latched = !!(t && t.auto_latched);
+      if(g_autoOffPinUntilMs && now < g_autoOffPinUntilMs){
+        // If device state has caught up with our pinned intent, release the pin early.
+        if(latched === !!g_autoOffWanted) g_autoOffPinUntilMs = 0;
+        return;
+      }
+      g_autoOffWanted = latched;
+    }
+
+    function autoOffUiIsLatched(){
+      const now = Date.now();
+      if(g_autoOffPinUntilMs && now < g_autoOffPinUntilMs) return !!g_autoOffWanted;
+      const t = g_lastTelemetry;
+      return !!(t && t.auto_latched);
+    }
+
+    function latchBtnSet(text, kind){
+      const b = $('btnLatch');
+      if(!b) return;
+      b.textContent = text || '';
+      b.className = 'btn' + (kind ? (' ' + kind) : '');
+    }
+
+    function latchDisarm(){
+      if(g_latchArmTimer){
+        clearTimeout(g_latchArmTimer);
+        g_latchArmTimer = 0;
+      }
+      g_latchArmed = false;
+    }
+
+    function latchArm(){
+      latchDisarm();
+      g_latchArmed = true;
+      latchBtnSet('确认关闭？', 'warn');
+      g_latchArmTimer = setTimeout(()=>{
+        g_latchArmTimer = 0;
+        g_latchArmed = false;
+        latchRender();
+      }, LATCH_CONFIRM_MS);
+    }
+
+    function latchRender(){
+      const latched = autoOffUiIsLatched();
+      if(latched){
+        latchDisarm();
+        latchBtnSet('开启自动', 'primary');
+        return;
+      }
+      if(g_latchArmed){
+        latchBtnSet('确认关闭？', 'warn');
+      }else{
+        latchBtnSet('关闭自动', '');
+      }
+    }
+
+    async function cmd(c, opts){
+      const isStop = (c === 'gate_stop');
+      if(g_reqBusy && !isStop){
+        showCmdMsg('忙：上一条命令处理中…', 'warn');
+        return false;
+      }
+      if(isStop){
+        // Stop should always be available and should also clear the UI lock.
+        g_gateBtnLockUntilMs = 0;
+      }
+      setBusy(true);
+      let ok = false;
+      try{
+        const res = await sendCmdOnce(c);
+        ok = !!(res && res.ok);
+        if(!res || !res.ok){
+          if(res && res.status === 401){
+            showCmdMsg('未授权：需要登录（请点击下方“登录”链接完成认证）', 'bad', true);
+          }else if(res && res.status){
+            showCmdMsg('命令失败：HTTP ' + res.status, 'bad');
+          }else{
+            showCmdMsg('命令失败：网络错误或设备未响应', 'bad');
+          }
+        }else{
+          showCmdMsg('命令已发送：' + cmdLabel(c), 'good');
+        }
+
+        // Keep manual takeover alive while operating the gate.
+        // Only the "恢复自动" button should end manual takeover.
+        if(ok){
+          const keepManual = !!(opts && opts.keepManual);
+          const keepAutoOff = !!(opts && opts.keepAutoOff);
+          const t = g_lastTelemetry;
+          const manual = t && t.manual ? t.manual : null;
+          const manualActive = !!(manual && manual.active);
+          if(keepManual && manualActive && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+            await sendCmdOnce('auto_off');
+          }
+
+          // Preserve "锁定关闭自动" across manual Open/Close/Stop (firmware clears latch on manual actions).
+          if(keepAutoOff && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+            const r2 = await sendCmdOnce('auto_latch_off');
+            if(!(r2 && r2.ok)){
+              // Release pin so UI can reflect actual device state.
+              g_autoOffPinUntilMs = 0;
+              showCmdMsg('提示：已执行开/关闸，但“保持自动关闭”失败（请再点一次“关闭自动”）', 'warn');
+            }
+          }
+        }
+      }finally{
+        setTimeout(()=>setBusy(false), 260);
+      }
+      refreshOnce();
+      return ok;
+    }
+
+    async function confirmLatch(){
+      const latched = autoOffUiIsLatched();
+      if(latched){
+        latchDisarm();
+        const ok = await cmd('auto_on');
+        if(ok) pinAutoOffWanted(false, 5000);
+        latchRender();
+        return;
+      }
+
+      if(!g_latchArmed){
+        latchArm();
+        return;
+      }
+
+      // Second click: confirm latch-off.
+      if(g_latchArmTimer){
+        clearTimeout(g_latchArmTimer);
+        g_latchArmTimer = 0;
+      }
+      const ok = await cmd('auto_latch_off');
+      g_latchArmed = false;
+      if(ok) pinAutoOffWanted(true, 6000);
+      latchRender();
+    }
+    function gateCmd(c){
+      if(c === 'gate_open' || c === 'gate_close'){
+        const t = g_lastTelemetry;
+        const manual = t && t.manual ? t.manual : null;
+        const manualActive = !!(manual && manual.active);
+        if(!manualActive){
+          let allow = true;
+          const ctrl = t && t.ctrl ? t.ctrl : null;
+          const reason = (ctrl && typeof ctrl.reason === 'string') ? ctrl.reason : '';
+          if(ctrl){
+            if(c === 'gate_open' && typeof ctrl.open_allowed === 'boolean') allow = ctrl.open_allowed;
+            if(c === 'gate_close' && typeof ctrl.close_allowed === 'boolean') allow = ctrl.close_allowed;
+          }
+          if(allow !== false){
+            g_gateBtnLockUntilMs = Math.max(g_gateBtnLockUntilMs, Date.now() + GATE_BTN_LOCK_S * 1000);
+            applyControlDisabledState();
+          }else{
+            showCmdMsg('提示：' + (cnInterlockReason(reason) || '当前处于保护/互锁状态'), 'warn');
+          }
+        }
+      }
+      const keepAutoOff = !!g_autoOffWanted;
+      if(keepAutoOff && (c === 'gate_open' || c === 'gate_close' || c === 'gate_stop')){
+        // Firmware clears latch on manual actions; pin UI intent until we re-latch.
+        pinAutoOffWanted(true, 8000);
+      }
+      cmd(c, {keepManual:true, keepAutoOff});
+    }
+    function manualToggle(){
+      const t = g_lastTelemetry;
+      if(!t) return;
+      const manual = t && t.manual ? t.manual : null;
+      const active = !!(manual && manual.active);
+      if(active){
+        cmd('manual_end');
+      }else if(!!t.auto_gate){
+        cmd('auto_off'); // manual takeover
+      }else{
+        cmd('auto_on'); // go back to auto mode (also used to clear latch, if any)
+      }
+    }
+    window.cmd = cmd;
+    window.gateCmd = gateCmd;
+    window.confirmLatch = confirmLatch;
+    window.manualToggle = manualToggle;
+    async function logout(){
+      try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
+      location.href = '/login';
+    }
+    window.logout = logout;
+
+    async function refreshOnce(){
+      if(g_polling){
+        // Ensure we do a trailing refresh after the in-flight poll finishes.
+        g_refreshQueued = 1;
+        return true;
+      }
+      g_polling = 1;
+      let ok = false;
+      try{
+        const t = await fetchTelemetry();
+        g_lastOkAt = Date.now();
+        const ls = $('infoLastSeen');
+        if(ls) ls.textContent = nowHHMMSS();
+        renderTelemetry(t);
+        ok = true;
+      }catch(e){
+        setStatus('连接失败（将重试）', 'bad');
+        const ls = $('infoLastSeen');
+        if(ls) ls.textContent = '失败 ' + nowHHMMSS();
+        renderNoDataUi();
+      }finally{
+        g_polling = 0;
+        if(g_refreshQueued){
+          g_refreshQueued = 0;
+          setTimeout(()=>refreshOnce(), 60);
+        }
+      }
+      return ok;
+    }
+    window.refreshOnce = refreshOnce;
+
+    // --- Control Rules (Read-only on Home) ---
+    const num = (v, def) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : def;
+    };
+
+    function msToHHMM(ms){
+      const day = 24*3600*1000;
+      let v = num(ms, 0);
+      v = ((v%day)+day)%day;
+      const h = Math.floor(v/3600000);
+      const m = Math.floor((v%3600000)/60000);
+      const pad = (x) => (x < 10 ? ('0'+x) : (''+x));
+      return pad(h) + ':' + pad(m);
+    }
+
+    function msToHHMMMaybe(ms){
+      if(typeof ms !== 'number' || !isFinite(ms)) return '--';
+      return msToHHMM(ms);
+    }
+
+    function tzLabelFromHours(h){
+      const hh = num(h, 8);
+      const sign = hh >= 0 ? '+' : '';
+      if(hh === 8) return 'UTC+8 Shanghai';
+      return 'UTC' + sign + hh;
+    }
+
+    function modeLabel(m){
+      if(m === 'daily') return '仅定时';
+      if(m === 'cycle') return '仅循环';
+      if(m === 'leveldiff') return '仅水位差';
+      return '混合(推荐)';
+    }
+
+    function durHM(ms){
+      const v = Math.max(0, num(ms, 0));
+      const min = Math.round(v / 60000);
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      const pad = (x) => (x < 10 ? ('0'+x) : (''+x));
+      return h + 'h' + pad(m) + 'm';
+    }
+
+    function cfgSetChip(text, kind){
+      const el = $('cfgChip');
+      if(!el) return;
+      el.textContent = text;
+      el.className = 'chip' + (kind ? (' ' + kind) : '');
+    }
+
+    function cfgSetMsg(text){
+      const el = $('cfgMsg');
+      if(!el) return;
+      el.textContent = text || '';
+    }
+
+    function cfgMigrate(raw){
+      const out = Object.assign({tz_offset_ms:28800000, mode:'mixed', daily:[], cycle:[], leveldiff:[]}, raw || {});
+
+      if(out.tz_offset_ms == null && out.tz_offset_s != null){
+        out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
+      }
+      if(out.tz_offset_ms == null) out.tz_offset_ms = 28800000;
+      if(!out.mode) out.mode = 'mixed';
+
+      out.daily = Array.isArray(out.daily) ? out.daily : [];
+      out.daily = out.daily.map((r)=>{
+        const rr = Object.assign({en:false, open_en:true, close_en:true, open_ms:null, close_ms:null}, r || {});
+        if(rr.open_ms == null && typeof rr.open === 'string'){
+          const parts = rr.open.split(':');
+          if(parts.length >= 2) rr.open_ms = (clamp(num(parts[0],0),0,23)*3600 + clamp(num(parts[1],0),0,59)*60) * 1000;
+        }
+        if(rr.close_ms == null && typeof rr.close === 'string'){
+          const parts = rr.close.split(':');
+          if(parts.length >= 2) rr.close_ms = (clamp(num(parts[0],0),0,23)*3600 + clamp(num(parts[1],0),0,59)*60) * 1000;
+        }
+        if(rr.open_ms != null) rr.open_ms = num(rr.open_ms, null);
+        if(rr.close_ms != null) rr.close_ms = num(rr.close_ms, null);
+        return rr;
+      });
+
+      out.cycle = Array.isArray(out.cycle) ? out.cycle : [];
+      out.cycle = out.cycle.map((r)=>{
+        const rr = Object.assign({en:false, steps:[]}, r || {});
+        rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
+        rr.steps = rr.steps.map((st)=>{
+          const s = Object.assign({state:'open', dur_ms:null}, st || {});
+          if(s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
+          if(s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
+          if(s.dur_ms != null) s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+          s.state = (s.state === 'close') ? 'close' : 'open';
+          return s;
+        });
+        return rr;
+      });
+
+      out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
+      out.leveldiff = out.leveldiff.map((r)=>{
+        const rr = Object.assign({en:false, open_mm:null, close_mm:null}, r || {});
+        if(rr.open_mm != null) rr.open_mm = num(rr.open_mm, null);
+        if(rr.close_mm != null) rr.close_mm = num(rr.close_mm, null);
+        return rr;
+      });
+
+      return out;
+    }
+
+    function roListClear(id){
+      const el = $(id);
+      if(!el) return null;
+      while(el.firstChild) el.removeChild(el.firstChild);
+      return el;
+    }
+
+    function roItem(title, val, on){
+      const wrap = document.createElement('div');
+      wrap.className = 'roItem' + (on ? ' on' : '');
+      const top = document.createElement('div');
+      top.className = 'roItemTop';
+      const t = document.createElement('div');
+      t.className = 'roItemTitle';
+      t.textContent = title;
+      const v = document.createElement('div');
+      v.className = 'roItemVal';
+      v.textContent = val;
+      top.appendChild(t);
+      top.appendChild(v);
+      wrap.appendChild(top);
+      return wrap;
+    }
+
+    function dowMaskText(mask){
+      const m = (typeof mask === 'number' && isFinite(mask)) ? (mask & 127) : 127;
+      if(m === 127) return '';
+      const days = ['一','二','三','四','五','六','日'];
+      let s = '';
+      for(let i=0;i<7;i++){
+        if(m & (1<<i)) s += days[i];
+      }
+      return s ? ('周' + s) : '周(未选)';
+    }
+
+    function cfgRenderReadOnly(){
+      const cfg = g_cfg || cfgMigrate({});
+      const tzH = Math.round(num(cfg.tz_offset_ms, 28800000) / 3600000);
+      const roMode = $('roMode');
+      const roTz = $('roTz');
+      if(roMode) roMode.textContent = modeLabel(cfg.mode || 'mixed');
+      if(roTz) roTz.textContent = tzLabelFromHours(tzH);
+
+      const dailyEl = roListClear('roDailyList');
+      const daily = Array.isArray(cfg.daily) ? cfg.daily : [];
+      const dailyOn = daily.filter(r => r && r.en);
+      if(dailyEl){
+        if(!daily.length){
+          dailyEl.appendChild(roItem('定时', '未配置'));
+        }else if(!dailyOn.length){
+          dailyEl.appendChild(roItem('定时', '无（均未启用）'));
+        }else{
+          dailyOn.forEach((r, i)=>{
+            const parts = [];
+            const dow = dowMaskText(r && r.dow_mask);
+            if(dow) parts.push(dow);
+            if(r.open_en !== false) parts.push('开 ' + msToHHMMMaybe(r.open_ms));
+            if(r.close_en !== false) parts.push('关 ' + msToHHMMMaybe(r.close_ms));
+            dailyEl.appendChild(roItem('定时 #' + (i+1), '启用 | ' + parts.join(' | '), true));
+          });
+        }
+      }
+
+      const cycleEl = roListClear('roCycleList');
+      const cycle = Array.isArray(cfg.cycle) ? cfg.cycle : [];
+      const cycleOn = cycle.filter(r => r && r.en);
+      if(cycleEl){
+        if(!cycle.length){
+          cycleEl.appendChild(roItem('循环', '未配置'));
+        }else if(!cycleOn.length){
+          cycleEl.appendChild(roItem('循环', '无（均未启用）'));
+        }else{
+          cycleOn.forEach((r, i)=>{
+            const steps = Array.isArray(r.steps) ? r.steps : [];
+            const seq = steps.map((st)=>{
+              const act = (st && st.state === 'close') ? '关' : '开';
+              const d = (st && typeof st.dur_ms === 'number' && isFinite(st.dur_ms)) ? durHM(st.dur_ms) : '--';
+              return act + ' ' + d;
+            }).filter(Boolean).join(' -> ');
+            cycleEl.appendChild(roItem('循环 #' + (i+1), '启用' + (seq ? (' | ' + seq) : ''), true));
+          });
+        }
+      }
+
+      const ldEl = roListClear('roLdList');
+      const ld = Array.isArray(cfg.leveldiff) ? cfg.leveldiff : [];
+      const ldOn = ld.filter(r => r && r.en);
+      if(ldEl){
+        if(!ld.length){
+          ldEl.appendChild(roItem('水位差', '未配置'));
+        }else if(!ldOn.length){
+          ldEl.appendChild(roItem('水位差', '无（均未启用）'));
+        }else{
+          ldOn.forEach((r, i)=>{
+            const o = (typeof r.open_mm === 'number' && isFinite(r.open_mm)) ? (r.open_mm + 'mm') : '--';
+            const c = (typeof r.close_mm === 'number' && isFinite(r.close_mm)) ? (r.close_mm + 'mm') : '--';
+            ldEl.appendChild(roItem('水位差 #' + (i+1), '启用 | 开阈值 ' + o + ' | 关阈值 ' + c, true));
+          });
+        }
+      }
+
+      cfgSetChip('CFG OK', 'good');
+      cfgSetMsg('');
+    }
+
+    async function cfgLoad(){
+      cfgSetChip('CFG 加载中', '');
+      cfgSetMsg('加载中…');
+      try{
+        const r = await fetch('/api/config', {cache:'no-store'});
+        const tx = await r.text();
+        if(!r.ok){
+          cfgSetChip('CFG ERR', 'bad');
+          cfgSetMsg(r.status === 401 ? '加载失败：未授权（需要登录）' : ('加载失败：HTTP ' + r.status + ' ' + tx));
+          return;
+        }
+        g_cfg = cfgMigrate(JSON.parse(tx || '{}'));
+        cfgRenderReadOnly();
+      }catch(e){
+        cfgSetChip('CFG ERR', 'bad');
+        cfgSetMsg('加载失败：网络错误或配置 JSON 解析失败');
+      }
+    }
+    window.cfgLoad = cfgLoad;
+
+    // --- Logs (embedded, no /logs jump needed) ---
+    const LOG_POLL_MS = 2500;
+    const LOG_TAIL_BYTES = 16384;
+    const HAS_ABORT = (typeof AbortController !== 'undefined');
+    let g_logLive = false;
+    let g_logTab = 'error';
+    const g_logCache = {error:null, measure:null, action:null};
+    let g_logTimer = 0;
+    let g_logInflight = 0;
+    let g_logCtrl = null;
+    let g_logReqId = 0;
+
+    function logBusySet(b){
+      const busy = !!b;
+      const br = $('logRefreshBtn');
+      const be = $('logExportBtn');
+      const bc = $('logClearBtn');
+      if(br) br.disabled = busy;
+      if(be) be.disabled = busy;
+      if(bc) bc.disabled = busy;
+    }
+
+    function logStopPolling(){
+      if(g_logTimer){
+        clearTimeout(g_logTimer);
+        g_logTimer = 0;
+      }
+    }
+
+    function logScheduleNext(){
+      logStopPolling();
+      if(document.hidden || !g_logLive) return;
+      g_logTimer = setTimeout(()=>logRefresh({scheduled:true}), LOG_POLL_MS);
+    }
+
+    function logShouldAutoScroll(pre){
+      const gap = pre.scrollHeight - pre.scrollTop - pre.clientHeight;
+      return gap < 60;
+    }
+
+    function logShowCached(tab){
+      const box = $('logBox');
+      if(!box) return;
+      const v = g_logCache[tab];
+      box.textContent = (typeof v === 'string') ? (v.length ? v : '(空)') : '加载中…';
+    }
+
+    function logSetTab(t){
+      g_logTab = t;
+      ['error','measure','action'].forEach((k)=>{
+        const el = $('logTab_' + k);
+        if(!el) return;
+        const on = (k === t);
+        el.className = on ? 'seg on' : 'seg';
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      logShowCached(t);
+      if(g_logLive){
+        logRefresh({force:true, forceScroll:true});
+      }
+    }
+
+    async function logRefresh(opts){
+      const o = opts || {};
+      const force = !!o.force;
+      const scheduled = !!o.scheduled;
+      const forceScroll = !!o.forceScroll;
+      const tab = g_logTab;
+
+      if(!g_logLive && !force){
+        // Not in view: skip network and timers.
+        return;
+      }
+
+      if(g_logInflight && !force){
+        return;
+      }
+
+      if(force && g_logCtrl){
+        try{ if(g_logCtrl.abort) g_logCtrl.abort(); }catch(e){}
+      }
+
+      const reqId = ++g_logReqId;
+      const ctrl = HAS_ABORT ? new AbortController() : null;
+      g_logCtrl = ctrl;
+      g_logInflight = 1;
+      logBusySet(true);
+
+      const box = $('logBox');
+      const autoScroll = box ? logShouldAutoScroll(box) : true;
+      try{
+        const url = '/api/log?name=' + encodeURIComponent(tab) + '&tail=' + LOG_TAIL_BYTES + '&t=' + Date.now();
+        const r = ctrl ? (await fetch(url, {signal: ctrl.signal})) : (await fetch(url));
+        const tx = await r.text();
+        if(reqId !== g_logReqId) return;
+
+        g_logCache[tab] = tx;
+        if(tab === g_logTab && box){
+          box.textContent = tx.length ? tx : '(空)';
+          if((forceScroll || autoScroll)) box.scrollTop = box.scrollHeight;
+        }
+        const msg = $('logMsg');
+        if(msg){
+          if(!r.ok){
+            msg.textContent = (r.status === 401) ? '读取失败：未授权（需要登录）' : ('读取失败：HTTP ' + r.status + ' ' + tx);
+          }else{
+            msg.textContent = '';
+          }
+        }
+      }catch(e){
+        if(e && e.name === 'AbortError') return;
+        const msg = $('logMsg');
+        if(msg) msg.textContent = '读取失败：网络错误';
+      }finally{
+        if(reqId === g_logReqId){
+          g_logInflight = 0;
+          g_logCtrl = null;
+          logBusySet(false);
+          logScheduleNext();
+        }
+      }
+    }
+
+    function logRefreshNow(){
+      logRefresh({force:true, forceScroll:true});
+    }
+
+    async function logClearCur(){
+      if(!confirm('确认清空当前日志？')) return;
+      const msg = $('logMsg');
+      try{
+        const r = await fetch('/api/log/clear', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:g_logTab})});
+        const tx = await r.text();
+        if(msg){
+          msg.textContent = r.ok ? '已清空' : ((r.status === 401) ? '清空失败：未授权（需要登录）' : ('清空失败：HTTP ' + r.status + ' ' + tx));
+        }
+      }catch(e){
+        if(msg) msg.textContent = '清空失败：网络错误';
+      }
+      logRefresh({force:true, forceScroll:true});
+    }
+
+    window.logSetTab = logSetTab;
+    window.logRefreshNow = logRefreshNow;
+    window.logClearCur = logClearCur;
+
+    function logExportCur(){
+      const name = g_logTab || 'error';
+      const url = '/api/log/download?name=' + encodeURIComponent(name) + '&t=' + Date.now();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'log_' + name + '_' + nowFileStamp() + '.txt';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    window.logExportCur = logExportCur;
+
+    function tick(ts){
+      const nowTs = (typeof ts === 'number') ? ts : 0;
+      const dt = g_lastFrameTs ? Math.max(0, (nowTs - g_lastFrameTs) / 1000) : 0;
+      g_lastFrameTs = nowTs;
+
+      // Keep countdown bar smooth even when polling is 1Hz.
+      if(!g_timerUiLastTs || (nowTs - g_timerUiLastTs) >= 80){
+        g_timerUiLastTs = nowTs;
+        renderTimerNow();
+      }
+      if(!g_ctlUiLastMs || (Date.now() - g_ctlUiLastMs) > 200){
+        g_ctlUiLastMs = Date.now();
+        applyControlDisabledState();
+      }
+
+      if(REDUCE_MOTION){
+        setGateRatio(g_gateTarget);
+      }else{
+        // Gate plate: 0->100% takes ~g_gateTravelS seconds.
+        const d = (g_gateTarget - g_gateRatio);
+        if(Math.abs(d) > 0.0005 && dt > 0){
+          const travel = Math.max(1, (typeof g_gateTravelS === 'number' && isFinite(g_gateTravelS)) ? g_gateTravelS : 10);
+          const step = dt / travel;
+          const next = g_gateRatio + Math.sign(d) * Math.min(Math.abs(d), step);
+          setGateRatio(next);
+        }
+      }
+
+      // Update channel water + flow according to the animated gate ratio.
+      const t = g_lastTelemetry;
+      if(t){
+        const s1=t.sensor1||{}, s2=t.sensor2||{};
+        const innerOk=!!s1.valid, outerOk=!!s2.valid;
+        const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
+        const deltaOk = innerOk && outerOk;
+        const deltaMm = innerMm - outerMm;
+
+        const connected = (g_gateRatio > 0.12) && deltaOk;
+        if(g_connectedLast !== connected){
+          g_connectedLast = connected;
+          const cf = $('chipFlow');
+          if(cf){
+            cf.textContent = connected ? '连通 ON' : '连通 OFF';
+            cf.className = 'chip ' + (connected ? 'good' : '');
+          }
+        }
+
+        const dir = (deltaOk && Math.abs(deltaMm) >= 20) ? (deltaMm > 0 ? 'left' : 'right') : null;
+        setFlowFx(connected && !!dir, dir);
+
+        if(g_chan){
+          // Match channel water color to the upstream side for better readability.
+          if(dir === 'left') g_chan.setAttribute('data-src', 'inner');
+          else if(dir === 'right') g_chan.setAttribute('data-src', 'outer');
+          else g_chan.removeAttribute('data-src');
+
+          const chanMm = deltaOk ? Math.min(innerMm, outerMm) : 0;
+          const geom = setChannelWater(g_chan, g_surfC, chanMm, connected, g_gateRatio);
+          layoutFlowRows(geom);
+        }
+
+        const gs = '状态：' + gateStateText(t.gate_state, g_gateRatio);
+        if(g_gateStateLast !== gs){
+          g_gateStateLast = gs;
+          const el = $('gateState');
+          if(el) el.textContent = gs;
+        }
+      }
+
+      if(g_lastOkAt && (Date.now() - g_lastOkAt) >= 4500){
+        setStatus('数据超时（将重试）', 'bad');
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    // Boot: show deterministic "0" values before the first telemetry arrives.
+    renderNoDataUi();
+
+      loadSchematic().then(()=>{
+        setGateRatio(0);
+        renderNoDataUi(); // apply again after SVG handles are available
+        cfgLoad();
+        histLoadFromServer();
+        refreshOnce();
+        // Telemetry polling: self-schedule after each request finishes.
+        const POLL_MS = 1000;
+      const POLL_FAIL_MS = 1800;
+      let g_pollTimer = 0;
+      const pollStop = () => { if(g_pollTimer){ clearTimeout(g_pollTimer); g_pollTimer = 0; } };
+      const pollLoop = () => {
+        pollStop();
+        Promise.resolve(refreshOnce()).then((ok)=>{
+          g_pollTimer = setTimeout(pollLoop, ok ? POLL_MS : POLL_FAIL_MS);
+        });
+      };
+      pollLoop();
+
+      // Logs: only poll when the log panel is near viewport.
+      const lp = $('logPanel');
+      if(lp && ('IntersectionObserver' in window)){
+        const io = new IntersectionObserver((ents)=>{
+          const ent = (ents && ents.length) ? ents[0] : null;
+          const vis = !!(ent && ent.isIntersecting);
+          if(vis){
+            if(!g_logLive){
+              g_logLive = true;
+              logRefresh({force:true, forceScroll:false});
+              logScheduleNext();
+            }
+          }else{
+            g_logLive = false;
+            logStopPolling();
+          }
+        }, {root:null, rootMargin:'200px 0px', threshold:0.05});
+        io.observe(lp);
+      }else{
+        // Fallback: older browsers poll logs immediately.
+        g_logLive = true;
+      }
+      logSetTab('error');
+      document.addEventListener('visibilitychange', ()=>{
+        if(document.hidden){
+          logStopPolling();
+        }else{
+          if(g_logLive) logRefresh({force:true, forceScroll:true});
+        }
+      });
+      requestAnimationFrame(tick);
+    });
+  </script>
+</body>
+</html>

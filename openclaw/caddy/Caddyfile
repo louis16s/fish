@@ -1,0 +1,15 @@
+fish.530555.xyz {
+  encode zstd gzip
+
+  # Security headers (UI already uses same-origin fetch + httpOnly cookies).
+  header {
+    -Server
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "no-referrer"
+    Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  }
+
+  reverse_proxy fish-panel:8080
+}
+

@@ -1,6 +1,6 @@
 # ESP32-S3 双水位计闸门控制项目
 
-![main.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/69913589ceee3.webp)
+![index1.jpeg](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/699139c9ab100.webp)
 
 ## 1. 项目功能概览
 
@@ -428,4 +428,18 @@ Air780E 状态轮询在 `src/WS_Serial.cpp`：
 ## 14. 当前代码边界（避免误解）
 
 1. 面板前端文件位于 `data/ui/`：默认不内置进固件，需要上传到设备 LittleFS 才能访问（`/ui/...`）。
-2. MQTT 遥测上报未启用，当前以下行控制为主。
+2. MQTT 已实现“遥测上报 + 下行控制”（见 `## 9. MQTT 使用说明`），但目前不包含：
+- 云端下发/同步设备 `ctrl.json`（规则配置）
+- 设备 LittleFS 日志上云（外网面板默认只提供“遥测历史回放”）
+
+## 15. 云端外网面板（EMQX + 登录 + 历史回放）
+
+仓库内提供了一个外网面板（独立 Web 应用，通过 MQTT 接入设备）：
+
+- 代码目录：`server/`
+- 主要能力：
+- 服务端订阅设备遥测（MQTT）并写入 PostgreSQL
+- 提供 HTTPS Web 面板（登录、用户管理）
+- `历史水位`/`回放`：从服务器数据库查询历史数据（可导出 JSON/CSV）
+
+OpenClaw 部署请直接看：`openclaw_read.md`（包含 `docker compose` 文件和安全建议）。

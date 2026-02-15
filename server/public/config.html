@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <title>配置 | 外网面板</title>
+  <style>
+    :root{
+      --bg0:#060812;
+      --bg1:#0b1730;
+      --text:rgba(231,238,252,.96);
+      --muted:rgba(165,180,207,.78);
+      --muted2:rgba(124,141,180,.68);
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+      --surface:rgba(255,255,255,.06);
+      --surface2:rgba(2,6,23,.32);
+      --shadow1:0 16px 50px rgba(0,0,0,.46);
+      --radius-panel:20px;
+      --radius-card:16px;
+      --radius-btn:14px;
+      --radius-pill:999px;
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+      --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{min-height:100%}
+    html{background:linear-gradient(180deg, var(--bg0), var(--bg1))}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1)),
+        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+      background-repeat:no-repeat,no-repeat,no-repeat;
+      background-position:18% 10%, top, center;
+      background-size:auto,auto,cover;
+      background-attachment:scroll,scroll,fixed;
+      padding:18px 14px 28px;
+      overflow-x:hidden;
+    }
+    @media (max-width:980px){body{background-attachment:scroll,scroll,scroll}}
+    a{color:inherit}
+    .wrap{max-width:1180px;margin:0 auto}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      padding:14px 14px;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter:blur(8px);
+      margin-bottom:12px;
+    }
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .mini{font-size:12px;color:var(--muted2);font-weight:900}
+    #verLine{white-space:pre-line;display:inline-block;font-family:var(--mono);font-size:11px;color:var(--muted2)}
+    .btn{
+      appearance:none;
+      min-height:48px;
+      padding:12px 12px;
+      border-radius:var(--radius-btn);
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+      text-decoration:none;
+      display:inline-grid;
+      place-items:center;
+    }
+    .btn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.16)}
+    .btn.danger{border-color:rgba(251,113,133,.28);background:rgba(251,113,133,.14)}
+    .btn.good{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn.small{
+      min-height:38px;
+      padding:8px 10px;
+      border-radius:var(--radius-pill);
+      font-size:12px;
+    }
+
+    input,select{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-btn);
+      padding:10px 12px;
+      font-weight:950;
+      min-height:44px;
+      background:rgba(2,6,23,.22);
+      color:var(--text);
+      font-family:var(--font);
+      transition:border-color .18s ease, background .18s ease;
+    }
+    input:hover,select:hover{border-color:var(--stroke2)}
+    input[type="number"]{width:140px;text-align:right}
+    input[type="password"]{width:220px}
+    input[type="text"]{width:220px}
+
+    .card{
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-panel);
+      background:var(--surface);
+      box-shadow:var(--shadow1);
+      backdrop-filter: blur(8px);
+      padding:14px;
+      overflow:hidden;
+    }
+    .sec{
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius-card);
+      padding:12px;
+      background:rgba(2,6,23,.22);
+    }
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .sec-title{font-weight:950;letter-spacing:.2px;margin-bottom:10px}
+    .hint{margin-top:10px;color:var(--muted2);font-size:12px;line-height:1.6}
+    .hint.good{color:var(--good)}
+    .hint.warn{color:var(--warn)}
+    .hint.bad{color:var(--bad)}
+
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    th,td{font-size:12px;text-align:left;padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+    th{color:var(--muted2);font-weight:950}
+    td{color:var(--text);font-family:var(--mono)}
+    .tag{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.04);font-size:12px;font-weight:950;font-family:var(--mono)}
+    .tag.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
+    .tag.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
+    .tag.warn{border-color:rgba(245,158,11,.28);color:#ffd59a;background:rgba(245,158,11,.08)}
+    :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="row">
+        <a class="btn" href="/">返回面板</a>
+        <a class="btn" href="/replay">回放</a>
+      </div>
+      <div class="row">
+        <span class="mini" id="who">--</span>
+        <button class="btn danger" onclick="logout()">退出</button>
+        <span class="mini" id="verLine">UI ui-2026.02.15-01</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">外网面板配置</div>
+      <div class="grid">
+        <div class="sec">
+          <div class="sec-title">数据保留</div>
+          <div class="row">
+            <label class="mini">保留天数</label>
+            <input id="retDays" type="number" min="1" max="3650" step="1" value="30">
+            <button class="btn primary" id="btnSaveRet" onclick="saveRetention()">保存</button>
+          </div>
+          <div class="hint">历史数据将写入服务器数据库，并按该天数自动清理（防止磁盘增长无上限）。</div>
+          <div class="hint bad" id="retMsg" style="display:none"></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">MQTT / 服务状态</div>
+          <div class="hint" id="statusLine">加载中…</div>
+          <div class="hint">说明：面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发均在服务器完成。</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="grid">
+        <div class="sec">
+          <div class="sec-title">用户管理（管理员）</div>
+          <div class="row">
+            <input id="newUser" type="text" placeholder="用户名">
+            <input id="newPass" type="password" placeholder="密码（>=8）">
+            <select id="newRole" aria-label="角色">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+            <button class="btn primary" onclick="createUser()">创建</button>
+          </div>
+          <div class="hint bad" id="userMsg" style="display:none"></div>
+          <div style="margin-top:10px;overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="userBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">设备列表</div>
+          <div class="hint">设备通过 MQTT 上报后会自动出现在列表中。</div>
+          <div style="margin-top:10px;overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>device_id</th><th>last_seen</th>
+                </tr>
+              </thead>
+              <tbody id="devBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const UI_VERSION = 'ui-2026.02.15-01';
+    const $ = (id)=>document.getElementById(id);
+
+    async function logout(){
+      try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
+      location.href = '/login';
+    }
+
+    function showMsg(el, text){
+      if(!el) return;
+      const t = (text || '').trim();
+      if(!t){ el.style.display='none'; el.textContent=''; return; }
+      el.style.display='';
+      el.textContent=t;
+    }
+
+    async function apiJson(url, opts){
+      const r = await fetch(url, Object.assign({cache:'no-store'}, opts||{}));
+      const tx = await r.text();
+      let j = null; try{ j = tx ? JSON.parse(tx) : null }catch(e){}
+      if(!r.ok) throw new Error((j && j.error) ? j.error : ('HTTP ' + r.status));
+      return j;
+    }
+
+    async function loadMe(){
+      try{
+        const j = await apiJson('/api/auth/me');
+        $('who').textContent = j && j.user ? ('用户 ' + j.user.username + ' | ' + j.user.role) : '--';
+      }catch(e){
+        location.href = '/login';
+      }
+    }
+
+    async function loadStatus(){
+      try{
+        const j = await apiJson('/healthz');
+        const mqtt = j && j.mqtt ? 'MQTT 已连接' : 'MQTT 未连接';
+        const db = j && j.db ? 'DB OK' : 'DB ERR';
+        $('statusLine').textContent = mqtt + ' | ' + db;
+      }catch(e){
+        $('statusLine').textContent = '状态获取失败';
+      }
+    }
+
+    async function loadRetention(){
+      try{
+        const j = await apiJson('/api/admin/settings');
+        if(j && typeof j.retention_days === 'number') $('retDays').value = '' + j.retention_days;
+        showMsg($('retMsg'), '');
+      }catch(e){
+        showMsg($('retMsg'), '无权限或加载失败：' + e.message);
+      }
+    }
+
+    async function saveRetention(){
+      const v = parseInt($('retDays').value, 10);
+      try{
+        const j = await apiJson('/api/admin/settings', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({retention_days: v})
+        });
+        showMsg($('retMsg'), j && j.ok ? '已保存' : '保存失败');
+        $('retMsg').className = (j && j.ok) ? 'hint good' : 'hint bad';
+      }catch(e){
+        $('retMsg').className = 'hint bad';
+        showMsg($('retMsg'), '保存失败：' + e.message);
+      }
+    }
+    window.saveRetention = saveRetention;
+
+    function roleTag(role){
+      const r = (role || 'user').toLowerCase();
+      if(r === 'admin') return '<span class="tag warn">admin</span>';
+      return '<span class="tag">user</span>';
+    }
+    function statusTag(disabled){
+      return disabled ? '<span class="tag bad">disabled</span>' : '<span class="tag good">active</span>';
+    }
+
+    async function loadUsers(){
+      const body = $('userBody');
+      if(body) body.innerHTML = '<tr><td colspan="5">加载中…</td></tr>';
+      try{
+        const j = await apiJson('/api/admin/users');
+        const list = (j && Array.isArray(j.users)) ? j.users : [];
+        if(!body) return;
+        if(!list.length){
+          body.innerHTML = '<tr><td colspan="5">(空)</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(u=>{
+          const dis = !!u.disabled;
+          const btnDis = dis ? '启用' : '禁用';
+          return '<tr>' +
+            '<td>' + u.id + '</td>' +
+            '<td>' + (u.username||'') + '</td>' +
+            '<td>' + roleTag(u.role) + '</td>' +
+            '<td>' + statusTag(dis) + '</td>' +
+            '<td style="font-family:var(--font)">' +
+              '<button class="btn small" onclick="resetPw(' + u.id + ')">重置密码</button> ' +
+              '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+        showMsg($('userMsg'), '');
+      }catch(e){
+        if(body) body.innerHTML = '<tr><td colspan="5">无权限或加载失败</td></tr>';
+        showMsg($('userMsg'), '提示：只有 admin 才能管理用户。');
+      }
+    }
+
+    async function createUser(){
+      const u = ($('newUser').value || '').trim();
+      const p = $('newPass').value || '';
+      const role = $('newRole').value || 'user';
+      try{
+        const j = await apiJson('/api/admin/users', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({username:u, password:p, role})
+        });
+        showMsg($('userMsg'), j && j.ok ? '已创建' : '创建失败');
+        $('newPass').value = '';
+        await loadUsers();
+      }catch(e){
+        showMsg($('userMsg'), '创建失败：' + e.message);
+      }
+    }
+    window.createUser = createUser;
+
+    async function toggleDis(id, disabled){
+      try{
+        await apiJson('/api/admin/users/' + id + '/disable', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({disabled: !!disabled})
+        });
+        await loadUsers();
+      }catch(e){
+        showMsg($('userMsg'), '操作失败：' + e.message);
+      }
+    }
+    window.toggleDis = toggleDis;
+
+    async function resetPw(id){
+      const p = prompt('输入新密码（>=8）');
+      if(!p) return;
+      try{
+        await apiJson('/api/admin/users/' + id + '/password', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({password: p})
+        });
+        showMsg($('userMsg'), '已重置密码');
+      }catch(e){
+        showMsg($('userMsg'), '重置失败：' + e.message);
+      }
+    }
+    window.resetPw = resetPw;
+
+    function fmtTs(v){
+      if(!v) return '--';
+      try{
+        const d = new Date(v);
+        return d.toLocaleString();
+      }catch(e){ return String(v); }
+    }
+
+    async function loadDevices(){
+      const body = $('devBody');
+      if(body) body.innerHTML = '<tr><td colspan="2">加载中…</td></tr>';
+      try{
+        const j = await apiJson('/api/devices');
+        const list = (j && Array.isArray(j.devices)) ? j.devices : [];
+        if(!body) return;
+        if(!list.length){
+          body.innerHTML = '<tr><td colspan="2">(空)</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(d=>{
+          return '<tr><td>' + (d.device_id||'') + '</td><td>' + fmtTs(d.last_seen_at) + '</td></tr>';
+        }).join('');
+      }catch(e){
+        if(body) body.innerHTML = '<tr><td colspan="2">加载失败</td></tr>';
+      }
+    }
+
+    (function init(){
+      $('verLine').textContent = 'UI ' + UI_VERSION;
+      loadMe();
+      loadStatus();
+      loadRetention();
+      loadUsers();
+      loadDevices();
+      setInterval(loadStatus, 5000);
+      setInterval(loadDevices, 15000);
+    })();
+  </script>
+</body>
+</html>

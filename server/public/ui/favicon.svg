@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Fish Gate">
+  <rect width="64" height="64" rx="14" fill="#060812"/>
+  <path d="M16 22h32" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/>
+  <rect x="18" y="24" width="9" height="24" rx="4.5" fill="#0b1730" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="37" y="24" width="9" height="24" rx="4.5" fill="#0b1730" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="28" y="26" width="8" height="22" rx="4" fill="#22d3ee" opacity=".35" stroke="#22d3ee" stroke-width="2"/>
+  <path d="M14 48c6-4 10-4 18 0s12 4 18 0 12-4 18 0v10H14z" fill="#22d3ee" opacity=".18"/>
+  <path d="M14 52c6-4 10-4 18 0s12 4 18 0 12-4 18 0" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" opacity=".92"/>
+</svg>
+

@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fish
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: fish
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  emqx:
+    image: emqx/emqx:5
+    restart: unless-stopped
+    # If you only have ONE device and want the simplest path (no TLS on MQTT yet),
+    # exposing 1883 is enough for the current firmware.
+    ports:
+      - "1883:1883"
+      # Optional (recommended if you later upgrade firmware to mqtts):
+      # - "8883:8883"
+      #
+      # Optional dashboard (NOT recommended to expose directly to public internet):
+      # - "18083:18083"
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+      # Optional: ACL file (enable file authorization in EMQX if needed).
+      - ./emqx/acl.conf:/opt/emqx/etc/acl.conf:ro
+
+  fish-panel:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - emqx
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      TRUST_PROXY: 1
+      COOKIE_SECURE: 1
+      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      DATABASE_URL: postgresql://fish:${POSTGRES_PASSWORD}@postgres:5432/fish
+      MQTT_URL: mqtt://emqx:1883
+      MQTT_USERNAME: ${MQTT_SERVER_USERNAME}
+      MQTT_PASSWORD: ${MQTT_SERVER_PASSWORD}
+      MQTT_TELEMETRY_SUB: ${MQTT_TELEMETRY_SUB}
+      DEFAULT_DEVICE_ID: ${DEFAULT_DEVICE_ID}
+      DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS}
+      HISTORY_MAX_POINTS: 1200
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - fish-panel
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  emqx_data:
+  emqx_log:
+  caddy_data:
+  caddy_config:
+
