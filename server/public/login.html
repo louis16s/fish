@@ -7,25 +7,25 @@
   <title>登录 | 鱼塘水闸</title>
   <style>
     :root{
-      --bg0:#0f172a;
-      --bg1:#1e293b;
-      --text:#f8fafc;
-      --muted:#94a3b8;
-      --muted2:#64748b;
-      --stroke:rgba(255,255,255,0.1);
-      --stroke2:rgba(255,255,255,0.2);
-      --surface:rgba(30, 41, 59, 0.7);
-      --shadow1:0 25px 50px -12px rgba(0, 0, 0, 0.5);
-      --radius-panel:24px;
+      --bg0:#060812;
+      --bg1:#0b1730;
+      --text:rgba(231,238,252,.96);
+      --muted:rgba(165,180,207,.78);
+      --muted2:rgba(124,141,180,.68);
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+      --surface:rgba(255,255,255,.06);
+      --shadow1:0 16px 50px rgba(0,0,0,.46);
+      --radius-panel:20px;
       --radius-card:16px;
-      --radius-btn:12px;
-      --radius-pill:9999px;
-      --cyan:#06b6d4;
+      --radius-btn:14px;
+      --radius-pill:999px;
+      --cyan:#22d3ee;
       --good:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
-      --font:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-      --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --bad:#fb7185;
+      --font:"Bahnschrift","Segoe UI Variable Display","Segoe UI","PingFang SC","Microsoft YaHei UI",system-ui,-apple-system,sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -33,14 +33,19 @@
       margin:0;
       font-family:var(--font);
       color:var(--text);
-      background:var(--bg0);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(6,182,212,0.15) 0px, transparent 50%),
-        radial-gradient(at 98% 1%, rgba(59,130,246,0.15) 0px, transparent 50%);
+      background:
+        radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1)),
+        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+      background-repeat:no-repeat,no-repeat,no-repeat;
+      background-position:18% 10%, top, center;
+      background-size:auto,auto,cover;
+      background-attachment:scroll,scroll,fixed;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 18px 14px 28px;
+      overflow-x:hidden;
     }
 
     .wrap{width:100%; max-width:400px;}
@@ -49,8 +54,7 @@
       border-radius:var(--radius-panel);
       background:var(--surface);
       box-shadow:var(--shadow1);
-      backdrop-filter:blur(12px);
-      -webkit-backdrop-filter:blur(12px);
+      backdrop-filter:blur(8px);
       padding:32px;
     }
     .hd{text-align: center; margin-bottom: 24px;}
@@ -68,14 +72,14 @@
       border-radius:var(--radius-btn);
       padding:0 16px;
       height:48px;
-      background:rgba(0,0,0,0.2);
+      background:rgba(255,255,255,.04);
       color:var(--text);
       font-family:var(--font);
       font-size: 15px;
       transition:all 0.2s ease;
       outline: none;
     }
-    input:focus{border-color:var(--cyan); box-shadow: 0 0 0 4px rgba(6,182,212,0.15); background:rgba(0,0,0,0.3);}
+    input:focus{border-color:var(--cyan); box-shadow: 0 0 0 4px rgba(34,211,238,.14); background:rgba(255,255,255,.06);}
     
     .btnRow{margin-top:8px;}
     .btn{
@@ -83,36 +87,29 @@
       height:48px;
       border-radius:var(--radius-btn);
       border:none;
-      background:linear-gradient(135deg, #06b6d4, #3b82f6);
+      background:linear-gradient(135deg, rgba(34,211,238,.95), rgba(56,189,248,.95));
       color:white;
       font-weight:600;
       font-size: 15px;
       cursor:pointer;
       transition:all 0.2s ease;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 10px 26px rgba(0,0,0,.25);
     }
-    .btn:hover{filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);}
+    .btn:hover{filter: brightness(1.06); transform: translateY(-1px);}
     .btn:active{transform:translateY(0);}
     .btn:disabled{opacity:0.7; cursor:not-allowed; filter: grayscale(0.5);}
     
-    .msg{margin-top:16px; font-size:13px; line-height:1.5; color:var(--muted); text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-btn);}
-    .msg.bad{color:var(--bad); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);}
+    .msg{margin-top:16px; font-size:13px; line-height:1.5; color:var(--muted); text-align: center; background: rgba(255,255,255,.04); padding: 12px; border-radius: var(--radius-btn); border:1px solid rgba(255,255,255,.06);}
+    .msg.bad{color:var(--bad); background: rgba(251,113,133,.08); border: 1px solid rgba(251,113,133,.22);}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <div class="hd">
-<<<<<<< HEAD
-        <div>
-          <div class="title">控制面板登录</div>
-          <div class="sub">水位可视化与水闸设置</div>
-        </div>
-=======
         <div class="title">控制面板登录</div>
-        <div class="sub">fish.530555.xyz</div>
+        <div class="sub" id="hostLine">水位可视化与水闸设置</div>
         <div class="mini">UI ui-2026.02.15-01</div>
->>>>>>> 6cc5abbcad2f3e49e344899a780e41f39a140909
       </div>
 
       <form id="form" class="row" autocomplete="on">
@@ -142,6 +139,13 @@
     const form = document.getElementById('form');
     const msg = document.getElementById('msg');
     const btn = document.getElementById('btn');
+
+    // Show current host without hard-coding.
+    try{
+      const hl = document.getElementById('hostLine');
+      if(hl) hl.textContent = location.host || hl.textContent;
+    }catch(e){}
+
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
       if(msg){ msg.style.display='none'; msg.textContent=''; }
