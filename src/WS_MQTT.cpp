@@ -524,6 +524,18 @@ static String WS_HTTP_GuessContentType(const String& path)
   return "application/octet-stream";
 }
 
+static String WS_HTTP_StripQueryFragment(const String& uri)
+{
+  // Some clients may append cache-busting query strings (e.g. ?v=...).
+  // WebServer::uri() is typically path-only, but we normalize defensively.
+  int cut = -1;
+  const int q = uri.indexOf('?');
+  const int h = uri.indexOf('#');
+  if (q >= 0) cut = q;
+  if (h >= 0 && (cut < 0 || h < cut)) cut = h;
+  return (cut >= 0) ? uri.substring(0, cut) : uri;
+}
+
 void handleRoot() {
   WS_HTTP_SendUiPage(kUiIndexPath);
   return;
@@ -843,11 +855,12 @@ static void WS_HTTP_RegisterRoutesOnce()
       if (!Http_Auth()) {
         return;
       }
-      const String ct = WS_HTTP_GuessContentType(uri);
-      if (WS_HTTP_StreamFileFromLittleFS(uri.c_str(), ct)) {
+      const String path = WS_HTTP_StripQueryFragment(uri);
+      const String ct = WS_HTTP_GuessContentType(path);
+      if (WS_HTTP_StreamFileFromLittleFS(path.c_str(), ct)) {
         return;
       }
-      if (WS_HTTP_StreamFileFromEmbedded(uri.c_str())) {
+      if (WS_HTTP_StreamFileFromEmbedded(path.c_str())) {
         return;
       }
     }
@@ -1393,7 +1406,6 @@ void MQTT_Loop()
   client.loop();
   MQTT_PublishState(false);
 }
-
 
 
 

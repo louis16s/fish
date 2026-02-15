@@ -1,53 +1,52 @@
-<?xml version='1.0' encoding='utf-8'?>
-<ns0:svg xmlns:ns0="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="外塘/内塘水位与水闸示意图">
-  <ns0:title>水位与水闸示意</ns0:title>
-  <ns0:desc>左侧外塘、右侧内塘，中间水闸。水体为独立对象：water_left/water_right/channel_water。闸门为可滑动闸板：gate_plate_group（由页面脚本设置开度）。</ns0:desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="外塘/内塘水位与水闸示意图">
+  <title>水位与水闸示意</title>
+  <desc>左侧外塘、右侧内塘，中间水闸。水体为独立对象：water_left/water_right/channel_water。闸门为可滑动闸板：gate_plate_group（由页面脚本设置开度）。</desc>
 
-  <ns0:defs>
+  <defs>
     
     
-    <ns0:linearGradient id="gradWaterOuter" x1="0" y1="0" x2="0" y2="1">
-      <ns0:stop offset="0" stop-color="#60a5fa" stop-opacity="0.95" />
-      <ns0:stop offset="0.55" stop-color="#2563eb" stop-opacity="0.92" />
-      <ns0:stop offset="1" stop-color="#1e3a8a" stop-opacity="0.95" />
-    </ns0:linearGradient>
+    <linearGradient id="gradWaterOuter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#60a5fa" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#2563eb" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1e3a8a" stop-opacity="0.95" />
+    </linearGradient>
     
-    <ns0:linearGradient id="gradWaterInner" x1="0" y1="0" x2="0" y2="1">
-      <ns0:stop offset="0" stop-color="#67e8f9" stop-opacity="0.95" />
-      <ns0:stop offset="0.55" stop-color="#06b6d4" stop-opacity="0.92" />
-      <ns0:stop offset="1" stop-color="#0e7490" stop-opacity="0.95" />
-    </ns0:linearGradient>
+    <linearGradient id="gradWaterInner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#06b6d4" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0e7490" stop-opacity="0.95" />
+    </linearGradient>
     
-    <ns0:linearGradient id="gradWaterChannel" x1="0" y1="0" x2="0" y2="1">
-      <ns0:stop offset="0" stop-color="#7dd3fc" stop-opacity="0.95" />
-      <ns0:stop offset="0.55" stop-color="#38bdf8" stop-opacity="0.92" />
-      <ns0:stop offset="1" stop-color="#1d4ed8" stop-opacity="0.95" />
-    </ns0:linearGradient>
-    <ns0:linearGradient id="gradWaterOffline" x1="0" y1="0" x2="0" y2="1">
-      <ns0:stop offset="0" stop-color="#fb7185" stop-opacity="0.92" />
-      <ns0:stop offset="1" stop-color="#be123c" stop-opacity="0.90" />
-    </ns0:linearGradient>
-    <ns0:linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1">
-      <ns0:stop offset="0" stop-color="#cbd5e1" />
-      <ns0:stop offset="0.45" stop-color="#94a3b8" />
-      <ns0:stop offset="1" stop-color="#64748b" />
-    </ns0:linearGradient>
-    <ns0:linearGradient id="gradWall" x1="0" y1="0" x2="0" y2="1">
-      <ns0:stop offset="0" stop-color="#0f172a" stop-opacity="0.92" />
-      <ns0:stop offset="1" stop-color="#0b1224" stop-opacity="0.98" />
-    </ns0:linearGradient>
-
-    
-    <ns0:filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
-      <ns0:feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b1224" flood-opacity="0.18" />
-    </ns0:filter>
+    <linearGradient id="gradWaterChannel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd3fc" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#38bdf8" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#1d4ed8" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="gradWaterOffline" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fb7185" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#be123c" stop-opacity="0.90" />
+    </linearGradient>
+    <linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cbd5e1" />
+      <stop offset="0.45" stop-color="#94a3b8" />
+      <stop offset="1" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="gradWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0b1224" stop-opacity="0.98" />
+    </linearGradient>
 
     
-    <ns0:clipPath id="clip_gate_inner">
-      <ns0:rect x="752" y="192" width="96" height="576" rx="12" />
-    </ns0:clipPath>
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b1224" flood-opacity="0.18" />
+    </filter>
+
+    
+    <clipPath id="clip_gate_inner">
+      <rect x="752" y="192" width="96" height="576" rx="12" />
+    </clipPath>
   
-    <ns0:style>
+    <style>
       /* Make 0–5m rulers clearer */
       #layer_scale text.scaleText{
         
@@ -56,10 +55,10 @@ paint-order: stroke fill;
         stroke: rgba(11,18,32,0.85);
         stroke-width: 3.4px;
       }
-    </ns0:style>
-</ns0:defs>
+    </style>
+</defs>
 
-  <ns0:style>
+  <style>
     /* Keep SVG self-styled so the UI page can stay lightweight. */
     #water_left { fill: url(#gradWaterOuter); }
     #water_right { fill: url(#gradWaterInner); }
@@ -98,95 +97,95 @@ paint-order: stroke fill;
       0%, 100% { opacity: 0.35; }
       50% { opacity: 0.60; }
     }
-  </ns0:style>
+  </style>
 
   
-  <ns0:g id="grid" aria-hidden="true">
-    <ns0:line x1="120" y1="200" x2="1480" y2="200" class="major" />
-    <ns0:line x1="120" y1="316" x2="1480" y2="316" />
-    <ns0:line x1="120" y1="432" x2="1480" y2="432" />
-    <ns0:line x1="120" y1="548" x2="1480" y2="548" />
-    <ns0:line x1="120" y1="664" x2="1480" y2="664" />
-    <ns0:line x1="120" y1="780" x2="1480" y2="780" class="major" />
-  </ns0:g>
+  <g id="grid" aria-hidden="true">
+    <line x1="120" y1="200" x2="1480" y2="200" class="major" />
+    <line x1="120" y1="316" x2="1480" y2="316" />
+    <line x1="120" y1="432" x2="1480" y2="432" />
+    <line x1="120" y1="548" x2="1480" y2="548" />
+    <line x1="120" y1="664" x2="1480" y2="664" />
+    <line x1="120" y1="780" x2="1480" y2="780" class="major" />
+  </g>
 
   
-  <ns0:g id="layer_water" filter="url(#shadowSoft)">
+  <g id="layer_water" filter="url(#shadowSoft)">
     
-    <ns0:rect id="water_left" x="140" y="780" width="580" height="0" data-valid="1" data-base-y="200" data-base-h="580" />
-    <ns0:rect id="water_left_surface" class="water-surface" x="140" y="780" width="580" height="8" style="display:none" />
+    <rect id="water_left" x="140" y="780" width="580" height="0" data-valid="1" data-base-y="200" data-base-h="580" />
+    <rect id="water_left_surface" class="water-surface" x="140" y="780" width="580" height="8" style="display:none" />
 
     
-    <ns0:rect id="water_right" x="880" y="780" width="580" height="0" data-valid="1" data-base-y="200" data-base-h="580" />
-    <ns0:rect id="water_right_surface" class="water-surface" x="880" y="780" width="580" height="8" style="display:none" />
+    <rect id="water_right" x="880" y="780" width="580" height="0" data-valid="1" data-base-y="200" data-base-h="580" />
+    <rect id="water_right_surface" class="water-surface" x="880" y="780" width="580" height="8" style="display:none" />
 
     
-    <ns0:rect id="channel_water" x="760" y="780" width="80" height="0" clip-path="url(#clip_gate_inner)" style="display:none" data-base-y="200" data-base-h="580" />
-    <ns0:rect id="channel_water_surface" class="water-surface" x="760" y="780" width="80" height="8" clip-path="url(#clip_gate_inner)" style="display:none" />
+    <rect id="channel_water" x="760" y="780" width="80" height="0" clip-path="url(#clip_gate_inner)" style="display:none" data-base-y="200" data-base-h="580" />
+    <rect id="channel_water_surface" class="water-surface" x="760" y="780" width="80" height="8" clip-path="url(#clip_gate_inner)" style="display:none" />
 
     
-    <ns0:g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
-      <ns0:g id="flow_dir_right" style="display:none">
-        <ns0:path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-        <ns0:path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-      </ns0:g>
-      <ns0:g id="flow_dir_left" style="display:none">
-        <ns0:path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
-        <ns0:path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-      </ns0:g>
-    </ns0:g>
-  </ns0:g>
-
-  
-  <ns0:g id="layer_containers" fill="none" stroke="rgba(226,232,240,0.92)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-    
-    <ns0:path id="pond_outer" d="M120 180 V780 H740" />
-
-    
-    <ns0:path id="pond_inner" d="M1480 180 V780 H860" />
-
-    
-    <ns0:rect id="gate_frame" x="740" y="180" width="120" height="600" rx="14" />
-  </ns0:g>
+    <g id="flow_fx" data-on="0" clip-path="url(#clip_gate_inner)" aria-hidden="true">
+      <g id="flow_dir_right" style="display:none">
+        <path class="flow-line" d="M768 740 H832" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M820 728 L838 740 L820 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+      <g id="flow_dir_left" style="display:none">
+        <path class="flow-line" d="M832 740 H768" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" />
+        <path class="flow-line" d="M780 728 L762 740 L780 752" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+    </g>
+  </g>
 
   
-  <ns0:g id="layer_scale" stroke="#FF8A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" font-size="30" font-weight="900" fill="#FF8A00">
+  <g id="layer_containers" fill="none" stroke="rgba(226,232,240,0.92)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
     
-    <ns0:line x1="120" y1="200" x2="120" y2="780" />
-    <ns0:line x1="110" y1="200" x2="130" y2="200" /><ns0:text class="scaleText" x="102" y="206" text-anchor="end">5m</ns0:text>
-    <ns0:line x1="110" y1="316" x2="130" y2="316" /><ns0:text class="scaleText" x="102" y="322" text-anchor="end">4m</ns0:text>
-    <ns0:line x1="110" y1="432" x2="130" y2="432" /><ns0:text class="scaleText" x="102" y="438" text-anchor="end">3m</ns0:text>
-    <ns0:line x1="110" y1="548" x2="130" y2="548" /><ns0:text class="scaleText" x="102" y="554" text-anchor="end">2m</ns0:text>
-    <ns0:line x1="110" y1="664" x2="130" y2="664" /><ns0:text class="scaleText" x="102" y="670" text-anchor="end">1m</ns0:text>
-    <ns0:line x1="110" y1="780" x2="130" y2="780" /><ns0:text class="scaleText" x="102" y="786" text-anchor="end">0m</ns0:text>
+    <path id="pond_outer" d="M120 180 V780 H740" />
 
     
-    <ns0:line x1="1480" y1="200" x2="1480" y2="780" />
-    <ns0:line x1="1470" y1="200" x2="1490" y2="200" /><ns0:text class="scaleText" x="1498" y="206">5m</ns0:text>
-    <ns0:line x1="1470" y1="316" x2="1490" y2="316" /><ns0:text class="scaleText" x="1498" y="322">4m</ns0:text>
-    <ns0:line x1="1470" y1="432" x2="1490" y2="432" /><ns0:text class="scaleText" x="1498" y="438">3m</ns0:text>
-    <ns0:line x1="1470" y1="548" x2="1490" y2="548" /><ns0:text class="scaleText" x="1498" y="554">2m</ns0:text>
-    <ns0:line x1="1470" y1="664" x2="1490" y2="664" /><ns0:text class="scaleText" x="1498" y="670">1m</ns0:text>
-    <ns0:line x1="1470" y1="780" x2="1490" y2="780" /><ns0:text class="scaleText" x="1498" y="786">0m</ns0:text>
-  </ns0:g>
+    <path id="pond_inner" d="M1480 180 V780 H860" />
+
+    
+    <rect id="gate_frame" x="740" y="180" width="120" height="600" rx="14" />
+  </g>
 
   
-  <ns0:g id="layer_gate" filter="url(#shadowSoft)">
-    <ns0:g id="gate_plate_group" transform="translate(0 0)" data-closed-dy="0" data-open-dy="-600">
+  <g id="layer_scale" stroke="#FF8A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" font-size="30" font-weight="900" fill="#FF8A00">
+    
+    <line x1="120" y1="200" x2="120" y2="780" />
+    <line x1="110" y1="200" x2="130" y2="200" /><text class="scaleText" x="102" y="206" text-anchor="end">5m</text>
+    <line x1="110" y1="316" x2="130" y2="316" /><text class="scaleText" x="102" y="322" text-anchor="end">4m</text>
+    <line x1="110" y1="432" x2="130" y2="432" /><text class="scaleText" x="102" y="438" text-anchor="end">3m</text>
+    <line x1="110" y1="548" x2="130" y2="548" /><text class="scaleText" x="102" y="554" text-anchor="end">2m</text>
+    <line x1="110" y1="664" x2="130" y2="664" /><text class="scaleText" x="102" y="670" text-anchor="end">1m</text>
+    <line x1="110" y1="780" x2="130" y2="780" /><text class="scaleText" x="102" y="786" text-anchor="end">0m</text>
+
+    
+    <line x1="1480" y1="200" x2="1480" y2="780" />
+    <line x1="1470" y1="200" x2="1490" y2="200" /><text class="scaleText" x="1498" y="206">5m</text>
+    <line x1="1470" y1="316" x2="1490" y2="316" /><text class="scaleText" x="1498" y="322">4m</text>
+    <line x1="1470" y1="432" x2="1490" y2="432" /><text class="scaleText" x="1498" y="438">3m</text>
+    <line x1="1470" y1="548" x2="1490" y2="548" /><text class="scaleText" x="1498" y="554">2m</text>
+    <line x1="1470" y1="664" x2="1490" y2="664" /><text class="scaleText" x="1498" y="670">1m</text>
+    <line x1="1470" y1="780" x2="1490" y2="780" /><text class="scaleText" x="1498" y="786">0m</text>
+  </g>
+
+  
+  <g id="layer_gate" filter="url(#shadowSoft)">
+    <g id="gate_plate_group" transform="translate(0 0)" data-closed-dy="0" data-open-dy="-600">
       
-      <ns0:rect id="gate_plate" x="760" y="100" width="80" height="680" rx="12" fill="url(#gradSteel)" stroke="#0b1224" stroke-opacity="0.55" stroke-width="10" />
+      <rect id="gate_plate" x="760" y="100" width="80" height="680" rx="12" fill="url(#gradSteel)" stroke="#0b1224" stroke-opacity="0.55" stroke-width="10" />
       
-      <ns0:path d="M775 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
-      <ns0:path d="M800 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
-      <ns0:path d="M825 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
-    </ns0:g>
+      <path d="M775 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
+      <path d="M800 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
+      <path d="M825 124 V756" stroke="rgba(15,23,42,0.20)" stroke-width="6" stroke-linecap="round" />
+    </g>
     
-</ns0:g>
+</g>
 
   
-  <ns0:g id="layer_text" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" fill="rgba(226,232,240,0.95)">
-    <ns0:text x="160" y="155" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill">外塘</ns0:text>
-    <ns0:text x="880" y="155" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill">内塘</ns0:text>
-    <ns0:text x="800" y="860" text-anchor="middle" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill" dominant-baseline="middle">水闸</ns0:text>
-  </ns0:g>
-</ns0:svg>
+  <g id="layer_text" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif" fill="rgba(226,232,240,0.95)">
+    <text x="160" y="155" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill">外塘</text>
+    <text x="880" y="155" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill">内塘</text>
+    <text x="800" y="860" text-anchor="middle" font-size="40" font-weight="700" fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke fill" dominant-baseline="middle">水闸</text>
+  </g>
+</svg>
