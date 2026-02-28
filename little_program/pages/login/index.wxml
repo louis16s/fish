@@ -1,0 +1,19 @@
+<view class="container">
+  <view class="card">
+    <view class="title">控制面板登录</view>
+    <view class="sub">{{baseUrl}}</view>
+
+    <view class="field">
+      <text class="lbl">用户名</text>
+      <input class="ipt" placeholder="请输入用户名" value="{{username}}" bindinput="onUserInput" />
+    </view>
+
+    <view class="field">
+      <text class="lbl">密码</text>
+      <input class="ipt" password="true" placeholder="请输入密码" value="{{password}}" bindinput="onPassInput" />
+    </view>
+
+    <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">登录</button>
+    <view wx:if="{{msg}}" class="err">{{msg}}</view>
+  </view>
+</view>

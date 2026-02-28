@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/panel/index",
+    "pages/device-config/index",
+    "pages/replay/index",
+    "pages/admin/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "鱼塘水闸面板",
+    "navigationBarBackgroundColor": "#0b1730",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#060812",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

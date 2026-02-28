@@ -499,7 +499,7 @@
         </div>
       </div>
       <div class="topInfo" aria-label="网络信息">
-        Wi-Fi <span class="topV" id="infoWifi">--</span>
+        MQTT服务器 <span class="topV" id="infoWifi">--</span>
         | RSSI <span class="topV" id="infoRssi">--</span>
         | IP <span class="topV" id="infoIp">--</span>
         | MQTT <span class="topV" id="infoMqtt">--</span>
@@ -768,6 +768,16 @@
       const d = new Date();
       const p = (x) => (x<10?('0'+x):(''+x));
       return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+    };
+
+    const fmtLocalDateTime = (ms) => {
+      const ts = Number(ms || 0);
+      if(!Number.isFinite(ts) || ts <= 0) return '--';
+      const d = new Date(ts);
+      if(!Number.isFinite(d.getTime())) return '--';
+      const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' '
+        + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
     };
 
     const nowFileStamp = () => {
@@ -1545,7 +1555,8 @@
       return (t && t.gate_position_open) ? 1 : 0;
     }
 
-    function renderTelemetry(t){
+    function renderTelemetry(t, meta){
+      const m = meta || {};
       if(!t) return;
       g_lastTelemetry = t;
       syncAutoOffWantedFromTelemetry(t);
@@ -1620,24 +1631,23 @@
 
       // Info panel (network / 4G / firmware)
       const net = t.net || null;
+      const serverMqttOn = !!m.serverMqttConnected;
+      $('infoWifi').textContent = serverMqttOn ? '在线' : '离线';
       if(net){
-        const wifiOn = !!net.wifi;
         const mqttOn = !!net.mqtt;
         const ip = net.ip || '--';
         const rssiNum = (typeof net.rssi === 'number' && isFinite(net.rssi)) ? net.rssi : null;
         const rssi = (rssiNum != null) ? (rssiNum + ' dBm') : '--';
 
-        $('infoWifi').textContent = wifiOn ? '在线' : '离线';
         $('infoRssi').textContent = rssi;
         $('infoIp').textContent = ip;
         $('infoMqtt').textContent = mqttOn ? '在线' : '离线';
 
         setStatus('在线', 'on');
       }else{
-        if($('infoWifi')) $('infoWifi').textContent = '--';
         if($('infoRssi')) $('infoRssi').textContent = '--';
         if($('infoIp')) $('infoIp').textContent = '--';
-        if($('infoMqtt')) $('infoMqtt').textContent = '--';
+        if($('infoMqtt')) $('infoMqtt').textContent = '离线';
         setStatus('在线', 'on');
       }
 
@@ -1691,12 +1701,20 @@
         if(!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         setNeedAuth(false);
-        return j.telemetry || j;
+        return {
+          telemetry: (j && j.telemetry) ? j.telemetry : (j || {}),
+          lastTelemetryAt: (j && typeof j.last_telemetry_at === 'number') ? j.last_telemetry_at : 0,
+          serverMqttConnected: !!(j && j.mqtt_connected)
+        };
       }catch(e){
         const r2 = await fetch('/getData', {cache:'no-store'});
         const j2 = await r2.json();
         if(!r2.ok) throw new Error('HTTP ' + r2.status);
-        return j2;
+        return {
+          telemetry: j2 || {},
+          lastTelemetryAt: 0,
+          serverMqttConnected: false
+        };
       }
     }
 
@@ -1962,16 +1980,17 @@
       g_polling = 1;
       let ok = false;
       try{
-        const t = await fetchTelemetry();
+        const st = await fetchTelemetry();
+        const t = st && st.telemetry ? st.telemetry : {};
         g_lastOkAt = Date.now();
         const ls = $('infoLastSeen');
-        if(ls) ls.textContent = nowHHMMSS();
-        renderTelemetry(t);
+        if(ls) ls.textContent = fmtLocalDateTime(st ? st.lastTelemetryAt : 0);
+        renderTelemetry(t, st);
         ok = true;
       }catch(e){
         setStatus('连接失败（将重试）', 'bad');
         const ls = $('infoLastSeen');
-        if(ls) ls.textContent = '失败 ' + nowHHMMSS();
+        if(ls) ls.textContent = '--';
         renderNoDataUi();
       }finally{
         g_polling = 0;

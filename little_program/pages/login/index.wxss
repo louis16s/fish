@@ -1,0 +1,19 @@
+.field { margin-top: 20rpx; }
+.lbl { font-size: 24rpx; color: rgba(165,180,207,.9); }
+.ipt {
+  margin-top: 10rpx;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 14rpx;
+  min-height: 82rpx;
+  padding: 0 18rpx;
+}
+button { margin-top: 24rpx; }
+.err {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #ffc1ce;
+  border: 1px solid rgba(251,113,133,.45);
+  background: rgba(251,113,133,.16);
+  border-radius: 12rpx;
+  padding: 12rpx;
+}

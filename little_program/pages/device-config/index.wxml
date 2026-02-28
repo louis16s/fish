@@ -1,0 +1,40 @@
+<view class="container">
+  <view class="card">
+    <view class="row head-row">
+      <view class="title">设备配置</view>
+      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+    </view>
+
+    <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
+      <view class="picker">当前设备：{{currentDeviceLabel}}</view>
+    </picker>
+
+    <view class="row" style="margin-top:12rpx">
+      <button class="btn" size="mini" bindtap="loadCfg">加载</button>
+      <button class="btn btn-primary" size="mini" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCfg">保存</button>
+      <button class="btn" size="mini" bindtap="formatJson">格式化JSON</button>
+    </view>
+
+    <view wx:if="{{msg}}" class="muted">{{msg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">快速字段</view>
+    <view class="field">
+      <text class="lbl">模式</text>
+      <picker mode="selector" range="{{modeOptions}}" range-key="label" value="{{modeIndex}}" bindchange="onModeChange">
+        <view class="picker">{{modeOptions[modeIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="lbl">时区小时偏移</text>
+      <input class="ipt" type="number" value="{{tzHours}}" bindinput="onTzInput" />
+    </view>
+    <view class="muted">完整能力请在下方 JSON 区直接编辑（与 Web 面板一致）。</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">原始 JSON（ctrl.json）</view>
+    <textarea class="ta" value="{{raw}}" maxlength="-1" bindinput="onRawInput" />
+  </view>
+</view>

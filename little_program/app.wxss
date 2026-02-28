@@ -1,0 +1,87 @@
+page {
+  background: linear-gradient(180deg, #060812, #0b1730);
+  color: #e7eefc;
+  font-size: 28rpx;
+}
+
+.container {
+  padding: 24rpx;
+}
+
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.title {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 10rpx;
+  color: rgba(165, 180, 207, 0.9);
+  font-size: 24rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border-radius: 14rpx;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e7eefc;
+}
+
+.btn::after {
+  border: 0;
+}
+
+.btn-primary {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.2);
+}
+
+.btn-danger {
+  border-color: rgba(251, 113, 133, 0.45);
+  background: rgba(251, 113, 133, 0.2);
+}
+
+.muted {
+  color: rgba(165, 180, 207, 0.9);
+  font-size: 24rpx;
+}
+
+.tag {
+  border-radius: 999rpx;
+  padding: 6rpx 16rpx;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 22rpx;
+}
+
+.tag-good {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #b7f7cc;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.tag-warn {
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #ffd59a;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.tag-bad {
+  border-color: rgba(251, 113, 133, 0.45);
+  color: #ffc1ce;
+  background: rgba(251, 113, 133, 0.14);
+}

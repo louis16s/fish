@@ -1,0 +1,56 @@
+<view class="container">
+  <view class="card">
+    <view class="row head-row">
+      <view class="title">数据回放</view>
+      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+    </view>
+
+    <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
+      <view class="picker">当前设备：{{currentDeviceLabel}}</view>
+    </picker>
+
+    <view class="field">
+      <text class="lbl">开始时间（ISO）</text>
+      <input class="ipt" value="{{from}}" bindinput="onFromInput" placeholder="如 2026-02-15T00:00:00.000Z" />
+    </view>
+
+    <view class="field">
+      <text class="lbl">结束时间（ISO）</text>
+      <input class="ipt" value="{{to}}" bindinput="onToInput" placeholder="如 2026-02-15T23:59:59.000Z" />
+    </view>
+
+    <view class="field">
+      <text class="lbl">最大条数</text>
+      <input class="ipt" type="number" value="{{limit}}" bindinput="onLimitInput" />
+    </view>
+
+    <view class="row">
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="loadData">查询</button>
+      <button class="btn" bindtap="copyJson">复制JSON</button>
+      <button class="btn" bindtap="copyCsv">复制CSV</button>
+    </view>
+
+    <view class="muted">{{meta}}</view>
+    <view wx:if="{{msg}}" class="muted">{{msg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">最近窗口曲线（/api/history）</view>
+    <canvas type="2d" id="histCanvas" class="canvas"></canvas>
+    <view class="row">
+      <button class="btn" size="mini" data-win="900" bindtap="loadHistory">15m</button>
+      <button class="btn" size="mini" data-win="3600" bindtap="loadHistory">1h</button>
+      <button class="btn" size="mini" data-win="21600" bindtap="loadHistory">6h</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title2">范围结果</view>
+    <scroll-view scroll-y="true" class="list">
+      <view wx:for="{{rows}}" wx:key="index" class="row-item">
+        <view class="ts">{{item.ts}}</view>
+        <view class="muted">内塘 {{item.inner}} | 外塘 {{item.outer}} | Δ {{item.delta}} | 闸门 {{item.gate}} | 自动 {{item.auto}} | 告警 {{item.alarm}}</view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

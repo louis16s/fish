@@ -1,0 +1,71 @@
+<view class="container">
+  <view class="card">
+    <view class="row head-row">
+      <view>
+        <view class="title">管理中心</view>
+        <view class="sub">{{who}}</view>
+      </view>
+      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+    </view>
+
+    <view class="row" style="margin-top:10rpx">
+      <button class="btn" size="mini" bindtap="reloadAll">刷新</button>
+    </view>
+
+    <view class="row" style="margin-top:12rpx">
+      <text class="tag {{mqttTagClass}}">MQTT {{mqttText}}</text>
+      <text class="tag {{dbTagClass}}">DB {{dbText}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title2">数据保留</view>
+    <view class="row">
+      <input class="ipt" type="number" value="{{retentionDays}}" bindinput="onRetentionInput" />
+      <button class="btn btn-primary" size="mini" bindtap="saveRetention">保存</button>
+    </view>
+    <view wx:if="{{retentionMsg}}" class="muted">{{retentionMsg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">创建用户</view>
+    <view class="field"><text class="lbl">用户名</text><input class="ipt" value="{{newUser}}" bindinput="onNewUser" /></view>
+    <view class="field"><text class="lbl">密码</text><input class="ipt" password="true" value="{{newPass}}" bindinput="onNewPass" /></view>
+    <view class="field">
+      <text class="lbl">角色</text>
+      <picker mode="selector" range="{{roleOptions}}" value="{{roleIndex}}" bindchange="onRoleChange">
+        <view class="picker">{{roleOptions[roleIndex]}}</view>
+      </picker>
+    </view>
+    <button class="btn btn-primary" size="mini" bindtap="createUser">创建</button>
+    <view wx:if="{{userMsg}}" class="muted">{{userMsg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">用户列表</view>
+    <block wx:if="{{users.length}}">
+      <view wx:for="{{users}}" wx:key="id" class="urow">
+        <view class="row" style="justify-content:space-between">
+          <text>#{{item.id}} {{item.username}} ({{item.role}})</text>
+          <text class="tag {{item.disabled ? 'tag-bad':'tag-good'}}">{{item.disabled ? 'disabled':'active'}}</text>
+        </view>
+        <view class="row" style="margin-top:8rpx">
+          <button class="btn" size="mini" data-id="{{item.id}}" data-disabled="{{!item.disabled}}" bindtap="toggleDisable">{{item.disabled ? '启用':'禁用'}}</button>
+          <button class="btn" size="mini" data-id="{{item.id}}" bindtap="resetPassword">重置密码</button>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="muted">(空)</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">设备列表</view>
+    <block wx:if="{{devices.length}}">
+      <view wx:for="{{devices}}" wx:key="device_id" class="drow">
+        <view>{{item.device_id}}</view>
+        <view class="muted">last_seen: {{item.last_seen_at}}</view>
+      </view>
+    </block>
+    <view wx:else class="muted">(空)</view>
+  </view>
+</view>

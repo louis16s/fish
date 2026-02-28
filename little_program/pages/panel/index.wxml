@@ -1,0 +1,86 @@
+<view class="container">
+  <view class="card">
+    <view class="row head-row">
+      <view>
+        <view class="title">水闸控制面板</view>
+        <view class="sub">{{userText}}</view>
+      </view>
+      <button class="btn btn-danger" size="mini" bindtap="logout">退出</button>
+    </view>
+
+    <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
+      <view class="picker">当前设备：{{currentDeviceLabel}}</view>
+    </picker>
+
+    <view class="row navs">
+      <button class="btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
+      <button class="btn" size="mini" bindtap="goReplay">回放</button>
+      <button class="btn" size="mini" bindtap="goAdmin">管理</button>
+      <button class="btn" size="mini" bindtap="refreshAll">刷新</button>
+    </view>
+
+    <view class="row tags">
+      <text class="tag {{mqttTagClass}}">MQTT {{mqttText}}</text>
+      <text class="tag">上报 {{lastTelemetryAt}}</text>
+      <text class="tag">FW {{fwVersion}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title2">实时状态</view>
+    <view class="kv">内塘：{{innerText}}</view>
+    <view class="kv">外塘：{{outerText}}</view>
+    <view class="kv">水位差：{{deltaText}}</view>
+    <view class="kv">闸门：{{gateText}}</view>
+    <view class="kv">自动：{{autoText}}</view>
+    <view class="kv">告警：{{alarmText}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title2">控制</view>
+    <view class="row btn-grid">
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateOpen">开闸</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateClose">关闸</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateStop">停止</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOn">自动开</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOff">自动关</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoLatchOff">解除锁定</button>
+      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdManualEnd">结束手动</button>
+    </view>
+    <view wx:if="{{cmdMsg}}" class="muted">{{cmdMsg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="row head-row">
+      <view class="title2">规则摘要</view>
+      <button class="btn" size="mini" bindtap="loadConfigSummary">刷新</button>
+    </view>
+    <view class="kv">模式：{{cfgSummary.mode}}</view>
+    <view class="kv">时区：{{cfgSummary.tz}}</view>
+    <view class="kv">定时启用：{{cfgSummary.daily}}</view>
+    <view class="kv">循环启用：{{cfgSummary.cycle}}</view>
+    <view class="kv">水位差启用：{{cfgSummary.leveldiff}}</view>
+    <view wx:if="{{cfgSummary.msg}}" class="muted">{{cfgSummary.msg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="row head-row">
+      <view class="title2">日志</view>
+      <view class="row">
+        <button class="btn" size="mini" bindtap="refreshLog">刷新</button>
+        <button class="btn btn-danger" size="mini" bindtap="clearLog">清空</button>
+      </view>
+    </view>
+
+    <view class="row tabs">
+      <button class="btn {{logTab==='error'?'btn-primary':''}}" size="mini" data-tab="error" bindtap="setLogTab">error</button>
+      <button class="btn {{logTab==='measure'?'btn-primary':''}}" size="mini" data-tab="measure" bindtap="setLogTab">measure</button>
+      <button class="btn {{logTab==='action'?'btn-primary':''}}" size="mini" data-tab="action" bindtap="setLogTab">action</button>
+    </view>
+
+    <scroll-view scroll-y="true" class="logbox">
+      <text class="logtxt">{{logText}}</text>
+    </scroll-view>
+    <view wx:if="{{logMsg}}" class="muted">{{logMsg}}</view>
+  </view>
+</view>

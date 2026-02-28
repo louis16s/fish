@@ -1,0 +1,21 @@
+.head-row { justify-content: space-between; }
+.picker {
+  margin-top: 16rpx;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12rpx;
+  padding: 14rpx;
+}
+.navs { margin-top: 14rpx; }
+.tags { margin-top: 14rpx; }
+.title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
+.kv { margin-bottom: 8rpx; }
+.btn-grid button { min-width: 210rpx; }
+.tabs { margin-bottom: 10rpx; }
+.logbox {
+  max-height: 420rpx;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12rpx;
+  background: rgba(2,6,23,.5);
+  padding: 12rpx;
+}
+.logtxt { white-space: pre-wrap; font-family: monospace; font-size: 22rpx; }
