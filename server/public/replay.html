@@ -592,11 +592,17 @@
           const drawDot = (v, color)=>{
             if(v == null) return;
             const y = mapY(v);
-            ctx.fillStyle = color;
-            ctx.strokeStyle = 'rgba(0,0,0,.45)';
-            ctx.lineWidth = 2;
+            // Outer white ring to make current point obvious on hover/play.
+            ctx.fillStyle = 'rgba(255,255,255,.96)';
             ctx.beginPath();
-            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = color;
+            ctx.strokeStyle = 'rgba(0,0,0,.40)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(x, y, 4.2, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
           };
