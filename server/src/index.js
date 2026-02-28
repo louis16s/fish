@@ -205,9 +205,13 @@ async function main() {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'config.html'));
   });
-  app.get('/device-config', requireAuthPage, (req, res) => {
+  app.get('/rules', requireAuthPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'device_config.html'));
+  });
+  // Backward compatibility for old links.
+  app.get('/device-config', requireAuthPage, (req, res) => {
+    res.redirect(302, '/rules');
   });
   app.get('/replay', requireAuthPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
