@@ -87,9 +87,9 @@
   </view>
 
   <view class="card">
-    <view class="row head-row">
+    <view class="row head-row rule-head">
       <view class="title2">规则摘要</view>
-      <button class="btn" size="mini" bindtap="loadConfigSummary">刷新</button>
+      <button class="btn rule-refresh-btn" size="mini" bindtap="loadConfigSummary">刷新</button>
     </view>
     <view class="kv">模式：{{cfgSummary.mode}}</view>
     <view class="kv">时区：{{cfgSummary.tz}}</view>

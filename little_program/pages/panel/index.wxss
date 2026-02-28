@@ -47,6 +47,14 @@
 }
 .tags { margin-top: 14rpx; }
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
+.rule-head {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.rule-refresh-btn {
+  margin-left: auto !important;
+}
 .kv { margin-bottom: 8rpx; }
 .metric-grid {
   display: grid;
