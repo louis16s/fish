@@ -38,7 +38,13 @@
 
   <view class="card">
     <view class="title2">示意图</view>
-    <image class="schematic" src="{{schematicUrl}}" mode="widthFix" binderror="onSchematicError" />
+    <canvas type="2d" id="schematicCanvas" class="schematic-canvas"></canvas>
+    <view class="row schematic-legend">
+      <text class="tag">内塘 {{innerText}}</text>
+      <text class="tag">外塘 {{outerText}}</text>
+      <text class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
+      <text class="tag {{deltaTagClass}}">Δ {{deltaText}}</text>
+    </view>
     <view wx:if="{{schematicMsg}}" class="muted">{{schematicMsg}}</view>
   </view>
 

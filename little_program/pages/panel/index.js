@@ -17,6 +17,10 @@ function countEnabled(arr) {
   return arr.filter((x) => x && x.en).length;
 }
 
+function clamp(n, a, b) {
+  return Math.min(b, Math.max(a, n));
+}
+
 Page({
   data: {
     userText: '--',
@@ -39,8 +43,17 @@ Page({
     logTab: 'error',
     logText: '加载中…',
     logMsg: '',
-    schematicUrl: `${api.BASE_URL}/ui/pond_gate.svg?v=ui-2026.02.15-01`,
-    schematicMsg: ''
+    schematicMsg: '',
+    gateTagClass: '',
+    deltaTagClass: '',
+    innerMm: null,
+    outerMm: null,
+    deltaMm: null,
+    gateStateNum: 0
+  },
+
+  onReady() {
+    this.initSchematicCanvas();
   },
 
   onShow() {
@@ -117,6 +130,9 @@ Page({
       const delta = (inner != null && outer != null) ? (inner - outer) : null;
       const fw = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
       const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
+      const gateStateNum = Number(t.gate_state || 0);
+      const gateTagClass = gateStateNum === 1 ? 'tag-good' : (gateStateNum === 2 ? 'tag-bad' : 'tag-warn');
+      const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
 
       this.setData({
         mqttText: j.mqtt_connected ? '已连接' : '未连接',
@@ -128,8 +144,15 @@ Page({
         deltaText: delta == null ? '--' : `${delta} mm`,
         gateText: fmt.gateStateText(t.gate_state),
         autoText: auto,
-        alarmText: fmt.alarmText(t.alarm)
+        alarmText: fmt.alarmText(t.alarm),
+        gateTagClass,
+        deltaTagClass,
+        innerMm: inner,
+        outerMm: outer,
+        deltaMm: delta,
+        gateStateNum
       });
+      this.drawSchematic();
     } catch (e) {
       this.setData({ mqttText: '异常', mqttTagClass: 'tag-bad' });
     }
@@ -248,8 +271,135 @@ Page({
     this.refreshAll();
   },
 
-  onSchematicError() {
-    this.setData({ schematicMsg: '示意图加载失败，请检查服务器 /ui/pond_gate.svg 是否可访问。' });
+  initSchematicCanvas() {
+    if (this._schemInitDone) return;
+    this._schemInitDone = true;
+    const query = wx.createSelectorQuery().in(this);
+    query.select('#schematicCanvas').fields({ node: true, size: true }).exec((res) => {
+      if (!res || !res[0] || !res[0].node) {
+        this.setData({ schematicMsg: '示意图初始化失败：canvas 不可用。' });
+        return;
+      }
+      const { node, width, height } = res[0];
+      const dpr = (wx.getSystemInfoSync().pixelRatio || 1);
+      node.width = width * dpr;
+      node.height = height * dpr;
+      const ctx = node.getContext('2d');
+      ctx.scale(dpr, dpr);
+      this._schemCanvas = node;
+      this._schemCtx = ctx;
+      this._schemW = width;
+      this._schemH = height;
+      this.drawSchematic();
+    });
+  },
+
+  drawSchematic() {
+    const ctx = this._schemCtx;
+    const W = this._schemW;
+    const H = this._schemH;
+    if (!ctx || !W || !H) return;
+
+    const inner = this.data.innerMm;
+    const outer = this.data.outerMm;
+    const delta = this.data.deltaMm;
+    const gateState = Number(this.data.gateStateNum || 0);
+
+    ctx.clearRect(0, 0, W, H);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, 'rgba(8,16,36,0.95)');
+    bg.addColorStop(1, 'rgba(6,12,26,0.98)');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const margin = 20;
+    const pondTop = 44;
+    const pondBottom = H - 34;
+    const pondH = pondBottom - pondTop;
+    const leftX = margin;
+    const leftW = (W - margin * 2 - 80) / 2;
+    const gateX = leftX + leftW;
+    const gateW = 80;
+    const rightX = gateX + gateW;
+    const rightW = leftW;
+
+    const frameStroke = 'rgba(226,232,240,0.9)';
+    ctx.strokeStyle = frameStroke;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(leftX, pondTop, leftW, pondH);
+    ctx.strokeRect(rightX, pondTop, rightW, pondH);
+    ctx.strokeRect(gateX + 14, pondTop, gateW - 28, pondH);
+
+    const mmToRatio = (mm) => clamp((Number(mm) || 0) / 5000, 0, 1);
+    const lRatio = outer == null ? 0 : mmToRatio(outer);
+    const rRatio = inner == null ? 0 : mmToRatio(inner);
+    const lLevelH = pondH * lRatio;
+    const rLevelH = pondH * rRatio;
+
+    const waterOuter = ctx.createLinearGradient(0, pondTop, 0, pondBottom);
+    waterOuter.addColorStop(0, '#60a5fa');
+    waterOuter.addColorStop(1, '#1d4ed8');
+    const waterInner = ctx.createLinearGradient(0, pondTop, 0, pondBottom);
+    waterInner.addColorStop(0, '#67e8f9');
+    waterInner.addColorStop(1, '#0e7490');
+
+    if (outer != null) {
+      ctx.fillStyle = waterOuter;
+      ctx.fillRect(leftX + 2, pondBottom - lLevelH, leftW - 4, lLevelH);
+    }
+    if (inner != null) {
+      ctx.fillStyle = waterInner;
+      ctx.fillRect(rightX + 2, pondBottom - rLevelH, rightW - 4, rLevelH);
+    }
+
+    let gateY = pondTop + 8;
+    let gateColor = '#f59e0b';
+    if (gateState === 1) {
+      gateY = pondTop - pondH * 0.42;
+      gateColor = '#22c55e';
+    } else if (gateState === 2) {
+      gateY = pondTop + 6;
+      gateColor = '#fb7185';
+    }
+    const plateX = gateX + 26;
+    const plateW = gateW - 52;
+    const plateH = pondH + 20;
+    ctx.fillStyle = gateColor;
+    ctx.globalAlpha = 0.16;
+    ctx.fillRect(plateX, gateY, plateW, plateH);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = gateColor;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(plateX, gateY, plateW, plateH);
+
+    if (delta != null && Math.abs(delta) >= 20) {
+      const y = pondBottom - Math.max(18, Math.min(lLevelH, rLevelH));
+      const fromLeft = delta < 0;
+      const ax = fromLeft ? gateX - 30 : gateX + gateW + 30;
+      const bx = fromLeft ? gateX + gateW + 30 : gateX - 30;
+      const color = Math.abs(delta) > 80 ? '#f59e0b' : '#22d3ee';
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(ax, y);
+      ctx.lineTo(bx, y);
+      ctx.stroke();
+      const dir = fromLeft ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(bx, y);
+      ctx.lineTo(bx - 10 * dir, y - 7);
+      ctx.lineTo(bx - 10 * dir, y + 7);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('外塘', leftX + 8, 22);
+    ctx.fillText('内塘', rightX + 8, 22);
+    ctx.fillText('水闸', gateX + 18, H - 10);
   },
 
   goDeviceConfig() {

@@ -16,7 +16,7 @@
 - `utils/config.js`：小程序 API 地址
 - `utils/api.js`：请求与 Cookie 会话管理
 - `pages/login`：登录页
-- `pages/panel`：总览、控制、日志、规则摘要、示意图
+- `pages/panel`：总览、控制、日志、规则摘要、动态示意图（随实时水位/闸门状态变化）
 - `pages/device-config`：设备配置（JSON 编辑+保存）
 - `pages/replay`：历史曲线与范围回放
 - `pages/admin`：管理员设置、用户管理、设备列表

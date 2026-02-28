@@ -218,6 +218,8 @@
     .swatch.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 4px rgba(37,99,235,.10)}
     .swatch.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 4px rgba(6,182,212,.10)}
     .mv{margin-top:6px;font-size:18px;font-weight:980;letter-spacing:.2px}
+    .mv.online{color:var(--text)}
+    .mv.offline{color:#8b1a2b}
     .ms{margin-top:2px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 
     .meterRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -501,12 +503,12 @@
       </div>
       <div class="topInfo" aria-label="网络信息">
         MQTT服务器 <span class="topV" id="infoWifi">--</span>
-        | RSSI <span class="topV" id="infoRssi">--</span>
-        | IP <span class="topV" id="infoIp">--</span>
         | MQTT <span class="topV" id="infoMqtt">--</span>
         <span id="infoCellRowK" style="display:none"> | 4G </span><span id="infoCellRowV" style="display:none"><span class="topV" id="infoCell">--</span></span>
         | 刷新 <span class="topV" id="infoLastSeen">--</span>
-        | <span class="topV" id="infoVer">--</span>
+        <span class="topV" id="infoRssi" style="display:none">--</span>
+        <span class="topV" id="infoIp" style="display:none">--</span>
+        <span class="topV" id="infoVer" style="display:none">--</span>
       </div>
       <nav class="nav" aria-label="快捷入口">
         <a class="navbtn" href="/device-config">设备配置</a>
@@ -551,12 +553,12 @@
                 </div>
                 <div class="metric">
                   <div class="mk"><span class="swatch outer" aria-hidden="true"></span>外塘传感器ID002</div>
-                  <div class="mv" id="outerOnline">离线</div>
+                  <div class="mv offline" id="outerOnline">离线</div>
                   <div class="ms" id="outerTemp">0.0 °C</div>
                 </div>
                 <div class="metric">
                   <div class="mk"><span class="swatch inner" aria-hidden="true"></span>内塘传感器ID001</div>
-                  <div class="mv" id="innerOnline">离线</div>
+                  <div class="mv offline" id="innerOnline">离线</div>
                   <div class="ms" id="innerTemp">0.0 °C</div>
                 </div>
               </div>
@@ -961,6 +963,10 @@
       set('innerLevelMm', '0 mm');
       set('outerOnline', '离线');
       set('innerOnline', '离线');
+      const oo = $('outerOnline');
+      const io = $('innerOnline');
+      if(oo) oo.className = 'mv offline';
+      if(io) io.className = 'mv offline';
       set('outerTemp', '0.0 °C');
       set('innerTemp', '0.0 °C');
       const cd = $('chipDelta');
@@ -1608,8 +1614,18 @@
       $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : fmtM(0);
       $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '0 mm';
 
-      $('innerOnline').textContent = (deviceMqttOnline && s1.online) ? '在线' : '离线';
-      $('outerOnline').textContent = (deviceMqttOnline && s2.online) ? '在线' : '离线';
+      const innerOnline = !!(deviceMqttOnline && s1.online);
+      const outerOnline = !!(deviceMqttOnline && s2.online);
+      const inEl = $('innerOnline');
+      const outEl = $('outerOnline');
+      if(inEl){
+        inEl.textContent = innerOnline ? '在线' : '离线';
+        inEl.className = 'mv ' + (innerOnline ? 'online' : 'offline');
+      }
+      if(outEl){
+        outEl.textContent = outerOnline ? '在线' : '离线';
+        outEl.className = 'mv ' + (outerOnline ? 'online' : 'offline');
+      }
       $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
       $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
 
