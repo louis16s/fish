@@ -10,12 +10,16 @@
 
     <view class="field">
       <text class="lbl">密码</text>
-      <input class="ipt" password="true" placeholder="请输入密码" value="{{password}}" bindinput="onPassInput" />
+      <input class="ipt" password="{{!showPassword}}" placeholder="请输入密码" value="{{password}}" bindinput="onPassInput" />
     </view>
 
     <view class="remember-row">
       <text class="remember-label">记住密码</text>
       <switch checked="{{rememberPassword}}" color="#22d3ee" bindchange="onRememberChange" />
+    </view>
+    <view class="remember-row">
+      <text class="remember-label">显示密码</text>
+      <switch checked="{{showPassword}}" color="#22d3ee" bindchange="onShowPasswordChange" />
     </view>
 
     <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">登录</button>

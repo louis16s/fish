@@ -5,6 +5,7 @@ Page({
     username: '',
     password: '',
     rememberPassword: true,
+    showPassword: false,
     loading: false,
     msg: '',
     baseUrl: api.BASE_URL
@@ -37,6 +38,11 @@ Page({
   onRememberChange(e) {
     const checked = !!(e && e.detail && e.detail.value);
     this.setData({ rememberPassword: checked });
+  },
+
+  onShowPasswordChange(e) {
+    const checked = !!(e && e.detail && e.detail.value);
+    this.setData({ showPassword: checked });
   },
 
   async onLogin(silent) {

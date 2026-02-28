@@ -51,9 +51,11 @@
   width: 100%;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: nowrap;
 }
 .rule-refresh-btn {
   margin-left: auto !important;
+  flex: 0 0 auto;
 }
 .kv { margin-bottom: 8rpx; }
 .metric-grid {
@@ -89,17 +91,18 @@
   gap: 8rpx;
 }
 .ctl-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 10rpx;
 }
 .ctl-btn {
-  width: 100%;
+  width: calc((100% - 10rpx) / 2);
   min-height: 84rpx;
   padding: 0 10rpx;
   background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
   border-color: rgba(255,255,255,.22);
   font-weight: 700;
+  flex: 0 0 calc((100% - 10rpx) / 2);
 }
 .ctl-btn[disabled] {
   opacity: .68;
@@ -108,7 +111,8 @@
   border-color: rgba(255,255,255,.22) !important;
 }
 .ctl-span2 {
-  grid-column: 1 / -1;
+  width: 100%;
+  flex: 0 0 100%;
 }
 .log-actions {
   margin-left: auto;
