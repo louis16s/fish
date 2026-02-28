@@ -29,12 +29,14 @@
 
 ```js
 const BASE_URL = 'https://你的域名';
+const RAW_BASE_URL = 'https://mqtt.530555.xyz';
 ```
 
 要求：
 
 - 必须是 HTTPS
-- 域名能访问你的 `server/` 服务
+- `BASE_URL` 能访问你的 `server/` 登录与控制 API
+- `RAW_BASE_URL` 可选：用于实时状态直连源（默认尝试 `RAW_BASE_URL/api/state`，失败自动回退 `BASE_URL/api/state`）
 
 2. 微信公众平台配置合法域名
 

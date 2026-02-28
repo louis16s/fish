@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const { RAW_BASE_URL } = require('../../utils/config');
 
 function pickDeviceId() {
   const app = getApp();
@@ -7,6 +8,12 @@ function pickDeviceId() {
 }
 
 function withDev(path) {
+  const did = pickDeviceId();
+  const q = api.buildQuery({ device_id: did });
+  return `${path}${q}`;
+}
+
+function withDevRaw(path) {
   const did = pickDeviceId();
   const q = api.buildQuery({ device_id: did });
   return `${path}${q}`;
@@ -121,8 +128,24 @@ Page({
 
   async loadState() {
     try {
-      const j = await api.requestJSON(withDev('/api/state'));
-      const t = j.telemetry || {};
+      let j = null;
+      let t = {};
+      let lastAt = 0;
+      let mqttConnected = false;
+
+      try {
+        if (!RAW_BASE_URL) throw new Error('raw_base_url_empty');
+        const raw = await api.requestJSON(`${RAW_BASE_URL}${withDevRaw('/api/state')}`);
+        t = raw.telemetry || {};
+        lastAt = raw.last_telemetry_at || 0;
+        mqttConnected = !!raw.mqtt_connected;
+      } catch (eRaw) {
+        j = await api.requestJSON(withDev('/api/state'));
+        t = j.telemetry || {};
+        lastAt = j.last_telemetry_at || 0;
+        mqttConnected = !!j.mqtt_connected;
+      }
+
       const s1 = t.sensor1 || {};
       const s2 = t.sensor2 || {};
       const inner = s1.valid ? Number(s1.mm) : null;
@@ -135,9 +158,9 @@ Page({
       const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
 
       this.setData({
-        mqttText: j.mqtt_connected ? '已连接' : '未连接',
-        mqttTagClass: j.mqtt_connected ? 'tag-good' : 'tag-bad',
-        lastTelemetryAt: fmt.fmtDateTime(j.last_telemetry_at || 0),
+        mqttText: mqttConnected ? '已连接' : '未连接',
+        mqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
+        lastTelemetryAt: fmt.fmtDateTime(lastAt || 0),
         fwVersion: fw || '--',
         innerText: inner == null ? '--' : `${inner} mm`,
         outerText: outer == null ? '--' : `${outer} mm`,

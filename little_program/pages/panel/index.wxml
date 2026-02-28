@@ -28,12 +28,32 @@
 
   <view class="card">
     <view class="title2">实时状态</view>
-    <view class="kv">内塘：{{innerText}}</view>
-    <view class="kv">外塘：{{outerText}}</view>
-    <view class="kv">水位差：{{deltaText}}</view>
-    <view class="kv">闸门：{{gateText}}</view>
-    <view class="kv">自动：{{autoText}}</view>
-    <view class="kv">告警：{{alarmText}}</view>
+    <view class="metric-grid">
+      <view class="metric-item">
+        <view class="metric-k">内塘</view>
+        <view class="metric-v">{{innerText}}</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-k">外塘</view>
+        <view class="metric-v">{{outerText}}</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-k">水位差</view>
+        <view class="metric-v">{{deltaText}}</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-k">闸门</view>
+        <view class="metric-v">{{gateText}}</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-k">自动</view>
+        <view class="metric-v">{{autoText}}</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-k">告警</view>
+        <view class="metric-v">{{alarmText}}</view>
+      </view>
+    </view>
   </view>
 
   <view class="card">
