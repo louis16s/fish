@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.28-02" type="image/svg+xml">
   <title>规则 | 外网面板</title>
   <style>
     :root{
@@ -42,7 +42,7 @@
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1)),
-        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+        url("/ui/bg_long.svg?v=ui-2026.02.28-02");
       background-repeat:no-repeat,no-repeat,no-repeat;
       background-position:18% 10%, top, center;
       background-size:auto,auto,cover;
@@ -64,6 +64,8 @@
       margin-bottom:12px;
     }
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .topMid{display:flex;gap:12px;align-items:center;justify-content:center;flex:1 1 260px;min-width:220px}
+    .topActions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
     label{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
 
     .btn{
@@ -147,7 +149,7 @@
     .hint.good{color:var(--good)}
     .hint.warn{color:var(--warn)}
     .hint.bad{color:var(--bad)}
-    #verLine{white-space:pre-line;display:inline-block;font-family:var(--mono);font-size:11px;color:var(--muted2)}
+    #fwLine,#uiLine{font-family:var(--mono);font-size:11px}
     details{margin-top:12px}
     summary{cursor:pointer}
     .chip{
@@ -185,6 +187,10 @@
     :focus-visible{outline:3px solid rgba(56,189,248,.65);outline-offset:2px;border-radius:12px}
     @media (max-width:980px){body{background-attachment:scroll,scroll,scroll}}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    @media (max-width:860px){
+      .topMid{order:3;justify-content:flex-start;flex:1 1 100%}
+      .topActions{order:2;margin-left:auto}
+    }
   </style>
 </head>
 <body>
@@ -199,13 +205,16 @@
           <select id="devSel" aria-label="设备"></select>
         </label>
       </div>
-      <div class="row">
+      <div class="topMid">
         <span class="mini" id="who">--</span>
-        <button class="btn danger" onclick="logout()">退出</button>
-        <button class="btn" id="btnReload" onclick="loadCfg()">重新加载</button>
+        <span class="mini" id="fwLine">固件 --</span>
+        <span class="mini" id="uiLine">UI --</span>
+      </div>
+      <div class="topActions">
         <button class="btn primary" id="btnSave" onclick="saveCfg()">保存</button>
+        <button class="btn" id="btnReload" onclick="loadCfg()">重新加载</button>
+        <button class="btn danger" onclick="logout()">退出</button>
         <span class="chip" id="saveChip" style="display:none">已保存</span>
-        <span class="mini" id="verLine">UI --</span>
       </div>
     </div>
 
@@ -292,7 +301,7 @@
   </div>
 
   <script>
-    const UI_VERSION = 'ui-2026.02.15-01';
+    const UI_VERSION = 'ui-2026.02.28-02';
     const $=(id)=>document.getElementById(id);
     const num=(v,def)=>{ const n=parseInt(v,10); return Number.isFinite(n)?n:def; };
     const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -437,12 +446,16 @@
     }
 
     async function loadVerLine(){
+      const uiEl = $('uiLine');
+      if(uiEl) uiEl.textContent = 'UI ' + UI_VERSION;
       try{
         const t = await fetchTelemetry();
         const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));
-        $('verLine').textContent = (fw && fw !== '--') ? ('固件版本 ' + fw + '\nUI ' + UI_VERSION) : ('UI ' + UI_VERSION);
+        const fwEl = $('fwLine');
+        if(fwEl) fwEl.textContent = (fw && fw !== '--') ? ('固件 ' + fw) : '固件 --';
       }catch(e){
-        $('verLine').textContent = 'UI ' + UI_VERSION;
+        const fwEl = $('fwLine');
+        if(fwEl) fwEl.textContent = '固件 --';
       }
     }
 

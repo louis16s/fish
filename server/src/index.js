@@ -41,6 +41,7 @@ const {
 } = require('./auth');
 
 const cfg = loadConfig(process.env);
+const UI_VERSION = 'ui-2026.02.28-02';
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const UI_DIR = path.join(PUBLIC_DIR, 'ui');
@@ -305,10 +306,12 @@ async function main() {
     const fwCurrent = fwObj.current || tele.fw_version || tele.fwVersion || tele.version || '';
     const teleAgeMs = lastAt > 0 ? Math.max(0, now - lastAt) : null;
     const deviceOnline = !!(lastAt > 0 && teleAgeMs != null && teleAgeMs <= DEVICE_ONLINE_TIMEOUT_MS);
+    const su = sessionUser(req);
 
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       ok: true,
+      ui_version: UI_VERSION,
       server_time: new Date(now).toISOString(),
       device_id: deviceId,
       db_connected: dbOk,
@@ -330,6 +333,12 @@ async function main() {
         fw: fwCurrent || '',
         mqtt_online: !!(net.mqtt && deviceOnline),
         wifi_online: !!(net.wifi && deviceOnline)
+      },
+      panel: {
+        ui_version: UI_VERSION,
+        refresh_at: lastAt || 0,
+        firmware: fwCurrent || '',
+        user: su ? { username: su.username || '', role: su.role || '' } : null
       }
     });
   });

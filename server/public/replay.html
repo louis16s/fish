@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.28-02" type="image/svg+xml">
   <title>回放 | 外网面板</title>
   <style>
     :root{
@@ -38,7 +38,7 @@
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1)),
-        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+        url("/ui/bg_long.svg?v=ui-2026.02.28-02");
       background-repeat:no-repeat,no-repeat,no-repeat;
       background-position:18% 10%, top, center;
       background-size:auto,auto,cover;
@@ -61,7 +61,6 @@
     }
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .mini{font-size:12px;color:var(--muted2);font-weight:900}
-    #verLine{white-space:pre-line;display:inline-block;font-family:var(--mono);font-size:11px;color:var(--muted2)}
 
     .btn{
       appearance:none;
@@ -173,7 +172,6 @@
       <div class="row">
         <span class="mini" id="who">--</span>
         <button class="btn danger" onclick="logout()">退出</button>
-        <span class="mini" id="verLine">UI ui-2026.02.15-01</span>
       </div>
     </div>
 
@@ -267,7 +265,6 @@
   </div>
 
   <script>
-    const UI_VERSION = 'ui-2026.02.15-01';
     const $ = (id)=>document.getElementById(id);
     let g_last = [];
     let g_curIdx = 0;
@@ -828,7 +825,6 @@
     window.exportCsv = exportCsv;
 
     (function init(){
-      $('verLine').textContent = 'UI ' + UI_VERSION;
       loadMe();
       prepareChartData([]);
       renderChart(null);

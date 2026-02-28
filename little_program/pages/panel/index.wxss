@@ -11,10 +11,21 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10rpx;
 }
+.nav-grid button,
+.ctl-grid button {
+  margin: 0 !important;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
 .nav-btn {
   width: 100%;
   font-size: 24rpx;
   line-height: 1.3;
+  min-height: 64rpx;
+  padding: 0 10rpx;
 }
 .tags { margin-top: 14rpx; }
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
@@ -58,7 +69,8 @@
 }
 .ctl-btn {
   width: 100%;
-  min-height: 76rpx;
+  min-height: 84rpx;
+  padding: 0 10rpx;
   background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
   border-color: rgba(255,255,255,.22);
   font-weight: 700;

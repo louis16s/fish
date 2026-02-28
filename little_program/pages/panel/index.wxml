@@ -20,8 +20,9 @@
     </view>
 
     <view class="row tags">
-      <text class="tag {{mqttTagClass}}">MQTT {{mqttText}}</text>
-      <text class="tag">上报 {{lastTelemetryAt}}</text>
+      <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
+      <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
+      <text class="tag">最近上报 {{lastTelemetryAt}}</text>
       <text class="tag">FW {{fwVersion}}</text>
     </view>
   </view>

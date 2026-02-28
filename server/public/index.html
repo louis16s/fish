@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.28-02" type="image/svg+xml">
   <title>水闸控制面板</title>
   <script>
     // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
@@ -55,7 +55,7 @@
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1)),
-        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+        url("/ui/bg_long.svg?v=ui-2026.02.28-02");
       background-repeat:no-repeat,no-repeat,no-repeat;
       background-position:18% 10%, top, center;
       background-size:auto,auto,cover;
@@ -763,7 +763,7 @@
     };
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
-    const UI_VERSION = 'ui-2026.02.15-01';
+    const UI_VERSION = 'ui-2026.02.28-02';
     const DEVICE_ONLINE_TIMEOUT_MS = 15000;
     const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

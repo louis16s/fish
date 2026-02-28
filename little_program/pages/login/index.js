@@ -20,6 +20,9 @@ Page({
         username: String(username),
         password: String(password)
       });
+      if (remember && username && password) {
+        this.onLogin(true);
+      }
     } catch (e) {}
   },
 
@@ -36,15 +39,16 @@ Page({
     this.setData({ rememberPassword: checked });
   },
 
-  async onLogin() {
+  async onLogin(silent) {
+    if (silent && typeof silent === 'object') silent = false;
     const username = (this.data.username || '').trim();
     const password = this.data.password || '';
     if (!username || !password) {
-      this.setData({ msg: '请输入用户名和密码' });
+      if (!silent) this.setData({ msg: '请输入用户名和密码' });
       return;
     }
 
-    this.setData({ loading: true, msg: '' });
+    this.setData({ loading: true, msg: silent ? this.data.msg : '' });
     try {
       await api.requestJSON('/api/auth/login', {
         method: 'POST',
@@ -68,7 +72,7 @@ Page({
 
       wx.reLaunch({ url: '/pages/panel/index' });
     } catch (e) {
-      this.setData({ msg: `登录失败：${e.message || '网络错误'}` });
+      if (!silent) this.setData({ msg: `登录失败：${e.message || '网络错误'}` });
     } finally {
       this.setData({ loading: false });
     }

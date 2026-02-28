@@ -36,6 +36,10 @@ Page({
     currentDeviceLabel: '--',
     mqttText: '--',
     mqttTagClass: '',
+    serverMqttText: '--',
+    serverMqttTagClass: '',
+    deviceOnlineText: '--',
+    deviceOnlineTagClass: '',
     lastTelemetryAt: '--',
     fwVersion: '--',
     innerText: '--',
@@ -156,10 +160,17 @@ Page({
       const gateStateNum = Number(t.gate_state || 0);
       const gateTagClass = gateStateNum === 1 ? 'tag-good' : (gateStateNum === 2 ? 'tag-bad' : 'tag-warn');
       const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
+      const now = Date.now();
+      const ageMs = lastAt > 0 ? Math.max(0, now - Number(lastAt || 0)) : 9e9;
+      const deviceOnline = ageMs <= 15000;
 
       this.setData({
         mqttText: mqttConnected ? '已连接' : '未连接',
         mqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
+        serverMqttText: mqttConnected ? '服务器 MQTT 已连接' : '服务器 MQTT 未连接',
+        serverMqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
+        deviceOnlineText: deviceOnline ? '设备在线' : '设备离线',
+        deviceOnlineTagClass: deviceOnline ? 'tag-good' : 'tag-bad',
         lastTelemetryAt: fmt.fmtDateTime(lastAt || 0),
         fwVersion: fw || '--',
         innerText: inner == null ? '--' : `${inner} mm`,
@@ -177,7 +188,14 @@ Page({
       });
       this.drawSchematic();
     } catch (e) {
-      this.setData({ mqttText: '异常', mqttTagClass: 'tag-bad' });
+      this.setData({
+        mqttText: '异常',
+        mqttTagClass: 'tag-bad',
+        serverMqttText: '服务器 MQTT 状态未知',
+        serverMqttTagClass: 'tag-bad',
+        deviceOnlineText: '设备状态未知',
+        deviceOnlineTagClass: 'tag-bad'
+      });
     }
   },
 
