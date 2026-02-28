@@ -116,10 +116,11 @@
       min-width:0;
       font-family:var(--mono);
       font-size:12px;
+      line-height:1.5;
       color:var(--muted2);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      white-space:normal;
+      overflow:visible;
+      text-overflow:clip;
     }
     .topV{color:var(--text);font-weight:900}
 
@@ -752,6 +753,7 @@
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
     const UI_VERSION = 'ui-2026.02.15-01';
+    const DEVICE_ONLINE_TIMEOUT_MS = 15000;
     const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const fmtHHMMSS = (sec) => {
@@ -778,6 +780,21 @@
       const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' '
         + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    };
+
+    const fmtLocalSeen = (ms) => {
+      const ts = Number(ms || 0);
+      if(!Number.isFinite(ts) || ts <= 0) return '--';
+      const d = new Date(ts);
+      if(!Number.isFinite(d.getTime())) return '--';
+      const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
+      return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    };
+
+    const isTelemetryFresh = (lastTelemetryAt) => {
+      const ts = Number(lastTelemetryAt || 0);
+      if(!Number.isFinite(ts) || ts <= 0) return false;
+      return (Date.now() - ts) <= DEVICE_ONLINE_TIMEOUT_MS;
     };
 
     const nowFileStamp = () => {
@@ -1632,9 +1649,10 @@
       // Info panel (network / 4G / firmware)
       const net = t.net || null;
       const serverMqttOn = !!m.serverMqttConnected;
+      const deviceFresh = isTelemetryFresh(m.lastTelemetryAt);
       $('infoWifi').textContent = serverMqttOn ? '在线' : '离线';
       if(net){
-        const mqttOn = !!net.mqtt;
+        const mqttOn = !!net.mqtt && deviceFresh;
         const ip = net.ip || '--';
         const rssiNum = (typeof net.rssi === 'number' && isFinite(net.rssi)) ? net.rssi : null;
         const rssi = (rssiNum != null) ? (rssiNum + ' dBm') : '--';
@@ -1643,12 +1661,12 @@
         $('infoIp').textContent = ip;
         $('infoMqtt').textContent = mqttOn ? '在线' : '离线';
 
-        setStatus('在线', 'on');
+        setStatus(mqttOn ? '在线' : '设备离线', mqttOn ? 'on' : 'bad');
       }else{
         if($('infoRssi')) $('infoRssi').textContent = '--';
         if($('infoIp')) $('infoIp').textContent = '--';
         if($('infoMqtt')) $('infoMqtt').textContent = '离线';
-        setStatus('在线', 'on');
+        setStatus('设备离线', 'bad');
       }
 
       const cell = t.cell || null;
@@ -1984,13 +2002,20 @@
         const t = st && st.telemetry ? st.telemetry : {};
         g_lastOkAt = Date.now();
         const ls = $('infoLastSeen');
-        if(ls) ls.textContent = fmtLocalDateTime(st ? st.lastTelemetryAt : 0);
+        if(ls){
+          const ts = st ? st.lastTelemetryAt : 0;
+          ls.textContent = fmtLocalSeen(ts);
+          ls.title = fmtLocalDateTime(ts);
+        }
         renderTelemetry(t, st);
         ok = true;
       }catch(e){
         setStatus('连接失败（将重试）', 'bad');
         const ls = $('infoLastSeen');
-        if(ls) ls.textContent = '--';
+        if(ls){
+          ls.textContent = '--';
+          ls.title = '';
+        }
         renderNoDataUi();
       }finally{
         g_polling = 0;
