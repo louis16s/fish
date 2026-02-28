@@ -264,8 +264,7 @@ async function main() {
   });
 
   // --- Device APIs (compat with ESP32 UI) ---
-  app.get('/api/state', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+  async function readLatestState(deviceId) {
     const cur = latest.get(deviceId);
     let tele = cur ? cur.payload : null;
     let lastAt = cur ? cur.receivedAt : 0;
@@ -274,25 +273,80 @@ async function main() {
       if (row && row.payload) tele = row.payload;
       if (row && row.ts) lastAt = new Date(row.ts).getTime();
     }
+    return { tele: tele || {}, lastAt: lastAt || 0 };
+  }
+
+  // Quick diagnostics endpoint for troubleshooting (no secrets).
+  app.get('/get', async (req, res) => {
+    const deviceId = pickDeviceId(req);
+    const now = Date.now();
+    const DEVICE_ONLINE_TIMEOUT_MS = 15_000;
+    let dbOk = true;
+    try {
+      await pool.query('SELECT 1');
+    } catch (e) {
+      dbOk = false;
+    }
+
+    let tele = {};
+    let lastAt = 0;
+    try {
+      const v = await readLatestState(deviceId);
+      tele = v.tele;
+      lastAt = v.lastAt;
+    } catch (e) {}
+
+    const net = (tele && tele.net && typeof tele.net === 'object') ? tele.net : {};
+    const fwObj = (tele && tele.fw && typeof tele.fw === 'object') ? tele.fw : {};
+    const fwCurrent = fwObj.current || tele.fw_version || tele.fwVersion || tele.version || '';
+    const teleAgeMs = lastAt > 0 ? Math.max(0, now - lastAt) : null;
+    const deviceOnline = !!(lastAt > 0 && teleAgeMs != null && teleAgeMs <= DEVICE_ONLINE_TIMEOUT_MS);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ok: true,
+      server_time: new Date(now).toISOString(),
+      device_id: deviceId,
+      db_connected: dbOk,
+      mqtt: {
+        server_connected: !!mqtt.state.connected,
+        last_error: mqtt.state.lastError || '',
+        last_connect_at: mqtt.state.lastConnectAt || 0
+      },
+      telemetry: {
+        last_telemetry_at: lastAt,
+        age_ms: teleAgeMs,
+        device_online: deviceOnline,
+        device_mqtt_online: !!(net.mqtt && deviceOnline),
+        device_wifi_online: !!(net.wifi && deviceOnline)
+      },
+      device: {
+        rssi_dbm: Number.isFinite(net.rssi) ? net.rssi : null,
+        ip: net.ip || '',
+        fw: fwCurrent || '',
+        mqtt_online: !!(net.mqtt && deviceOnline),
+        wifi_online: !!(net.wifi && deviceOnline)
+      }
+    });
+  });
+
+  app.get('/api/state', requireAuthApi, async (req, res) => {
+    const deviceId = pickDeviceId(req);
+    const st = await readLatestState(deviceId);
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       mqtt_connected: !!mqtt.state.connected,
-      last_telemetry_at: lastAt || 0,
+      last_telemetry_at: st.lastAt || 0,
       device_id: deviceId,
-      telemetry: tele || {}
+      telemetry: st.tele || {}
     });
   });
 
   app.get('/getData', requireAuthApi, async (req, res) => {
     const deviceId = pickDeviceId(req);
-    const cur = latest.get(deviceId);
-    let tele = cur ? cur.payload : null;
-    if (!tele) {
-      const row = await getLatestTelemetry(pool, deviceId);
-      if (row && row.payload) tele = row.payload;
-    }
+    const st = await readLatestState(deviceId);
     res.setHeader('Cache-Control', 'no-store');
-    res.json(tele || {});
+    res.json(st.tele || {});
   });
 
   const cmdSchema = z.object({ cmd: z.string().min(1) });

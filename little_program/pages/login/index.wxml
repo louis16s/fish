@@ -13,6 +13,11 @@
       <input class="ipt" password="true" placeholder="请输入密码" value="{{password}}" bindinput="onPassInput" />
     </view>
 
+    <view class="remember-row">
+      <text class="remember-label">记住密码</text>
+      <switch checked="{{rememberPassword}}" color="#22d3ee" bindchange="onRememberChange" />
+    </view>
+
     <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">登录</button>
     <view wx:if="{{msg}}" class="err">{{msg}}</view>
   </view>

@@ -38,7 +38,9 @@ Page({
     cfgSummary: { mode: '--', tz: '--', daily: '--', cycle: '--', leveldiff: '--', msg: '' },
     logTab: 'error',
     logText: '加载中…',
-    logMsg: ''
+    logMsg: '',
+    schematicUrl: `${api.BASE_URL}/ui/pond_gate.svg?v=ui-2026.02.15-01`,
+    schematicMsg: ''
   },
 
   onShow() {
@@ -244,6 +246,10 @@ Page({
     wx.setStorageSync('current_device_id', did || '');
     this.setData({ deviceIndex: idx, currentDeviceLabel: item ? item.label : '--' });
     this.refreshAll();
+  },
+
+  onSchematicError() {
+    this.setData({ schematicMsg: '示意图加载失败，请检查服务器 /ui/pond_gate.svg 是否可访问。' });
   },
 
   goDeviceConfig() {

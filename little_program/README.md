@@ -16,7 +16,7 @@
 - `utils/config.js`：小程序 API 地址
 - `utils/api.js`：请求与 Cookie 会话管理
 - `pages/login`：登录页
-- `pages/panel`：总览、控制、日志、规则摘要
+- `pages/panel`：总览、控制、日志、规则摘要、示意图
 - `pages/device-config`：设备配置（JSON 编辑+保存）
 - `pages/replay`：历史曲线与范围回放
 - `pages/admin`：管理员设置、用户管理、设备列表
@@ -60,6 +60,7 @@ const BASE_URL = 'https://你的域名';
 ## 使用说明
 
 1. 登录后进入“控制面板”
+   - 支持“记住密码”（本地存储在小程序缓存）
 2. 先选择设备，再进行控制/看状态
 3. “设备配置”页可直接编辑 `ctrl.json` 并保存
 4. “回放”页支持
@@ -67,6 +68,13 @@ const BASE_URL = 'https://你的域名';
    - 时间范围查询（`/api/telemetry/range`）
    - 复制 JSON/CSV 到剪贴板
 5. “管理”页仅 admin 可完整使用
+
+## 示意图说明
+
+- 主面板示意图地址：`https://你的域名/ui/pond_gate.svg`
+- 若示意图显示加载失败，请检查：
+  - 服务器该路径是否可访问
+  - 微信后台 `request 合法域名` 是否已配置该域名
 
 ## 常见问题
 

@@ -12,11 +12,11 @@
       <view class="picker">当前设备：{{currentDeviceLabel}}</view>
     </picker>
 
-    <view class="row navs">
-      <button class="btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
-      <button class="btn" size="mini" bindtap="goReplay">回放</button>
-      <button class="btn" size="mini" bindtap="goAdmin">管理</button>
-      <button class="btn" size="mini" bindtap="refreshAll">刷新</button>
+    <view class="nav-grid">
+      <button class="btn nav-btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
+      <button class="btn nav-btn" size="mini" bindtap="goReplay">回放</button>
+      <button class="btn nav-btn" size="mini" bindtap="goAdmin">管理</button>
+      <button class="btn nav-btn" size="mini" bindtap="refreshAll">刷新</button>
     </view>
 
     <view class="row tags">
@@ -37,15 +37,21 @@
   </view>
 
   <view class="card">
+    <view class="title2">示意图</view>
+    <image class="schematic" src="{{schematicUrl}}" mode="widthFix" binderror="onSchematicError" />
+    <view wx:if="{{schematicMsg}}" class="muted">{{schematicMsg}}</view>
+  </view>
+
+  <view class="card">
     <view class="title2">控制</view>
-    <view class="row btn-grid">
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateOpen">开闸</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateClose">关闸</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateStop">停止</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOn">自动开</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOff">自动关</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoLatchOff">解除锁定</button>
-      <button class="btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdManualEnd">结束手动</button>
+    <view class="ctl-grid">
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateOpen">开闸</button>
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateClose">关闸</button>
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateStop">停止</button>
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOn">自动开</button>
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOff">自动关</button>
+      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoLatchOff">解除锁定</button>
+      <button class="btn ctl-btn ctl-span2" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdManualEnd">结束手动</button>
     </view>
     <view wx:if="{{cmdMsg}}" class="muted">{{cmdMsg}}</view>
   </view>

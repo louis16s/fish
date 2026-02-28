@@ -172,6 +172,7 @@
         <div class="sec">
           <div class="sec-title">MQTT / 服务状态</div>
           <div class="hint" id="statusLine">加载中…</div>
+          <div class="hint" id="statusDiag">--</div>
           <div class="hint">说明：面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发均在服务器完成。</div>
         </div>
       </div>
@@ -258,12 +259,23 @@
 
     async function loadStatus(){
       try{
-        const j = await apiJson('/healthz');
-        const mqtt = j && j.mqtt ? 'MQTT 已连接' : 'MQTT 未连接';
-        const db = j && j.db ? 'DB OK' : 'DB ERR';
-        $('statusLine').textContent = mqtt + ' | ' + db;
+        const j = await apiJson('/get');
+        const serverMqtt = (j && j.mqtt && j.mqtt.server_connected) ? '服务器MQTT 已连接' : '服务器MQTT 未连接';
+        const db = (j && j.db_connected) ? 'DB OK' : 'DB ERR';
+        const devMqtt = (j && j.telemetry && j.telemetry.device_mqtt_online) ? '设备MQTT 在线' : '设备MQTT 离线';
+        $('statusLine').textContent = serverMqtt + ' | ' + db + ' | ' + devMqtt;
+
+        const deviceId = (j && j.device_id) ? j.device_id : '--';
+        const rssi = (j && j.device && Number.isFinite(j.device.rssi_dbm)) ? (j.device.rssi_dbm + ' dBm') : '--';
+        const ip = (j && j.device && j.device.ip) ? j.device.ip : '--';
+        const fw = (j && j.device && j.device.fw) ? j.device.fw : '--';
+        const seen = (j && j.telemetry) ? fmtMsEpoch(j.telemetry.last_telemetry_at) : '--';
+        const lastErr = (j && j.mqtt && j.mqtt.last_error) ? j.mqtt.last_error : '--';
+        $('statusDiag').textContent =
+          '设备 ' + deviceId + ' | RSSI ' + rssi + ' | IP ' + ip + ' | 固件 ' + fw + ' | 最后上报 ' + seen + ' | MQTT错误 ' + lastErr;
       }catch(e){
         $('statusLine').textContent = '状态获取失败';
+        if($('statusDiag')) $('statusDiag').textContent = '--';
       }
     }
 
@@ -390,6 +402,14 @@
         const d = new Date(v);
         return d.toLocaleString();
       }catch(e){ return String(v); }
+    }
+
+    function fmtMsEpoch(ms){
+      const n = Number(ms || 0);
+      if(!Number.isFinite(n) || n <= 0) return '--';
+      try{
+        return new Date(n).toLocaleString();
+      }catch(e){ return '--'; }
     }
 
     async function loadDevices(){

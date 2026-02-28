@@ -7,7 +7,7 @@
     "pages/admin/index"
   ],
   "window": {
-    "navigationBarTitleText": "鱼塘水闸面板",
+    "navigationBarTitleText": "水闸控制面板",
     "navigationBarBackgroundColor": "#0b1730",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#060812",

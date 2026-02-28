@@ -983,8 +983,19 @@
       latchRender();
     }
 
-    function updateTimerFromTelemetry(t){
+    function updateTimerFromTelemetry(t, meta){
       const now = Date.now();
+      const m = meta || {};
+      const net = t && t.net ? t.net : null;
+      const mqttOnline = !!(net && net.mqtt && isTelemetryFresh(m.lastTelemetryAt));
+      if(!mqttOnline){
+        g_timer.kind = 'unavailable';
+        g_timer.untilMs = now;
+        g_timer.totalS = 0;
+        g_timer.lastRemainS = 0;
+        g_timer.reason = 'mqtt_offline';
+        return;
+      }
       const manual = t && t.manual ? t.manual : null;
       const ctrl = t && t.ctrl ? t.ctrl : null;
       const manualRemain = manual && typeof manual.remain_s === 'number' ? manual.remain_s : 0;
@@ -1042,7 +1053,13 @@
       let klass='timerCard good';
       let progress=1;
 
-      if(g_timer.kind === 'manual' && !done){
+      if(g_timer.kind === 'unavailable'){
+        title='保护';
+        value='不可用';
+        hint='MQTT离线：控制不可用';
+        klass='timerCard bad';
+        progress=0;
+      }else if(g_timer.kind === 'manual' && !done){
         title='手动接管';
         value=fmtHHMMSS(remainS);
         hint='倒计时结束后将自动恢复规则控制';
@@ -1579,6 +1596,8 @@
       syncAutoOffWantedFromTelemetry(t);
 
       const s1=t.sensor1||{}, s2=t.sensor2||{};
+      const net0 = t.net || null;
+      const deviceMqttOnline = !!(net0 && net0.mqtt && isTelemetryFresh(m.lastTelemetryAt));
       const innerOk=!!s1.valid, outerOk=!!s2.valid;
       const innerMm=(s1.mm||0), outerMm=(s2.mm||0);
       const innerTempOk=!!s1.temp_valid, outerTempOk=!!s2.temp_valid;
@@ -1589,8 +1608,8 @@
       $('outerLevelM').textContent = outerOk ? fmtM(outerMm) : fmtM(0);
       $('outerLevelMm').textContent = outerOk ? (outerMm + ' mm') : '0 mm';
 
-      $('innerOnline').textContent = s1.online ? '在线' : '离线';
-      $('outerOnline').textContent = s2.online ? '在线' : '离线';
+      $('innerOnline').textContent = (deviceMqttOnline && s1.online) ? '在线' : '离线';
+      $('outerOnline').textContent = (deviceMqttOnline && s2.online) ? '在线' : '离线';
       $('innerTemp').textContent = innerTempOk ? ((s1.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
       $('outerTemp').textContent = outerTempOk ? ((s2.temp_x10/10).toFixed(1) + ' °C') : '0.0 °C';
 
@@ -1626,7 +1645,7 @@
       $('interlock').textContent = '互锁：' + (cnInterlockReason(reason) || '正常');
 
       // Timer strip (hysteresis / minimum action interval) - at top of control panel.
-      updateTimerFromTelemetry(t);
+      updateTimerFromTelemetry(t, m);
       // renderTimerNow() is driven by tick() (throttled) to keep UI smooth.
 
       // Auto control: merge manual takeover + resume into a single toggle button.
