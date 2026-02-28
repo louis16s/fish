@@ -96,10 +96,10 @@
     <view class="control-block">
       <view class="control-title">自动控制</view>
       <view class="ctl-grid auto-grid">
-        <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOn">开启自动</button>
-        <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOff">手动接管</button>
-        <button class="btn ctl-btn ctl-close" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoLatchOff">关闭自动</button>
-        <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdManualEnd">恢复自动</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOn">开启自动</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOff">手动接管</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoLatchOff">关闭自动</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdManualEnd">恢复自动</button>
       </view>
     </view>
     <view wx:if="{{cmdMsg}}" class="muted cmd-msg">{{cmdMsg}}</view>
