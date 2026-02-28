@@ -28,6 +28,16 @@ function clamp(n, a, b) {
   return Math.min(b, Math.max(a, n));
 }
 
+const CMD_LABELS = {
+  gate_open: '开闸',
+  gate_close: '关闸',
+  gate_stop: '停止',
+  auto_on: '开启自动',
+  auto_off: '手动接管',
+  auto_latch_off: '关闭自动',
+  manual_end: '恢复自动'
+};
+
 Page({
   data: {
     userText: '--',
@@ -224,7 +234,7 @@ Page({
         headers: { 'Content-Type': 'application/json' },
         data: { cmd }
       });
-      this.setData({ cmdMsg: `已发送：${cmd}` });
+      this.setData({ cmdMsg: `已发送：${CMD_LABELS[cmd] || cmd}` });
       await this.loadState();
     } catch (e) {
       this.setData({ cmdMsg: `发送失败：${e.message}` });

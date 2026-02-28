@@ -20,10 +20,9 @@
     </picker>
 
     <view class="quick-grid">
-      <button class="btn quick-btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
-      <button class="btn quick-btn" size="mini" bindtap="goReplay">历史回放</button>
-      <button class="btn quick-btn" size="mini" bindtap="goAdmin">系统管理</button>
-      <button class="btn quick-btn" size="mini" bindtap="refreshAll">刷新数据</button>
+      <button class="btn quick-btn" size="mini" bindtap="goDeviceConfig">规则</button>
+      <button class="btn quick-btn" size="mini" bindtap="goReplay">回放</button>
+      <button class="btn quick-btn" size="mini" bindtap="goAdmin">管理</button>
     </view>
 
     <view class="hero-foot">
@@ -96,14 +95,13 @@
 
     <view class="control-block">
       <view class="control-title">自动控制</view>
-      <view class="ctl-grid">
-        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOn">自动开</button>
-        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOff">自动关</button>
-        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoLatchOff">解除锁定</button>
+      <view class="ctl-grid auto-grid">
+        <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOn">开启自动</button>
+        <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOff">手动接管</button>
+        <button class="btn ctl-btn ctl-close" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoLatchOff">关闭自动</button>
+        <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdManualEnd">恢复自动</button>
       </view>
     </view>
-
-    <button class="btn ctl-wide" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdManualEnd">结束手动模式</button>
     <view wx:if="{{cmdMsg}}" class="muted cmd-msg">{{cmdMsg}}</view>
   </view>
 

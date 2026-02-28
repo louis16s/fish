@@ -26,17 +26,23 @@
 
     <view class="row btn-row">
       <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="loadData">查询</button>
-      <button class="btn" bindtap="copyJson">复制JSON</button>
-      <button class="btn" bindtap="copyCsv">复制CSV</button>
+      <button class="btn" bindtap="exportData">导出</button>
     </view>
 
     <view class="muted">{{meta}}</view>
+    <view class="muted">{{rangeHint}}</view>
     <view wx:if="{{msg}}" class="muted">{{msg}}</view>
   </view>
 
   <view class="card">
-    <view class="title2">最近窗口曲线（/api/history）</view>
-    <canvas type="2d" id="histCanvas" class="canvas"></canvas>
+    <view class="title2">水位可视化</view>
+    <canvas type="2d" id="histCanvas" class="canvas" bindtouchstart="onHistTap"></canvas>
+    <view class="legend-row">
+      <view class="legend-item"><view class="dot dot-inner"></view><text>内塘(mm)</text></view>
+      <view class="legend-item"><view class="dot dot-outer"></view><text>外塘(mm)</text></view>
+    </view>
+    <view wx:if="{{historyMeta}}" class="muted">{{historyMeta}}</view>
+    <view wx:if="{{historyPointText}}" class="muted">{{historyPointText}}</view>
     <view class="row btn-row">
       <button class="btn" size="mini" data-win="900" bindtap="loadHistory">15m</button>
       <button class="btn" size="mini" data-win="3600" bindtap="loadHistory">1h</button>
@@ -45,11 +51,21 @@
   </view>
 
   <view class="card">
-    <view class="title2">范围结果</view>
+    <view class="title2">范围结果（/api/telemetry/range）</view>
+    <view class="table-head">
+      <text class="th idx">#</text>
+      <text class="th ts">时间</text>
+      <text class="th val">内/外/Δ</text>
+      <text class="th st">闸门/自动/告警</text>
+    </view>
     <scroll-view scroll-y="true" class="list">
       <view wx:for="{{rows}}" wx:key="index" class="row-item">
-        <view class="ts">{{item.ts}}</view>
-        <view class="muted">内塘 {{item.inner}} | 外塘 {{item.outer}} | Δ {{item.delta}} | 闸门 {{item.gate}} | 自动 {{item.auto}} | 告警 {{item.alarm}}</view>
+        <view class="row-line">
+          <text class="cell idx">{{item.idx}}</text>
+          <text class="cell ts">{{item.ts}}</text>
+          <text class="cell val">内{{item.inner}} / 外{{item.outer}} / Δ{{item.delta}}</text>
+          <text class="cell st">闸门{{item.gate}} / 自动{{item.auto}} / 告警{{item.alarm}}</text>
+        </view>
       </view>
     </scroll-view>
   </view>

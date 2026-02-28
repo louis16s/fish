@@ -36,6 +36,9 @@ Page({
     limit: 2000,
     loading: false,
     meta: '--',
+    historyMeta: '',
+    historyPointText: '',
+    rangeHint: '每条记录代表一次设备遥测快照（telemetry payload）。单位：mm。',
     msg: '',
     rows: [],
     rawRows: []
@@ -117,6 +120,7 @@ Page({
         const delta = (inner != null && outer != null) ? (inner - outer) : null;
         const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
         return {
+          idx: 0,
           ts: fmt.fmtDateTime(r.ts),
           inner: inner == null ? '--' : `${inner}mm`,
           outer: outer == null ? '--' : `${outer}mm`,
@@ -126,10 +130,11 @@ Page({
           alarm: fmt.alarmText(t.alarm)
         };
       });
+      list.forEach((x, i) => { x.idx = i + 1; });
       this.setData({
         rows: list,
         rawRows: rows,
-        meta: `返回 ${rows.length} 条`,
+        meta: `返回 ${rows.length} 条，范围 ${fmt.fmtDateTime(from)} ~ ${fmt.fmtDateTime(to)}`,
         msg: ''
       });
     } catch (e) {
@@ -149,6 +154,7 @@ Page({
       const qs = api.buildQuery({ device_id: pickDeviceId(), window_s: windowS, max_points: 700 });
       const j = await api.requestJSON(`/api/history${qs}`);
       const pts = Array.isArray(j.points) ? j.points : [];
+      this.setData({ historyPointText: '' });
       this.drawHistory(pts);
     } catch (e) {
       this.setData({ msg: `历史加载失败：${e.message}` });
@@ -157,11 +163,12 @@ Page({
 
   drawHistory(points) {
     const query = wx.createSelectorQuery().in(this);
-    query.select('#histCanvas').fields({ node: true, size: true }).exec((res) => {
+    query.select('#histCanvas').fields({ node: true, size: true, rect: true }).exec((res) => {
       if (!res || !res[0] || !res[0].node) return;
       const canvas = res[0].node;
       const width = res[0].width;
       const height = res[0].height;
+      this._histCanvasLeft = Number(res[0].left || 0);
       const dpr = wx.getSystemInfoSync().pixelRatio || 1;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
@@ -176,19 +183,14 @@ Page({
         ctx.fillStyle = '#94a3b8';
         ctx.font = '14px sans-serif';
         ctx.fillText('暂无历史数据', 20, 28);
+        this.setData({ historyMeta: '窗口 0 点' });
+        this._histPointsForTap = [];
         return;
       }
 
-      const values = [];
-      points.forEach((p) => {
-        if (p.inner_ok && Number.isFinite(p.inner_mm)) values.push(Number(p.inner_mm));
-        if (p.outer_ok && Number.isFinite(p.outer_mm)) values.push(Number(p.outer_mm));
-      });
-      const minV = Math.min.apply(null, values.length ? values : [0]);
-      const maxV = Math.max.apply(null, values.length ? values : [100]);
-      const pad = Math.max(30, Math.round((maxV - minV || 50) * 0.2));
-      const yMin = minV - pad;
-      const yMax = maxV + pad;
+      // Match panel semantics: water level shown in 0~5000mm range.
+      const yMin = 0;
+      const yMax = 5000;
       const xMin = Number(points[0].ts_s || 0);
       const xMax = Number(points[points.length - 1].ts_s || xMin + 1);
 
@@ -206,6 +208,29 @@ Page({
         ctx.lineTo(width - p.r, y);
         ctx.stroke();
       }
+      ctx.strokeStyle = 'rgba(255,255,255,.22)';
+      ctx.beginPath();
+      ctx.moveTo(p.l, p.t);
+      ctx.lineTo(p.l, height - p.b);
+      ctx.lineTo(width - p.r, height - p.b);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(165,180,207,.92)';
+      ctx.font = '11px sans-serif';
+      for (let i = 0; i <= 4; i += 1) {
+        const y = p.t + (ph * i) / 4;
+        const v = yMax - ((y - p.t) / (ph || 1)) * (yMax - yMin);
+        ctx.fillText(`${Math.round(v)}mm`, 6, y + 4);
+      }
+      ctx.fillText('水位(mm)', 6, 12);
+      const t0 = new Date((xMin || 0) * 1000);
+      const t1 = new Date((xMax || 0) * 1000);
+      const tShort = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      ctx.fillText(tShort(t0), p.l, height - 6);
+      const endTxt = tShort(t1);
+      const w = ctx.measureText(endTxt).width;
+      ctx.fillText(endTxt, width - p.r - w, height - 6);
+      ctx.fillText('时间', Math.max(p.l + 6, width / 2 - 14), height - 6);
 
       const drawLine = (selector, color) => {
         let started = false;
@@ -232,15 +257,24 @@ Page({
 
       drawLine((pt) => (pt.inner_ok ? Number(pt.inner_mm) : null), '#4ade80');
       drawLine((pt) => (pt.outer_ok ? Number(pt.outer_mm) : null), '#38bdf8');
+
+      this._histPointsForTap = points.map((pt) => {
+        const ts = Number(pt.ts_s || 0);
+        return {
+          x: mapX(ts),
+          ts,
+          inner: (pt.inner_ok && Number.isFinite(Number(pt.inner_mm))) ? Number(pt.inner_mm) : null,
+          outer: (pt.outer_ok && Number.isFinite(Number(pt.outer_mm))) ? Number(pt.outer_mm) : null
+        };
+      });
+
+      this.setData({
+        historyMeta: `窗口 ${points.length} 点 | 点击曲线查看该点水位`
+      });
     });
   },
 
-  copyJson() {
-    const text = JSON.stringify(this.data.rawRows || [], null, 2);
-    wx.setClipboardData({ data: text });
-  },
-
-  copyCsv() {
+  buildCsvText() {
     const rows = this.data.rawRows || [];
     const head = ['ts', 'inner_mm', 'outer_mm', 'delta_mm', 'gate_state', 'auto_gate', 'auto_latched', 'alarm_active', 'alarm_severity', 'alarm_text'];
     const lines = [head.join(',')];
@@ -266,7 +300,76 @@ Page({
       ].map(csvEsc).join(',');
       lines.push(line);
     });
-    wx.setClipboardData({ data: lines.join('\n') });
+    return lines.join('\n');
+  },
+
+  async exportData() {
+    const rows = this.data.rawRows || [];
+    if (!rows.length) {
+      this.setData({ msg: '暂无可导出的范围结果，请先查询' });
+      return;
+    }
+
+    wx.showActionSheet({
+      itemList: ['导出 JSON', '导出 CSV'],
+      success: (ret) => {
+        const idx = Number(ret.tapIndex || 0);
+        const isJson = idx === 0;
+        const ext = isJson ? 'json' : 'csv';
+        const ts = Date.now();
+        const fileName = `replay_${ts}.${ext}`;
+        const content = isJson ? JSON.stringify(rows, null, 2) : this.buildCsvText();
+        const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+        const fs = wx.getFileSystemManager();
+        fs.writeFile({
+          filePath,
+          data: content,
+          encoding: 'utf8',
+          success: () => {
+            if (typeof wx.shareFileMessage === 'function') {
+              wx.shareFileMessage({
+                filePath,
+                fileName,
+                success: () => this.setData({ msg: `已导出并可发送：${fileName}` }),
+                fail: () => this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` })
+              });
+              return;
+            }
+            this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` });
+          },
+          fail: (e) => this.setData({ msg: `导出失败：${(e && e.errMsg) || 'write_failed'}` })
+        });
+      }
+    });
+  },
+
+  onHistTap(e) {
+    const arr = this._histPointsForTap || [];
+    if (!arr.length) return;
+    let clientX = 0;
+    if (e && e.detail && Number.isFinite(Number(e.detail.x))) {
+      clientX = Number(e.detail.x);
+    } else if (e && e.touches && e.touches[0] && Number.isFinite(Number(e.touches[0].clientX))) {
+      clientX = Number(e.touches[0].clientX);
+    } else if (e && e.touches && e.touches[0] && Number.isFinite(Number(e.touches[0].x))) {
+      clientX = Number(e.touches[0].x);
+    }
+    const x = clientX - (Number(this._histCanvasLeft || 0));
+    let best = arr[0];
+    let bestDx = Math.abs((best && best.x) - x);
+    arr.forEach((p) => {
+      const dx = Math.abs(p.x - x);
+      if (dx < bestDx) {
+        best = p;
+        bestDx = dx;
+      }
+    });
+    if (!best) return;
+    const tsText = fmt.fmtDateTime(new Date(best.ts * 1000).toISOString());
+    const inner = best.inner == null ? '--' : `${Math.round(best.inner)}mm`;
+    const outer = best.outer == null ? '--' : `${Math.round(best.outer)}mm`;
+    const delta = (best.inner != null && best.outer != null) ? `${Math.round(best.inner - best.outer)}mm` : '--';
+    this.setData({ historyPointText: `${tsText} | 内塘 ${inner} | 外塘 ${outer} | Δ ${delta}` });
   },
 
   backPanel() {

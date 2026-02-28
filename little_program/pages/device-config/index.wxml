@@ -1,25 +1,23 @@
 <view class="container">
   <view class="card">
     <view class="row head-row page-head">
-      <view class="title head-title">设备配置</view>
+      <view class="title head-title">规则设置</view>
       <button class="btn back-btn" size="mini" bindtap="backPanel">返回面板</button>
     </view>
 
     <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
-      <view class="picker">当前设备：{{currentDeviceLabel}}</view>
+      <view class="picker">设备：{{currentDeviceLabel}}</view>
     </picker>
 
-    <view class="row btn-row" style="margin-top:12rpx">
-      <button class="btn" size="mini" bindtap="loadCfg">加载</button>
+    <view class="row btn-row mt12">
+      <button class="btn" size="mini" bindtap="loadCfg">重新加载</button>
       <button class="btn btn-primary" size="mini" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCfg">保存</button>
-      <button class="btn" size="mini" bindtap="formatJson">格式化JSON</button>
     </view>
-
     <view wx:if="{{msg}}" class="muted">{{msg}}</view>
   </view>
 
   <view class="card">
-    <view class="title2">快速字段</view>
+    <view class="title2">基础设置</view>
     <view class="field">
       <text class="lbl">模式</text>
       <picker mode="selector" range="{{modeOptions}}" range-key="label" value="{{modeIndex}}" bindchange="onModeChange">
@@ -27,14 +25,144 @@
       </picker>
     </view>
     <view class="field">
-      <text class="lbl">时区小时偏移</text>
+      <text class="lbl">时区小时偏移（tz_offset_ms）</text>
       <input class="ipt" type="number" value="{{tzHours}}" bindinput="onTzInput" />
+      <view class="muted">示例：UTC+8 填 8（会保存为 28800000ms）</view>
     </view>
-    <view class="muted">完整能力请在下方 JSON 区直接编辑（与 Web 面板一致）。</view>
   </view>
 
   <view class="card">
-    <view class="title2">原始 JSON（ctrl.json）</view>
+    <view class="row head-row">
+      <view class="title2 no-mb">定时规则（daily）</view>
+      <button class="btn" size="mini" bindtap="addDaily">新增</button>
+    </view>
+    <view class="muted">每天固定时间开/关闸，支持星期掩码。</view>
+
+    <block wx:for="{{dailyRules}}" wx:for-item="rule" wx:for-index="ri" wx:key="_id">
+      <view class="rule-card">
+        <view class="row head-row">
+          <view class="rule-title">定时 #{{ri+1}}</view>
+          <button class="btn btn-danger" size="mini" data-i="{{ri}}" bindtap="delDaily">删除</button>
+        </view>
+
+        <view class="switch-row">
+          <view class="switch-item"><text>启用</text><switch checked="{{rule.en}}" data-i="{{ri}}" data-k="en" bindchange="onDailyFlag" color="#22d3ee" /></view>
+          <view class="switch-item"><text>开闸动作</text><switch checked="{{rule.open_en}}" data-i="{{ri}}" data-k="open_en" bindchange="onDailyFlag" color="#22d3ee" /></view>
+          <view class="switch-item"><text>关闸动作</text><switch checked="{{rule.close_en}}" data-i="{{ri}}" data-k="close_en" bindchange="onDailyFlag" color="#22d3ee" /></view>
+        </view>
+
+        <view class="time-row">
+          <view class="time-col">
+            <text class="lbl">开闸时间 HH:MM</text>
+            <input class="ipt" value="{{rule.open_hhmm}}" data-i="{{ri}}" data-k="open_hhmm" bindinput="onDailyTime" />
+          </view>
+          <view class="time-col">
+            <text class="lbl">关闸时间 HH:MM</text>
+            <input class="ipt" value="{{rule.close_hhmm}}" data-i="{{ri}}" data-k="close_hhmm" bindinput="onDailyTime" />
+          </view>
+        </view>
+
+        <view class="lbl">生效星期（dow_mask）</view>
+        <view class="day-grid">
+          <view wx:for="{{dowOptions}}" wx:for-item="day" wx:for-index="di" wx:key="index" class="day-pill {{rule.dow[di]?'on':''}}" data-ri="{{ri}}" data-di="{{di}}" bindtap="onDailyDowToggle">{{day}}</view>
+        </view>
+      </view>
+    </block>
+
+    <view wx:if="{{!dailyRules.length}}" class="muted">(空)</view>
+  </view>
+
+  <view class="card">
+    <view class="row head-row">
+      <view class="title2 no-mb">循环规则（cycle）</view>
+      <button class="btn" size="mini" bindtap="addCycleRule">新增</button>
+    </view>
+    <view class="muted">按顺序执行 state(open/close)+dur_ms，最多只允许一组启用。</view>
+
+    <block wx:for="{{cycleRules}}" wx:for-item="cRule" wx:for-index="ci" wx:key="_id">
+      <view class="rule-card">
+        <view class="row head-row">
+          <view class="rule-title">循环 #{{ci+1}}</view>
+          <button class="btn btn-danger" size="mini" data-ri="{{ci}}" bindtap="delCycleRule">删除</button>
+        </view>
+
+        <view class="switch-row">
+          <view class="switch-item"><text>启用本组</text><switch checked="{{cRule.en}}" data-ri="{{ci}}" bindchange="onCycleEnable" color="#22d3ee" /></view>
+          <button class="btn" size="mini" data-ri="{{ci}}" bindtap="addCycleStep">新增步骤</button>
+        </view>
+
+        <block wx:for="{{cRule.steps}}" wx:for-item="step" wx:for-index="si" wx:key="_id">
+          <view class="step-card">
+            <view class="row head-row">
+              <view class="step-title">步骤 #{{si+1}}</view>
+              <button class="btn btn-danger" size="mini" data-ri="{{ci}}" data-si="{{si}}" bindtap="delCycleStep">删除</button>
+            </view>
+            <view class="step-grid">
+              <view>
+                <text class="lbl">动作</text>
+                <picker mode="selector" range="{{stateOptions}}" range-key="label" value="{{step.stateIndex}}" data-ri="{{ci}}" data-si="{{si}}" bindchange="onCycleStepState">
+                  <view class="picker">{{stateOptions[step.stateIndex].label}}</view>
+                </picker>
+              </view>
+              <view>
+                <text class="lbl">持续小时</text>
+                <input class="ipt" type="number" value="{{step.dur_h}}" data-ri="{{ci}}" data-si="{{si}}" data-k="dur_h" bindinput="onCycleStepDur" />
+              </view>
+              <view>
+                <text class="lbl">持续分钟</text>
+                <input class="ipt" type="number" value="{{step.dur_m}}" data-ri="{{ci}}" data-si="{{si}}" data-k="dur_m" bindinput="onCycleStepDur" />
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+    </block>
+
+    <view wx:if="{{!cycleRules.length}}" class="muted">(空)</view>
+  </view>
+
+  <view class="card">
+    <view class="row head-row">
+      <view class="title2 no-mb">水位差规则（leveldiff）</view>
+      <button class="btn" size="mini" bindtap="addLeveldiff">新增</button>
+    </view>
+    <view class="muted">delta = 内塘 - 外塘（mm），最多只允许一组启用。</view>
+
+    <block wx:for="{{leveldiffRules}}" wx:for-item="ld" wx:for-index="li" wx:key="_id">
+      <view class="rule-card">
+        <view class="row head-row">
+          <view class="rule-title">水位差 #{{li+1}}</view>
+          <button class="btn btn-danger" size="mini" data-i="{{li}}" bindtap="delLeveldiff">删除</button>
+        </view>
+
+        <view class="switch-row">
+          <view class="switch-item"><text>启用本组</text><switch checked="{{ld.en}}" data-i="{{li}}" bindchange="onLeveldiffEnable" color="#22d3ee" /></view>
+        </view>
+
+        <view class="time-row">
+          <view class="time-col">
+            <text class="lbl">开闸阈值 open_mm</text>
+            <input class="ipt" type="number" value="{{ld.open_mm}}" data-i="{{li}}" data-k="open_mm" bindinput="onLeveldiffInput" />
+          </view>
+          <view class="time-col">
+            <text class="lbl">关闸阈值 close_mm</text>
+            <input class="ipt" type="number" value="{{ld.close_mm}}" data-i="{{li}}" data-k="close_mm" bindinput="onLeveldiffInput" />
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view wx:if="{{!leveldiffRules.length}}" class="muted">(空)</view>
+  </view>
+
+  <view class="card">
+    <view class="row head-row">
+      <view class="title2 no-mb">原始 JSON（ctrl.json）</view>
+      <view class="row btn-row">
+        <button class="btn" size="mini" bindtap="formatJson">格式化</button>
+        <button class="btn" size="mini" bindtap="applyRaw">应用到表单</button>
+      </view>
+    </view>
     <textarea class="ta" value="{{raw}}" maxlength="-1" bindinput="onRawInput" />
   </view>
 </view>
