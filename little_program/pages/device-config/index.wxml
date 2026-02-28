@@ -1,15 +1,15 @@
 <view class="container">
   <view class="card">
-    <view class="row head-row">
-      <view class="title">设备配置</view>
-      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+    <view class="row head-row page-head">
+      <view class="title head-title">设备配置</view>
+      <button class="btn back-btn" size="mini" bindtap="backPanel">返回面板</button>
     </view>
 
     <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
       <view class="picker">当前设备：{{currentDeviceLabel}}</view>
     </picker>
 
-    <view class="row" style="margin-top:12rpx">
+    <view class="row btn-row" style="margin-top:12rpx">
       <button class="btn" size="mini" bindtap="loadCfg">加载</button>
       <button class="btn btn-primary" size="mini" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCfg">保存</button>
       <button class="btn" size="mini" bindtap="formatJson">格式化JSON</button>

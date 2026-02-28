@@ -97,9 +97,9 @@
       transition:border-color .18s ease, background .18s ease;
     }
     input:hover,select:hover{border-color:var(--stroke2)}
-    input[type="datetime-local"]{width:240px}
-    input[type="number"]{width:140px;text-align:right}
-    select{min-width:180px}
+    input[type="datetime-local"]{width:182px}
+    input[type="number"]{width:92px;text-align:right}
+    select{min-width:110px}
     #speed{min-width:62px;width:62px;min-height:48px;padding-left:8px;padding-right:8px}
 
     .card{
@@ -124,6 +124,13 @@
 
     .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
     .controls label{display:grid;gap:6px}
+    .queryControls{align-items:flex-end}
+    .queryControls .lbl{text-align:left}
+    #devSel{min-width:110px;width:120px}
+    #from,#to{width:182px}
+    #limit{width:92px}
+    #btnLoad{min-width:72px}
+    .btn.exportBtn{min-height:48px;font-size:15px;font-weight:900}
     .vizControls{justify-content:center;align-items:center}
     .speedCtrl{flex:0 0 auto}
     .scrubCtrl{flex:0 1 560px;min-width:300px}
@@ -200,7 +207,7 @@
     <div class="card">
       <div class="sec-title">数据回放 / 查询</div>
       <div class="sec">
-        <div class="controls">
+        <div class="controls queryControls">
           <label>
             <span class="lbl">设备</span>
             <select id="devSel"></select>
@@ -218,8 +225,8 @@
             <input id="limit" type="number" min="50" max="20000" step="50" value="2000">
           </label>
           <button class="btn primary" id="btnLoad" onclick="loadData()">查询</button>
-          <button class="btn" onclick="exportJson()">导出 JSON</button>
-          <button class="btn" onclick="exportCsv()">导出 CSV</button>
+          <button class="btn exportBtn" onclick="exportJson()">导出 JSON</button>
+          <button class="btn exportBtn" onclick="exportCsv()">导出 CSV</button>
         </div>
         <div class="hint" id="meta">--</div>
         <div class="hint bad" id="msg" style="display:none"></div>
@@ -432,7 +439,6 @@
           ts: new Date(r.ts).getTime(),
           inner: (s1 && s1.valid) ? (s1.mm|0) : null,
           outer: (s2 && s2.valid) ? (s2.mm|0) : null,
-          gateOpen: (t.gate_state === 1) ? 1 : ((t.gate_state === 2) ? 0 : (t.gate_position_open ? 1 : 0)),
         };
       });
       g_chartData = data;
@@ -552,31 +558,10 @@
 
       drawSeries((d)=>d.outer, '#38bdf8', 'rgba(56,189,248,.30)');
       drawSeries((d)=>d.inner, '#4ade80', 'rgba(74,222,128,.30)');
-      // Gate state overlay (top band step-like line)
-      ctx.beginPath();
-      let gateStarted = false;
-      g_chartData.forEach((d)=>{
-        const x = mapX(d.ts);
-        const y = d.gateOpen ? (pad.t + 30) : (pad.t + 44);
-        if(!gateStarted){
-          ctx.moveTo(x, y);
-          gateStarted = true;
-        }else{
-          ctx.lineTo(x, y);
-        }
-      });
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#f59e0b';
-      ctx.shadowColor = 'rgba(245,158,11,.35)';
-      ctx.shadowBlur = 10;
-      ctx.stroke();
-      ctx.shadowColor = 'transparent';
-
       // Legend
       const legend = [
         {label:'外塘', color:'#38bdf8'},
         {label:'内塘', color:'#4ade80'},
-        {label:'闸门', color:'#f59e0b'},
       ];
       legend.forEach((l, i)=>{
         const y = pad.t + 6 + i * 20;

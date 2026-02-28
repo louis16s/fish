@@ -1,9 +1,29 @@
 .head-row { justify-content: space-between; }
+.page-head {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.head-title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.back-btn {
+  margin-left: auto !important;
+  flex: 0 0 auto;
+}
 .picker {
   margin-top: 16rpx;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 12rpx;
   padding: 14rpx;
+}
+.btn-row {
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn-row .btn {
+  flex: 0 0 auto;
 }
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
 .field { margin-bottom: 14rpx; }
@@ -23,4 +43,13 @@
   background: rgba(2,6,23,.4);
   font-family: monospace;
   font-size: 24rpx;
+}
+
+@media (max-width: 520rpx) {
+  .btn-row {
+    gap: 10rpx;
+  }
+  .btn-row .btn {
+    min-height: 60rpx;
+  }
 }

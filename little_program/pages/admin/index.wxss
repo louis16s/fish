@@ -1,10 +1,42 @@
 .head-row { justify-content: space-between; }
+.page-head {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.head-title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.back-btn {
+  margin-left: auto !important;
+  flex: 0 0 auto;
+}
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
 .ipt {
   min-height: 78rpx;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 12rpx;
   padding: 0 14rpx;
+}
+.btn-row {
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn-row .btn {
+  flex: 0 0 auto;
+}
+.retain-row {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.retain-row .ipt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.retain-row .btn {
+  margin-left: auto !important;
+  flex: 0 0 auto;
 }
 .field { margin-bottom: 12rpx; }
 .lbl { display: block; color: rgba(165,180,207,.9); font-size: 24rpx; margin-bottom: 8rpx; }
@@ -14,3 +46,19 @@
   padding: 14rpx;
 }
 .urow, .drow { border-top: 1px solid rgba(255,255,255,.08); padding-top: 10rpx; margin-top: 10rpx; }
+
+@media (max-width: 520rpx) {
+  .btn-row {
+    gap: 10rpx;
+  }
+  .btn-row .btn {
+    min-height: 60rpx;
+  }
+  .retain-row {
+    flex-wrap: wrap;
+  }
+  .retain-row .ipt {
+    width: 100%;
+    flex: 0 0 100%;
+  }
+}

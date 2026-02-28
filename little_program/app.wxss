@@ -40,6 +40,10 @@ page {
   flex-wrap: wrap;
 }
 
+.row .btn {
+  margin: 0 !important;
+}
+
 .btn {
   border-radius: 14rpx;
   border: 1px solid rgba(255, 255, 255, 0.14);

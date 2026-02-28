@@ -1,14 +1,14 @@
 <view class="container">
   <view class="card">
-    <view class="row head-row">
-      <view>
+    <view class="row head-row page-head">
+      <view class="head-title">
         <view class="title">管理中心</view>
         <view class="sub">{{who}}</view>
       </view>
-      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+      <button class="btn back-btn" size="mini" bindtap="backPanel">返回面板</button>
     </view>
 
-    <view class="row" style="margin-top:10rpx">
+    <view class="row btn-row" style="margin-top:10rpx">
       <button class="btn" size="mini" bindtap="reloadAll">刷新</button>
     </view>
 
@@ -20,7 +20,7 @@
 
   <view class="card">
     <view class="title2">数据保留</view>
-    <view class="row">
+    <view class="row retain-row">
       <input class="ipt" type="number" value="{{retentionDays}}" bindinput="onRetentionInput" />
       <button class="btn btn-primary" size="mini" bindtap="saveRetention">保存</button>
     </view>
@@ -37,7 +37,9 @@
         <view class="picker">{{roleOptions[roleIndex]}}</view>
       </picker>
     </view>
-    <button class="btn btn-primary" size="mini" bindtap="createUser">创建</button>
+    <view class="row btn-row">
+      <button class="btn btn-primary" size="mini" bindtap="createUser">创建</button>
+    </view>
     <view wx:if="{{userMsg}}" class="muted">{{userMsg}}</view>
   </view>
 
@@ -49,7 +51,7 @@
           <text>#{{item.id}} {{item.username}} ({{item.role}})</text>
           <text class="tag {{item.disabled ? 'tag-bad':'tag-good'}}">{{item.disabled ? 'disabled':'active'}}</text>
         </view>
-        <view class="row" style="margin-top:8rpx">
+        <view class="row btn-row" style="margin-top:8rpx">
           <button class="btn" size="mini" data-id="{{item.id}}" data-disabled="{{!item.disabled}}" bindtap="toggleDisable">{{item.disabled ? '启用':'禁用'}}</button>
           <button class="btn" size="mini" data-id="{{item.id}}" bindtap="resetPassword">重置密码</button>
         </view>

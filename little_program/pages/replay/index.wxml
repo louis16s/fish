@@ -1,8 +1,8 @@
 <view class="container">
   <view class="card">
-    <view class="row head-row">
-      <view class="title">数据回放</view>
-      <button class="btn" size="mini" bindtap="backPanel">返回面板</button>
+    <view class="row head-row page-head">
+      <view class="title head-title">数据回放</view>
+      <button class="btn back-btn" size="mini" bindtap="backPanel">返回面板</button>
     </view>
 
     <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
@@ -24,7 +24,7 @@
       <input class="ipt" type="number" value="{{limit}}" bindinput="onLimitInput" />
     </view>
 
-    <view class="row">
+    <view class="row btn-row">
       <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="loadData">查询</button>
       <button class="btn" bindtap="copyJson">复制JSON</button>
       <button class="btn" bindtap="copyCsv">复制CSV</button>
@@ -37,7 +37,7 @@
   <view class="card">
     <view class="title2">最近窗口曲线（/api/history）</view>
     <canvas type="2d" id="histCanvas" class="canvas"></canvas>
-    <view class="row">
+    <view class="row btn-row">
       <button class="btn" size="mini" data-win="900" bindtap="loadHistory">15m</button>
       <button class="btn" size="mini" data-win="3600" bindtap="loadHistory">1h</button>
       <button class="btn" size="mini" data-win="21600" bindtap="loadHistory">6h</button>
