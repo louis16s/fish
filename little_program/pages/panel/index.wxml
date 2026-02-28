@@ -1,11 +1,17 @@
 <view class="container">
   <view class="card">
     <view class="row head-row">
-      <view>
+      <view class="head-left">
         <view class="title">水闸控制面板</view>
         <view class="sub">{{userText}}</view>
       </view>
-      <button class="btn btn-danger" size="mini" bindtap="logout">退出</button>
+      <view class="head-right">
+        <view class="mqtt-col">
+          <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
+          <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
+        </view>
+        <button class="btn btn-danger head-logout" size="mini" bindtap="logout">退出</button>
+      </view>
     </view>
 
     <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
@@ -20,10 +26,7 @@
     </view>
 
     <view class="row tags">
-      <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
-      <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
       <text class="tag">最近上报 {{lastTelemetryAt}}</text>
-      <text class="tag">FW {{fwVersion}}</text>
     </view>
   </view>
 
@@ -99,16 +102,13 @@
   <view class="card">
     <view class="row head-row">
       <view class="title2">日志</view>
-      <view class="row">
+      <view class="log-actions">
+        <button class="btn {{logTab==='error'?'btn-primary':''}}" size="mini" data-tab="error" bindtap="setLogTab">错误</button>
+        <button class="btn {{logTab==='measure'?'btn-primary':''}}" size="mini" data-tab="measure" bindtap="setLogTab">测量</button>
+        <button class="btn {{logTab==='action'?'btn-primary':''}}" size="mini" data-tab="action" bindtap="setLogTab">动作</button>
         <button class="btn" size="mini" bindtap="refreshLog">刷新</button>
         <button class="btn btn-danger" size="mini" bindtap="clearLog">清空</button>
       </view>
-    </view>
-
-    <view class="row tabs">
-      <button class="btn {{logTab==='error'?'btn-primary':''}}" size="mini" data-tab="error" bindtap="setLogTab">error</button>
-      <button class="btn {{logTab==='measure'?'btn-primary':''}}" size="mini" data-tab="measure" bindtap="setLogTab">measure</button>
-      <button class="btn {{logTab==='action'?'btn-primary':''}}" size="mini" data-tab="action" bindtap="setLogTab">action</button>
     </view>
 
     <scroll-view scroll-y="true" class="logbox">

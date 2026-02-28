@@ -1,4 +1,22 @@
 .head-row { justify-content: space-between; }
+.head-left {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.head-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.mqtt-col {
+  display: grid;
+  gap: 8rpx;
+  justify-items: end;
+}
+.head-logout {
+  margin: 0 !important;
+}
 .picker {
   margin-top: 16rpx;
   border: 1px solid rgba(255,255,255,.14);
@@ -78,7 +96,19 @@
 .ctl-span2 {
   grid-column: 1 / -1;
 }
-.tabs { margin-bottom: 10rpx; }
+.log-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-wrap: nowrap;
+}
+.log-actions .btn {
+  margin: 0 !important;
+  min-height: 56rpx;
+  font-size: 22rpx;
+  padding: 0 12rpx;
+}
 .logbox {
   max-height: 420rpx;
   border: 1px solid rgba(255,255,255,.1);
@@ -91,5 +121,17 @@
 @media (max-width: 520rpx) {
   .nav-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .head-row {
+    align-items: flex-start;
+  }
+  .head-right {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .log-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
 }
