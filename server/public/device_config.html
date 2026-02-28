@@ -223,7 +223,7 @@
       <div class="topMid">
         <span class="mini" id="who">--</span>
         <span class="mini" id="fwLine">固件 --</span>
-        <span class="mini" id="uiLine">UI --</span>
+        <span class="mini" id="uiLine">--</span>
       </div>
       <div class="topActions">
         <button class="btn primary" id="btnSave" onclick="saveCfg()">保存</button>
@@ -462,7 +462,7 @@
 
     async function loadVerLine(){
       const uiEl = $('uiLine');
-      if(uiEl) uiEl.textContent = 'UI ' + UI_VERSION;
+      if(uiEl) uiEl.textContent = UI_VERSION;
       try{
         const t = await fetchTelemetry();
         const fw = (t.fw && t.fw.current) ? t.fw.current : ((typeof t.fw === 'string') ? t.fw : (t.fw_version || t.fwVersion || t.version || '--'));

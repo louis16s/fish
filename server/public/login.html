@@ -82,7 +82,7 @@
     input:focus{border-color:var(--cyan); box-shadow: 0 0 0 4px rgba(34,211,238,.14); background:rgba(255,255,255,.06);}
     
     .btnRow{margin-top:8px;}
-    .btnRow2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .btnRow2{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
     .btn{
       width: 100%;
       height:48px;
@@ -123,9 +123,8 @@
   <div class="wrap">
     <div class="card">
       <div class="hd">
-        <div class="title">控制面板登录</div>
+        <div class="title">水闸控制面板</div>
         <div class="sub" id="hostLine">水位可视化与水闸设置</div>
-        <div class="mini">UI ui-2026.02.28-02</div>
       </div>
 
       <form id="form" class="row" autocomplete="on">
@@ -145,9 +144,9 @@
           <button class="btn" id="btn" type="submit">登 录</button>
         </div>
         <div class="btnRow2">
-          <button class="btn secondary" id="btnPasskeyEnroll" type="button">启用 Passkey</button>
           <button class="btn secondary" id="btnPasskeyLogin" type="button">Passkey 登录</button>
         </div>
+        <div class="mini" style="text-align:center">ui-2026.02.28-02</div>
         <div class="msg bad" id="msg" style="display:none"></div>
         <div class="msg" id="defaultHint">
           首次部署默认账号：<br>
@@ -163,12 +162,11 @@
     const form = document.getElementById('form');
     const msg = document.getElementById('msg');
     const btn = document.getElementById('btn');
-    const btnPasskeyEnroll = document.getElementById('btnPasskeyEnroll');
     const btnPasskeyLogin = document.getElementById('btnPasskeyLogin');
     const rememberEl = document.getElementById('remember');
     const defaultHint = document.getElementById('defaultHint');
-    const LS_REM = 'fish_login_remember_v1';
-    const LS_PK = 'fish_login_passkey_id_v1';
+    const LS_REM = 'fish_login_remember_map_v1';
+    const LS_PK = 'fish_login_passkey_map_v1';
     const LS_FIRST_LOGIN_DONE = 'fish_login_done_v1';
     let g_msgTimer = 0;
 
@@ -221,22 +219,36 @@
       return u;
     }
 
-    function loadRemembered(){
+    function loadRememberedForUser(u){
       try{
         const raw = localStorage.getItem(LS_REM);
         if(!raw) return null;
-        const j = JSON.parse(raw);
-        if(!j || !j.u || !j.p) return null;
-        return {u:String(j.u), p:String(j.p)};
+        const j = JSON.parse(raw) || {};
+        const un = String(u || '').trim();
+        if(!un || !j[un] || !j[un].p) return null;
+        return {u: un, p: String(j[un].p)};
       }catch(e){ return null; }
     }
     function saveRemembered(u, p){
       try{
-        localStorage.setItem(LS_REM, JSON.stringify({u:String(u||''), p:String(p||''), ts:Date.now()}));
+        const un = String(u || '').trim();
+        if(!un) return;
+        const raw = localStorage.getItem(LS_REM);
+        const j = raw ? (JSON.parse(raw) || {}) : {};
+        j[un] = { p: String(p || ''), ts: Date.now() };
+        localStorage.setItem(LS_REM, JSON.stringify(j));
       }catch(e){}
     }
-    function clearRemembered(){
-      try{ localStorage.removeItem(LS_REM); }catch(e){}
+    function clearRemembered(u){
+      try{
+        const un = String(u || '').trim();
+        if(!un) return;
+        const raw = localStorage.getItem(LS_REM);
+        if(!raw) return;
+        const j = JSON.parse(raw) || {};
+        delete j[un];
+        localStorage.setItem(LS_REM, JSON.stringify(j));
+      }catch(e){}
     }
 
     async function doLogin(u, p){
@@ -257,7 +269,7 @@
           return;
         }
         if(rememberEl && rememberEl.checked) saveRemembered(u, p);
-        else clearRemembered();
+        else clearRemembered(u);
         try{ localStorage.setItem(LS_FIRST_LOGIN_DONE, '1'); }catch(e){}
         location.href = nextUrl;
       }catch(e2){
@@ -267,68 +279,29 @@
       }
     }
 
-    async function enrollPasskey(){
-      if(!(window.PublicKeyCredential && window.isSecureContext)){
-        setMsg('当前环境不支持 Passkey（需要 HTTPS）');
-        return;
-      }
-      const u = document.getElementById('u').value || '';
-      const p = document.getElementById('p').value || '';
-      if(!u || !p){
-        setMsg('请先输入账号密码并勾选“记住账号和密码”');
-        return;
-      }
-      if(!(rememberEl && rememberEl.checked)){
-        setMsg('启用 Passkey 前请先勾选“记住账号和密码”');
-        return;
-      }
-      try{
-        btnPasskeyEnroll.disabled = true;
-        const cred = await navigator.credentials.create({
-          publicKey: {
-            challenge: randBuf(32),
-            rp: { name: '鱼塘控制面板' },
-            user: {
-              id: randBuf(16),
-              name: u,
-              displayName: u
-            },
-            pubKeyCredParams: [
-              { type: 'public-key', alg: -7 },
-              { type: 'public-key', alg: -257 }
-            ],
-            timeout: 60000,
-            attestation: 'none',
-            authenticatorSelection: {
-              userVerification: 'preferred',
-              residentKey: 'preferred'
-            }
-          }
-        });
-        if(!cred || !cred.rawId) throw new Error('create_failed');
-        saveRemembered(u, p);
-        localStorage.setItem(LS_PK, b64uFromBuf(cred.rawId));
-        setMsg('Passkey 已启用，可使用“Passkey 登录”');
-      }catch(e){
-        setMsg('启用 Passkey 失败');
-      }finally{
-        btnPasskeyEnroll.disabled = false;
-      }
-    }
-
     async function loginByPasskey(){
       if(!(window.PublicKeyCredential && window.isSecureContext)){
         setMsg('当前环境不支持 Passkey（需要 HTTPS）');
         return;
       }
-      const rem = loadRemembered();
-      if(!rem){
-        setMsg('未找到已记住的账号密码，请先正常登录并勾选记住');
+      const uname = (document.getElementById('u').value || '').trim();
+      if(!uname){
+        setMsg('请先输入用户名');
         return;
       }
-      const pkId = localStorage.getItem(LS_PK) || '';
+      let pkId = '';
+      try{
+        const raw = localStorage.getItem(LS_PK);
+        const map = raw ? (JSON.parse(raw) || {}) : {};
+        pkId = map[uname] ? String(map[uname]) : '';
+      }catch(e){}
       if(!pkId){
-        setMsg('尚未启用 Passkey，请先点击“启用 Passkey”');
+        setMsg('该账号未开启 Passkey，请登录后到配置页开启');
+        return;
+      }
+      const rem = loadRememberedForUser(uname);
+      if(!rem){
+        setMsg('该账号未记住密码，请先勾选“记住账号和密码”登录一次');
         return;
       }
       try{
@@ -341,10 +314,10 @@
             userVerification: 'preferred'
           }
         });
-        document.getElementById('u').value = rem.u;
+        document.getElementById('u').value = uname;
         document.getElementById('p').value = rem.p;
         if(rememberEl) rememberEl.checked = true;
-        await doLogin(rem.u, rem.p);
+        await doLogin(uname, rem.p);
       }catch(e){
         setMsg('Passkey 验证失败或已取消');
       }finally{
@@ -359,7 +332,6 @@
       await doLogin(u, p);
     });
 
-    if(btnPasskeyEnroll) btnPasskeyEnroll.addEventListener('click', enrollPasskey);
     if(btnPasskeyLogin) btnPasskeyLogin.addEventListener('click', loginByPasskey);
 
     try{
@@ -367,18 +339,22 @@
       if(done && defaultHint) defaultHint.style.display = 'none';
     }catch(e){}
 
-    // Initial fill from remembered credentials.
-    try{
-      const rem = loadRemembered();
-      if(rem){
-        const uel = document.getElementById('u');
-        const pel = document.getElementById('p');
-        if(uel) uel.value = rem.u;
-        if(pel) pel.value = rem.p;
+    // Fill password when username matches remembered account.
+    const uel = document.getElementById('u');
+    const pel = document.getElementById('p');
+    function refillByUser(){
+      const uname = (uel && uel.value) ? uel.value.trim() : '';
+      if(!uname || !pel) return;
+      const rem = loadRememberedForUser(uname);
+      if(rem && rem.p){
+        pel.value = rem.p;
         if(rememberEl) rememberEl.checked = true;
       }
-    }catch(e){}
+    }
+    if(uel){
+      uel.addEventListener('change', refillByUser);
+      uel.addEventListener('blur', refillByUser);
+    }
   </script>
 </body>
 </html>
-
