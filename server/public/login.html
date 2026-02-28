@@ -105,6 +105,23 @@
       border:1px solid var(--stroke2);
       box-shadow:none;
     }
+    .foldWrap{margin-top:10px;display:grid;gap:8px}
+    .foldBtn{
+      justify-self:center;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted2);
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      transition:background .18s ease,border-color .18s ease,transform .06s ease;
+    }
+    .foldBtn:hover{background:rgba(255,255,255,.08);border-color:var(--stroke2)}
+    .foldBtn:active{transform:translateY(1px)}
+    .foldBody{display:none}
+    .foldBody.open{display:block}
     .chk{
       display:flex;
       align-items:center;
@@ -143,8 +160,13 @@
         <div class="btnRow">
           <button class="btn" id="btn" type="submit">登 录</button>
         </div>
-        <div class="btnRow2">
-          <button class="btn secondary" id="btnPasskeyLogin" type="button">Passkey 登录</button>
+        <div class="foldWrap">
+          <button class="foldBtn" id="pkFoldBtn" type="button" aria-expanded="false" aria-controls="pkFoldBody">Passkey 登录 ▸</button>
+          <div class="foldBody" id="pkFoldBody">
+            <div class="btnRow2">
+              <button class="btn secondary" id="btnPasskeyLogin" type="button">Passkey 登录</button>
+            </div>
+          </div>
         </div>
         <div class="mini" style="text-align:center">ui-2026.02.28-02</div>
         <div class="msg bad" id="msg" style="display:none"></div>
@@ -163,6 +185,8 @@
     const msg = document.getElementById('msg');
     const btn = document.getElementById('btn');
     const btnPasskeyLogin = document.getElementById('btnPasskeyLogin');
+    const pkFoldBtn = document.getElementById('pkFoldBtn');
+    const pkFoldBody = document.getElementById('pkFoldBody');
     const rememberEl = document.getElementById('remember');
     const defaultHint = document.getElementById('defaultHint');
     const LS_REM = 'fish_login_remember_map_v1';
@@ -170,6 +194,7 @@
     const LS_REM_LEGACY = 'fish_login_remember_v1';
     const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
     const LS_FIRST_LOGIN_DONE = 'fish_login_done_v1';
+    const LS_PK_FOLD_OPEN = 'fish_login_pk_fold_open_v1';
     let g_msgTimer = 0;
 
     // Show current host without hard-coding.
@@ -199,6 +224,15 @@
           }, ms);
         }
       }
+    }
+    function setPkFold(open){
+      const isOpen = !!open;
+      if(pkFoldBody) pkFoldBody.className = isOpen ? 'foldBody open' : 'foldBody';
+      if(pkFoldBtn){
+        pkFoldBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        pkFoldBtn.textContent = isOpen ? 'Passkey 登录 ▾' : 'Passkey 登录 ▸';
+      }
+      try{ localStorage.setItem(LS_PK_FOLD_OPEN, isOpen ? '1' : '0'); }catch(e){}
     }
 
     function b64uFromBuf(buf){
@@ -371,11 +405,23 @@
     });
 
     if(btnPasskeyLogin) btnPasskeyLogin.addEventListener('click', loginByPasskey);
+    if(pkFoldBtn){
+      pkFoldBtn.addEventListener('click', ()=>{
+        const isOpen = pkFoldBody && pkFoldBody.classList.contains('open');
+        setPkFold(!isOpen);
+      });
+    }
 
     try{
       const done = localStorage.getItem(LS_FIRST_LOGIN_DONE) === '1';
       if(done && defaultHint) defaultHint.style.display = 'none';
     }catch(e){}
+    try{
+      const v = localStorage.getItem(LS_PK_FOLD_OPEN);
+      setPkFold(v === '1');
+    }catch(e){
+      setPkFold(false);
+    }
 
     // Fill password when username matches remembered account.
     const uel = document.getElementById('u');

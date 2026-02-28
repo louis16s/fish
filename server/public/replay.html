@@ -100,6 +100,7 @@
     input[type="datetime-local"]{width:240px}
     input[type="number"]{width:140px;text-align:right}
     select{min-width:180px}
+    #speed{min-width:62px;width:62px;padding-left:8px;padding-right:8px}
 
     .card{
       border:1px solid var(--stroke);
@@ -123,6 +124,23 @@
 
     .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
     .controls label{display:grid;gap:6px}
+    .vizControls{justify-content:center;align-items:center}
+    .speedCtrl{flex:0 0 auto}
+    .scrubCtrl{flex:0 1 440px;min-width:240px}
+    .tsBox{
+      display:inline-grid;
+      place-items:center;
+      min-height:44px;
+      min-width:176px;
+      padding:0 12px;
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-btn);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-family:var(--mono);
+      font-size:12px;
+      text-align:center;
+    }
     .lbl{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
 
     table{width:100%;border-collapse:separate;border-spacing:0}
@@ -209,9 +227,9 @@
 
       <div class="sec" aria-label="水位可视化回放">
         <div class="sec-title">水位可视化</div>
-        <div class="controls" style="align-items:center">
+        <div class="controls vizControls">
           <button class="btn" id="btnPlay" onclick="togglePlay()">播放</button>
-          <label>
+          <label class="speedCtrl">
             <span class="lbl">速度</span>
             <select id="speed">
               <option value="1">1x</option>
@@ -220,11 +238,11 @@
               <option value="8">8x</option>
             </select>
           </label>
-          <label style="flex:1 1 360px;min-width:220px">
+          <label class="scrubCtrl">
             <span class="lbl">进度</span>
             <input id="scrub" type="range" min="0" max="0" step="1" value="0" oninput="scrubTo(this.value)">
           </label>
-          <span class="mini" id="curTs">--</span>
+          <span class="tsBox" id="curTs">--</span>
         </div>
 
         <div class="vizWrap">
@@ -274,6 +292,7 @@
     let g_playTimer = 0;
     let g_chartData = [];
     let g_chartRange = null;
+    let g_hoverIdx = -1;
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -552,12 +571,15 @@
         const d = g_chartData[highlightIdx];
         if(d){
           const x = mapX(d.ts);
-          ctx.strokeStyle = 'rgba(255,255,255,.24)';
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(245,158,11,.95)';
+          ctx.shadowColor = 'rgba(245,158,11,.45)';
+          ctx.shadowBlur = 14;
+          ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(x + 0.5, pad.t);
           ctx.lineTo(x + 0.5, pad.t + plotH);
           ctx.stroke();
+          ctx.shadowColor = 'transparent';
 
           const drawDot = (v, color)=>{
             if(v == null) return;
@@ -576,6 +598,35 @@
       }
 
       ctx.restore();
+    }
+
+    function nearestChartIndexByTs(ts){
+      if(!Array.isArray(g_chartData) || !g_chartData.length) return -1;
+      let best = 0;
+      let bestDiff = Math.abs((g_chartData[0].ts || 0) - ts);
+      for(let i=1;i<g_chartData.length;i++){
+        const diff = Math.abs((g_chartData[i].ts || 0) - ts);
+        if(diff < bestDiff){
+          best = i;
+          bestDiff = diff;
+        }
+      }
+      return best;
+    }
+
+    function chartPickIndexFromEvent(ev){
+      const canvas = $('chart');
+      const range = g_chartRange || {};
+      if(!canvas || !g_chartData.length || range.tMin == null || range.tMax == null) return -1;
+      const rect = canvas.getBoundingClientRect();
+      if(!rect || rect.width <= 0 || rect.height <= 0) return -1;
+      const pad = {l:72, r:18, t:16, b:44};
+      const plotW = Math.max(10, rect.width - pad.l - pad.r);
+      const x = (ev.clientX - rect.left);
+      const xClamped = clamp(x, pad.l, rect.width - pad.r);
+      const ratio = clamp((xClamped - pad.l) / plotW, 0, 1);
+      const ts = range.tMin + ((range.tMax - range.tMin) * ratio);
+      return nearestChartIndexByTs(ts);
     }
 
     function setTag(id, text, kind){
@@ -686,13 +737,15 @@
       }
       const idx = clamp(parseInt(i, 10) || 0, 0, n - 1);
       g_curIdx = idx;
+      if(g_hoverIdx >= n) g_hoverIdx = -1;
       const sc = $('scrub');
       if(sc){
         sc.max = String(Math.max(0, n - 1));
         sc.value = String(idx);
       }
       renderVizRow(g_last[idx], idx);
-      renderChart(idx);
+      const hi = (g_hoverIdx >= 0) ? g_hoverIdx : idx;
+      renderChart(hi);
       updateTableSel();
     }
     window.selectIdx = selectIdx;
@@ -724,6 +777,7 @@
         const j = await apiJson(url);
         const rows = (j && Array.isArray(j.rows)) ? j.rows : [];
         g_last = rows;
+        g_hoverIdx = -1;
         prepareChartData(rows);
         const tb = $('tbody');
         if(tb){
@@ -831,6 +885,26 @@
       prepareChartData([]);
       renderChart(null);
       renderVizRow(null, 0);
+      const ch = $('chart');
+      if(ch){
+        ch.addEventListener('mousemove', (ev)=>{
+          const idx = chartPickIndexFromEvent(ev);
+          if(idx < 0 || idx >= g_last.length) return;
+          g_hoverIdx = idx;
+          renderVizRow(g_last[idx], idx);
+          renderChart(idx);
+        });
+        ch.addEventListener('mouseleave', ()=>{
+          g_hoverIdx = -1;
+          if(!g_last.length){
+            renderVizRow(null, 0);
+            renderChart(null);
+            return;
+          }
+          renderVizRow(g_last[g_curIdx], g_curIdx);
+          renderChart(g_curIdx);
+        });
+      }
       const sp = $('speed');
       if(sp){
         sp.addEventListener('change', ()=>{
@@ -840,7 +914,7 @@
           }
         });
       }
-      window.addEventListener('resize', ()=>renderChart(g_curIdx));
+      window.addEventListener('resize', ()=>renderChart(g_hoverIdx >= 0 ? g_hoverIdx : g_curIdx));
       loadDevices().then(()=>{
         const now = new Date();
         const from = new Date(now.getTime() - 60*60*1000);

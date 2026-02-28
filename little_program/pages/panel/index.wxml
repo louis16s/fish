@@ -1,44 +1,63 @@
-<view class="container">
-  <view class="card">
+<view class="container panel-page">
+  <view class="card hero-card {{pageStatusClass}}">
     <view class="row head-row">
       <view class="head-left">
         <view class="title">水闸控制面板</view>
         <view class="sub">{{userText}}</view>
       </view>
-      <view class="head-right">
-        <view class="mqtt-col">
-          <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
-          <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
-        </view>
-        <button class="btn btn-danger head-logout" size="mini" bindtap="logout">退出</button>
-      </view>
+      <button class="btn btn-danger head-logout" size="mini" bindtap="logout">退出</button>
+    </view>
+
+    <view class="hero-tags">
+      <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
+      <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
+      <text class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
+      <text class="tag {{deltaTagClass}}">Δ {{deltaText}}</text>
     </view>
 
     <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
-      <view class="picker">当前设备：{{currentDeviceLabel}}</view>
+      <view class="picker">设备：{{currentDeviceLabel}}</view>
     </picker>
 
-    <view class="nav-grid">
-      <button class="btn nav-btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
-      <button class="btn nav-btn" size="mini" bindtap="goReplay">回放</button>
-      <button class="btn nav-btn" size="mini" bindtap="goAdmin">管理</button>
-      <button class="btn nav-btn" size="mini" bindtap="refreshAll">刷新</button>
+    <view class="quick-grid">
+      <button class="btn quick-btn" size="mini" bindtap="goDeviceConfig">设备配置</button>
+      <button class="btn quick-btn" size="mini" bindtap="goReplay">历史回放</button>
+      <button class="btn quick-btn" size="mini" bindtap="goAdmin">系统管理</button>
+      <button class="btn quick-btn" size="mini" bindtap="refreshAll">刷新数据</button>
     </view>
 
-    <view class="row tags">
-      <text class="tag">最近上报 {{lastTelemetryAt}}</text>
+    <view class="hero-foot">
+      <text class="hero-status">{{statusHintText}}</text>
+      <text class="hero-time">最近上报 {{lastTelemetryAt}}</text>
     </view>
   </view>
 
   <view class="card">
-    <view class="title2">实时状态</view>
+    <view class="section-head">
+      <view class="title2">实时状态</view>
+    </view>
+
+    <view class="gate-focus">
+      <view class="gate-title-row">
+        <view class="gate-title">闸门状态</view>
+        <view class="gate-main">{{gateText}}</view>
+      </view>
+      <view class="gate-progress">
+        <view class="gate-progress-fill" style="width: {{gateProgress}}%;"></view>
+      </view>
+      <view class="gate-info-row">
+        <text>自动：{{autoText}}</text>
+        <text>告警：{{alarmText}}</text>
+      </view>
+    </view>
+
     <view class="metric-grid">
       <view class="metric-item">
-        <view class="metric-k">内塘</view>
+        <view class="metric-k">内塘水位</view>
         <view class="metric-v">{{innerText}}</view>
       </view>
       <view class="metric-item">
-        <view class="metric-k">外塘</view>
+        <view class="metric-k">外塘水位</view>
         <view class="metric-v">{{outerText}}</view>
       </view>
       <view class="metric-item">
@@ -46,44 +65,46 @@
         <view class="metric-v">{{deltaText}}</view>
       </view>
       <view class="metric-item">
-        <view class="metric-k">闸门</view>
-        <view class="metric-v">{{gateText}}</view>
-      </view>
-      <view class="metric-item">
-        <view class="metric-k">自动</view>
-        <view class="metric-v">{{autoText}}</view>
-      </view>
-      <view class="metric-item">
-        <view class="metric-k">告警</view>
-        <view class="metric-v">{{alarmText}}</view>
+        <view class="metric-k">固件版本</view>
+        <view class="metric-v">{{fwVersion}}</view>
       </view>
     </view>
   </view>
 
   <view class="card">
-    <view class="title2">示意图</view>
+    <view class="title2">运行示意图</view>
     <canvas type="2d" id="schematicCanvas" class="schematic-canvas"></canvas>
     <view class="row schematic-legend">
       <text class="tag">内塘 {{innerText}}</text>
       <text class="tag">外塘 {{outerText}}</text>
-      <text class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
-      <text class="tag {{deltaTagClass}}">Δ {{deltaText}}</text>
     </view>
     <view wx:if="{{schematicMsg}}" class="muted">{{schematicMsg}}</view>
   </view>
 
-  <view class="card">
-    <view class="title2">控制</view>
-    <view class="ctl-grid">
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateOpen">开闸</button>
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateClose">关闸</button>
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdGateStop">停止</button>
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOn">自动开</button>
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoOff">自动关</button>
-      <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdAutoLatchOff">解除锁定</button>
-      <button class="btn ctl-btn ctl-span2" loading="{{cmdLoading}}" disabled="{{cmdLoading}}" bindtap="cmdManualEnd">结束手动</button>
+  <view class="card control-card">
+    <view class="title2">阀门控制</view>
+    <view class="control-hint">离线或 MQTT 断开时将自动禁用控制按钮</view>
+
+    <view class="control-block">
+      <view class="control-title">手动闸门</view>
+      <view class="ctl-grid manual-grid">
+        <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateOpen">开闸</button>
+        <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateStop">停止</button>
+        <button class="btn ctl-btn ctl-close" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateClose">关闸</button>
+      </view>
     </view>
-    <view wx:if="{{cmdMsg}}" class="muted">{{cmdMsg}}</view>
+
+    <view class="control-block">
+      <view class="control-title">自动控制</view>
+      <view class="ctl-grid">
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOn">自动开</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoOff">自动关</button>
+        <button class="btn ctl-btn" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoLatchOff">解除锁定</button>
+      </view>
+    </view>
+
+    <button class="btn ctl-wide" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdManualEnd">结束手动模式</button>
+    <view wx:if="{{cmdMsg}}" class="muted cmd-msg">{{cmdMsg}}</view>
   </view>
 
   <view class="card">
@@ -91,11 +112,13 @@
       <view class="title2">规则摘要</view>
       <button class="btn rule-refresh-btn" size="mini" bindtap="loadConfigSummary">刷新</button>
     </view>
-    <view class="kv">模式：{{cfgSummary.mode}}</view>
-    <view class="kv">时区：{{cfgSummary.tz}}</view>
-    <view class="kv">定时启用：{{cfgSummary.daily}}</view>
-    <view class="kv">循环启用：{{cfgSummary.cycle}}</view>
-    <view class="kv">水位差启用：{{cfgSummary.leveldiff}}</view>
+    <view class="summary-grid">
+      <view class="summary-item"><text class="summary-k">模式</text><text class="summary-v">{{cfgSummary.mode}}</text></view>
+      <view class="summary-item"><text class="summary-k">时区</text><text class="summary-v">{{cfgSummary.tz}}</text></view>
+      <view class="summary-item"><text class="summary-k">定时启用</text><text class="summary-v">{{cfgSummary.daily}}</text></view>
+      <view class="summary-item"><text class="summary-k">循环启用</text><text class="summary-v">{{cfgSummary.cycle}}</text></view>
+      <view class="summary-item"><text class="summary-k">水位差启用</text><text class="summary-v">{{cfgSummary.leveldiff}}</text></view>
+    </view>
     <view wx:if="{{cfgSummary.msg}}" class="muted">{{cfgSummary.msg}}</view>
   </view>
 

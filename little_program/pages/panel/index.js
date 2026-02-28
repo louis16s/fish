@@ -60,7 +60,11 @@ Page({
     innerMm: null,
     outerMm: null,
     deltaMm: null,
-    gateStateNum: 0
+    gateStateNum: 0,
+    gateProgress: 0,
+    pageStatusClass: 'is-warn',
+    statusHintText: '等待设备状态...',
+    canOperate: false
   },
 
   onReady() {
@@ -163,6 +167,11 @@ Page({
       const now = Date.now();
       const ageMs = lastAt > 0 ? Math.max(0, now - Number(lastAt || 0)) : 9e9;
       const deviceOnline = ageMs <= 15000;
+      const gateProgress = gateStateNum === 1 ? 100 : (gateStateNum === 2 ? 0 : 50);
+      const canOperate = !!(mqttConnected && deviceOnline);
+      const statusHintText = !mqttConnected
+        ? '服务器 MQTT 未连接，暂不可控'
+        : (deviceOnline ? '设备在线，可执行控制命令' : '设备离线，控制命令可能超时');
 
       this.setData({
         mqttText: mqttConnected ? '已连接' : '未连接',
@@ -184,7 +193,11 @@ Page({
         innerMm: inner,
         outerMm: outer,
         deltaMm: delta,
-        gateStateNum
+        gateStateNum,
+        gateProgress,
+        canOperate,
+        statusHintText,
+        pageStatusClass: canOperate ? 'is-good' : 'is-warn'
       });
       this.drawSchematic();
     } catch (e) {
@@ -194,7 +207,11 @@ Page({
         serverMqttText: '服务器 状态未知',
         serverMqttTagClass: 'tag-bad',
         deviceOnlineText: '状态 未知',
-        deviceOnlineTagClass: 'tag-bad'
+        deviceOnlineTagClass: 'tag-bad',
+        gateProgress: 0,
+        canOperate: false,
+        statusHintText: '状态获取失败，请检查网络后重试',
+        pageStatusClass: 'is-warn'
       });
     }
   },
