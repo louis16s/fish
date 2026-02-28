@@ -167,9 +167,9 @@ Page({
       this.setData({
         mqttText: mqttConnected ? '已连接' : '未连接',
         mqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
-        serverMqttText: mqttConnected ? '服务器 MQTT 已连接' : '服务器 MQTT 未连接',
+        serverMqttText: mqttConnected ? '服务器 已连接' : '服务器 未连接',
         serverMqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
-        deviceOnlineText: deviceOnline ? '设备在线' : '设备离线',
+        deviceOnlineText: deviceOnline ? '状态 在线' : '状态 离线',
         deviceOnlineTagClass: deviceOnline ? 'tag-good' : 'tag-bad',
         lastTelemetryAt: fmt.fmtDateTime(lastAt || 0),
         fwVersion: fw || '--',
@@ -191,9 +191,9 @@ Page({
       this.setData({
         mqttText: '异常',
         mqttTagClass: 'tag-bad',
-        serverMqttText: '服务器 MQTT 状态未知',
+        serverMqttText: '服务器 状态未知',
         serverMqttTagClass: 'tag-bad',
-        deviceOnlineText: '设备状态未知',
+        deviceOnlineText: '状态 未知',
         deviceOnlineTagClass: 'tag-bad'
       });
     }

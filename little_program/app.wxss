@@ -1,12 +1,14 @@
 page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #060812, #0b1730);
-  background-color: #060812;
+  background: #0a1736;
+  background-color: #0a1736;
   color: #e7eefc;
   font-size: 28rpx;
 }
 
 .container {
+  background: #0a1736;
+  background-color: #0a1736;
   padding: 24rpx;
   padding-bottom: 48rpx;
   min-height: 100vh;

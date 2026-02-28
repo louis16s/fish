@@ -93,6 +93,12 @@
   border-color: rgba(255,255,255,.22);
   font-weight: 700;
 }
+.ctl-btn[disabled] {
+  opacity: .68;
+  color: rgba(231,238,252,.72) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05)) !important;
+  border-color: rgba(255,255,255,.22) !important;
+}
 .ctl-span2 {
   grid-column: 1 / -1;
 }
