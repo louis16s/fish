@@ -61,6 +61,8 @@
     }
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .mini{font-size:12px;color:var(--muted2);font-weight:900}
+    #who{font-family:var(--mono);font-size:11px;white-space:nowrap;text-align:right}
+    .whoRow{margin-left:auto;justify-content:flex-end}
     .topRight{margin-left:auto}
     .btn{
       appearance:none;
@@ -133,6 +135,12 @@
     th,td{font-size:12px;text-align:left;padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
     th{color:var(--muted2);font-weight:950}
     td{color:var(--text);font-family:var(--mono)}
+    .userTable{table-layout:fixed}
+    .userTable th,.userTable td{font-family:var(--mono);font-size:12px;vertical-align:middle}
+    .userTable th:nth-child(1), .userTable td:nth-child(1){width:46px}
+    .userTable th:nth-child(2), .userTable td:nth-child(2){width:120px}
+    .userTable th:nth-child(3), .userTable td:nth-child(3){width:90px}
+    .userTable th:nth-child(4), .userTable td:nth-child(4){width:90px}
     .tag{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.04);font-size:12px;font-weight:950;font-family:var(--mono)}
     .tag.good{border-color:rgba(34,197,94,.25);color:#b7f7cc;background:rgba(34,197,94,.08)}
     .tag.bad{border-color:rgba(251,113,133,.28);color:#ffc1ce;background:rgba(251,113,133,.08)}
@@ -148,7 +156,7 @@
         <a class="btn" href="/rules">规则</a>
         <a class="btn" href="/replay">回放</a>
       </div>
-      <div class="row">
+      <div class="row whoRow">
         <span class="mini" id="who">--</span>
       </div>
       <div class="row topRight">
@@ -194,7 +202,7 @@
           </div>
           <div class="hint bad" id="userMsg" style="display:none"></div>
           <div style="margin-top:10px;overflow:auto">
-            <table>
+            <table class="userTable">
               <thead>
                 <tr>
                   <th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>操作</th>

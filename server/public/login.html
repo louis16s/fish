@@ -149,7 +149,7 @@
           <button class="btn secondary" id="btnPasskeyLogin" type="button">Passkey 登录</button>
         </div>
         <div class="msg bad" id="msg" style="display:none"></div>
-        <div class="msg">
+        <div class="msg" id="defaultHint">
           首次部署默认账号：<br>
           <span style="font-family:var(--mono); color: var(--text);">admin / (环境变量)</span>
         </div>
@@ -166,8 +166,11 @@
     const btnPasskeyEnroll = document.getElementById('btnPasskeyEnroll');
     const btnPasskeyLogin = document.getElementById('btnPasskeyLogin');
     const rememberEl = document.getElementById('remember');
+    const defaultHint = document.getElementById('defaultHint');
     const LS_REM = 'fish_login_remember_v1';
     const LS_PK = 'fish_login_passkey_id_v1';
+    const LS_FIRST_LOGIN_DONE = 'fish_login_done_v1';
+    let g_msgTimer = 0;
 
     // Show current host without hard-coding.
     try{
@@ -175,10 +178,27 @@
       if(hl) hl.textContent = location.host || hl.textContent;
     }catch(e){}
 
-    function setMsg(text){
+    function setMsg(text, timeoutMs){
+      if(g_msgTimer){
+        clearTimeout(g_msgTimer);
+        g_msgTimer = 0;
+      }
       if(msg){ msg.style.display='none'; msg.textContent=''; }
       const t = (text || '').trim();
-      if(t && msg){ msg.textContent = t; msg.style.display=''; }
+      if(t && msg){
+        msg.textContent = t;
+        msg.style.display='';
+        const ms = Number.isFinite(timeoutMs) ? Math.max(0, timeoutMs | 0) : 5000;
+        if(ms > 0){
+          g_msgTimer = setTimeout(()=>{
+            if(msg){
+              msg.style.display='none';
+              msg.textContent='';
+            }
+            g_msgTimer = 0;
+          }, ms);
+        }
+      }
     }
 
     function b64uFromBuf(buf){
@@ -238,6 +258,7 @@
         }
         if(rememberEl && rememberEl.checked) saveRemembered(u, p);
         else clearRemembered();
+        try{ localStorage.setItem(LS_FIRST_LOGIN_DONE, '1'); }catch(e){}
         location.href = nextUrl;
       }catch(e2){
         setMsg('登录失败：网络错误');
@@ -340,6 +361,11 @@
 
     if(btnPasskeyEnroll) btnPasskeyEnroll.addEventListener('click', enrollPasskey);
     if(btnPasskeyLogin) btnPasskeyLogin.addEventListener('click', loginByPasskey);
+
+    try{
+      const done = localStorage.getItem(LS_FIRST_LOGIN_DONE) === '1';
+      if(done && defaultHint) defaultHint.style.display = 'none';
+    }catch(e){}
 
     // Initial fill from remembered credentials.
     try{

@@ -1,3 +1,9 @@
 {
-  "desc": "Fish gate mini program"
+  "desc": "Fish gate mini program",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
 }
