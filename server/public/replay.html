@@ -100,7 +100,7 @@
     input[type="datetime-local"]{width:240px}
     input[type="number"]{width:140px;text-align:right}
     select{min-width:180px}
-    #speed{min-width:62px;width:62px;padding-left:8px;padding-right:8px}
+    #speed{min-width:62px;width:62px;min-height:48px;padding-left:8px;padding-right:8px}
 
     .card{
       border:1px solid var(--stroke);
@@ -126,11 +126,13 @@
     .controls label{display:grid;gap:6px}
     .vizControls{justify-content:center;align-items:center}
     .speedCtrl{flex:0 0 auto}
-    .scrubCtrl{flex:0 1 440px;min-width:240px}
+    .scrubCtrl{flex:0 1 560px;min-width:300px}
+    .controls label.inlineCtl{display:flex;align-items:center;gap:8px}
+    .inlineLbl{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
     .tsBox{
       display:inline-grid;
       place-items:center;
-      min-height:44px;
+      min-height:48px;
       min-width:176px;
       padding:0 12px;
       border:1px solid var(--stroke);
@@ -229,8 +231,8 @@
         <div class="sec-title">水位可视化</div>
         <div class="controls vizControls">
           <button class="btn" id="btnPlay" onclick="togglePlay()">播放</button>
-          <label class="speedCtrl">
-            <span class="lbl">速度</span>
+          <label class="speedCtrl inlineCtl">
+            <span class="inlineLbl">速度</span>
             <select id="speed">
               <option value="1">1x</option>
               <option value="2">2x</option>
@@ -238,9 +240,9 @@
               <option value="8">8x</option>
             </select>
           </label>
-          <label class="scrubCtrl">
-            <span class="lbl">进度</span>
-            <input id="scrub" type="range" min="0" max="0" step="1" value="0" oninput="scrubTo(this.value)">
+          <label class="scrubCtrl inlineCtl">
+            <span class="inlineLbl">进度</span>
+            <input id="scrub" type="range" min="0" max="100" step="1" value="0" oninput="scrubTo(this.value)" style="flex:1 1 auto">
           </label>
           <span class="tsBox" id="curTs">--</span>
         </div>
@@ -430,6 +432,7 @@
           ts: new Date(r.ts).getTime(),
           inner: (s1 && s1.valid) ? (s1.mm|0) : null,
           outer: (s2 && s2.valid) ? (s2.mm|0) : null,
+          gateOpen: (t.gate_state === 1) ? 1 : ((t.gate_state === 2) ? 0 : (t.gate_position_open ? 1 : 0)),
         };
       });
       g_chartData = data;
@@ -549,11 +552,31 @@
 
       drawSeries((d)=>d.outer, '#38bdf8', 'rgba(56,189,248,.30)');
       drawSeries((d)=>d.inner, '#4ade80', 'rgba(74,222,128,.30)');
+      // Gate state overlay (top band step-like line)
+      ctx.beginPath();
+      let gateStarted = false;
+      g_chartData.forEach((d)=>{
+        const x = mapX(d.ts);
+        const y = d.gateOpen ? (pad.t + 30) : (pad.t + 44);
+        if(!gateStarted){
+          ctx.moveTo(x, y);
+          gateStarted = true;
+        }else{
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.shadowColor = 'rgba(245,158,11,.35)';
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.shadowColor = 'transparent';
 
       // Legend
       const legend = [
         {label:'外塘', color:'#38bdf8'},
         {label:'内塘', color:'#4ade80'},
+        {label:'闸门', color:'#f59e0b'},
       ];
       legend.forEach((l, i)=>{
         const y = pad.t + 6 + i * 20;
@@ -740,8 +763,9 @@
       if(g_hoverIdx >= n) g_hoverIdx = -1;
       const sc = $('scrub');
       if(sc){
-        sc.max = String(Math.max(0, n - 1));
-        sc.value = String(idx);
+        const pct = Math.round((idx / Math.max(1, n - 1)) * 100);
+        sc.max = '100';
+        sc.value = String(clamp(pct, 0, 100));
       }
       renderVizRow(g_last[idx], idx);
       const hi = (g_hoverIdx >= 0) ? g_hoverIdx : idx;
@@ -751,7 +775,14 @@
     window.selectIdx = selectIdx;
 
     function scrubTo(v){
-      selectIdx(v);
+      const n = g_last.length || 0;
+      if(!n){
+        selectIdx(0);
+        return;
+      }
+      const pct = clamp(parseInt(v, 10) || 0, 0, 100);
+      const idx = Math.round((pct / 100) * Math.max(0, n - 1));
+      selectIdx(idx);
     }
     window.scrubTo = scrubTo;
 
@@ -810,10 +841,10 @@
         // Reset scrub + visualization.
         const sc = $('scrub');
         if(sc){
-          sc.max = String(Math.max(0, rows.length - 1));
-          sc.value = String(Math.max(0, rows.length - 1));
+          sc.max = '100';
+          sc.value = '0';
         }
-        selectIdx(Math.max(0, rows.length - 1), {keepPlaying:false});
+        selectIdx(0, {keepPlaying:false});
       }catch(e){
         showMsg('查询失败：' + e.message);
       }finally{
