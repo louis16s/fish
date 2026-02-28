@@ -260,6 +260,9 @@
     const $ = (id)=>document.getElementById(id);
     const LS_REM = 'fish_login_remember_map_v1';
     const LS_PK = 'fish_login_passkey_map_v1';
+    const LS_REM_LEGACY = 'fish_login_remember_v1';
+    const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
+    let g_currentUser = '';
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -272,6 +275,50 @@
       if(!t){ el.style.display='none'; el.textContent=''; return; }
       el.style.display='';
       el.textContent=t;
+    }
+    function esc(v){
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function loadMap(key){
+      try{
+        const raw = localStorage.getItem(key);
+        if(!raw) return {};
+        const v = JSON.parse(raw);
+        return (v && typeof v === 'object') ? v : {};
+      }catch(e){ return {}; }
+    }
+    function saveMap(key, map){
+      try{ localStorage.setItem(key, JSON.stringify(map || {})); }catch(e){}
+    }
+    function migrateLegacyPasskeyAndRemember(username){
+      const uname = String(username || '').trim();
+      if(!uname) return;
+      try{
+        const oldRaw = localStorage.getItem(LS_REM_LEGACY);
+        if(oldRaw){
+          const old = JSON.parse(oldRaw);
+          if(old && old.u && old.p){
+            const map = loadMap(LS_REM);
+            if(!map[old.u]) map[old.u] = { p: String(old.p), ts: old.ts || Date.now() };
+            saveMap(LS_REM, map);
+          }
+          localStorage.removeItem(LS_REM_LEGACY);
+        }
+      }catch(e){}
+      try{
+        const oldPk = localStorage.getItem(LS_PK_LEGACY);
+        if(oldPk){
+          const map = loadMap(LS_PK);
+          if(!map[uname]) map[uname] = String(oldPk);
+          saveMap(LS_PK, map);
+          localStorage.removeItem(LS_PK_LEGACY);
+        }
+      }catch(e){}
     }
 
     function b64uFromBuf(buf){
@@ -288,25 +335,15 @@
     function updatePasskeyStatus(){
       const st = $('pkStatus');
       if(!st) return;
-      const who = $('who');
-      const m = /用户\s+([^\s|]+)/.exec((who && who.textContent) ? who.textContent : '');
-      const uname = m && m[1] ? String(m[1]) : '';
+      const uname = g_currentUser;
       if(!uname){
         st.textContent = '状态：未登录';
         return;
       }
-      let hasPk = false;
-      let hasRem = false;
-      try{
-        const pkRaw = localStorage.getItem(LS_PK);
-        const pkMap = pkRaw ? (JSON.parse(pkRaw) || {}) : {};
-        hasPk = !!pkMap[uname];
-      }catch(e){}
-      try{
-        const remRaw = localStorage.getItem(LS_REM);
-        const remMap = remRaw ? (JSON.parse(remRaw) || {}) : {};
-        hasRem = !!(remMap[uname] && remMap[uname].p);
-      }catch(e){}
+      const pkMap = loadMap(LS_PK);
+      const remMap = loadMap(LS_REM);
+      const hasPk = !!pkMap[uname];
+      const hasRem = !!(remMap[uname] && remMap[uname].p);
       if(hasPk && hasRem) st.textContent = '状态：已开启（账号已绑定）';
       else if(hasPk) st.textContent = '状态：已开启（账号已绑定；未记住密码）';
       else st.textContent = '状态：未开启（当前账号）';
@@ -318,8 +355,11 @@
         return;
       }
       try{
-        const me = await apiJson('/api/auth/me');
-        const uname = (me && me.user && me.user.username) ? String(me.user.username) : 'user';
+        const uname = g_currentUser;
+        if(!uname){
+          if(st) st.textContent = '开启失败：未登录';
+          return;
+        }
         const cred = await navigator.credentials.create({
           publicKey: {
             challenge: randBuf(32),
@@ -332,10 +372,9 @@
           }
         });
         if(!cred || !cred.rawId) throw new Error('create_failed');
-        const raw = localStorage.getItem(LS_PK);
-        const map = raw ? (JSON.parse(raw) || {}) : {};
+        const map = loadMap(LS_PK);
         map[uname] = b64uFromBuf(cred.rawId);
-        localStorage.setItem(LS_PK, JSON.stringify(map));
+        saveMap(LS_PK, map);
         if(st) st.textContent = '已开启 Passkey';
       }catch(e){
         if(st) st.textContent = '开启失败：已取消或浏览器不支持';
@@ -345,16 +384,14 @@
     async function disablePasskey(){
       const st = $('pkStatus');
       try{
-        const me = await apiJson('/api/auth/me');
-        const uname = (me && me.user && me.user.username) ? String(me.user.username) : '';
+        const uname = g_currentUser;
         if(!uname){
           if(st) st.textContent = '关闭失败：未登录';
           return;
         }
-        const raw = localStorage.getItem(LS_PK);
-        const map = raw ? (JSON.parse(raw) || {}) : {};
+        const map = loadMap(LS_PK);
         delete map[uname];
-        localStorage.setItem(LS_PK, JSON.stringify(map));
+        saveMap(LS_PK, map);
         if(st) st.textContent = '已关闭 Passkey（当前账号）';
       }catch(e){
         if(st) st.textContent = '关闭失败';
@@ -375,7 +412,11 @@
     async function loadMe(){
       try{
         const j = await apiJson('/api/auth/me');
-        $('who').textContent = j && j.user ? ('用户 ' + j.user.username + ' | ' + j.user.role) : '--';
+        const u = j && j.user ? j.user : null;
+        g_currentUser = u && u.username ? String(u.username) : '';
+        $('who').textContent = u ? ('用户 ' + u.username + ' | ' + u.role) : '--';
+        migrateLegacyPasskeyAndRemember(g_currentUser);
+        updatePasskeyStatus();
       }catch(e){
         location.href = '/login';
       }
@@ -454,8 +495,8 @@
           const dis = !!u.disabled;
           const btnDis = dis ? '启用' : '禁用';
           return '<tr>' +
-            '<td>' + u.id + '</td>' +
-            '<td>' + (u.username||'') + '</td>' +
+            '<td>' + esc(u.id) + '</td>' +
+            '<td>' + esc(u.username||'') + '</td>' +
             '<td>' + roleTag(u.role) + '</td>' +
             '<td>' + statusTag(dis) + '</td>' +
             '<td style="font-family:var(--font)">' +
@@ -548,7 +589,7 @@
           return;
         }
         body.innerHTML = list.map(d=>{
-          return '<tr><td>' + (d.device_id||'') + '</td><td>' + fmtTs(d.last_seen_at) + '</td></tr>';
+          return '<tr><td>' + esc(d.device_id||'') + '</td><td>' + esc(fmtTs(d.last_seen_at)) + '</td></tr>';
         }).join('');
       }catch(e){
         if(body) body.innerHTML = '<tr><td colspan="2">加载失败</td></tr>';
@@ -561,7 +602,6 @@
       loadRetention();
       loadUsers();
       loadDevices();
-      updatePasskeyStatus();
       setInterval(loadStatus, 5000);
       setInterval(loadDevices, 15000);
     })();

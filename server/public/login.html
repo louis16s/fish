@@ -167,6 +167,8 @@
     const defaultHint = document.getElementById('defaultHint');
     const LS_REM = 'fish_login_remember_map_v1';
     const LS_PK = 'fish_login_passkey_map_v1';
+    const LS_REM_LEGACY = 'fish_login_remember_v1';
+    const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
     const LS_FIRST_LOGIN_DONE = 'fish_login_done_v1';
     let g_msgTimer = 0;
 
@@ -250,6 +252,42 @@
         localStorage.setItem(LS_REM, JSON.stringify(j));
       }catch(e){}
     }
+    function loadMap(key){
+      try{
+        const raw = localStorage.getItem(key);
+        if(!raw) return {};
+        const j = JSON.parse(raw);
+        return (j && typeof j === 'object') ? j : {};
+      }catch(e){ return {}; }
+    }
+    function saveMap(key, map){
+      try{ localStorage.setItem(key, JSON.stringify(map || {})); }catch(e){}
+    }
+    function migrateLegacyForUser(uname){
+      const u = String(uname || '').trim();
+      if(!u) return;
+      try{
+        const oldRaw = localStorage.getItem(LS_REM_LEGACY);
+        if(oldRaw){
+          const old = JSON.parse(oldRaw);
+          if(old && old.u && old.p){
+            const map = loadMap(LS_REM);
+            if(!map[old.u]) map[old.u] = { p: String(old.p), ts: old.ts || Date.now() };
+            saveMap(LS_REM, map);
+          }
+          localStorage.removeItem(LS_REM_LEGACY);
+        }
+      }catch(e){}
+      try{
+        const oldPk = localStorage.getItem(LS_PK_LEGACY);
+        if(oldPk){
+          const map = loadMap(LS_PK);
+          if(!map[u]) map[u] = String(oldPk);
+          saveMap(LS_PK, map);
+          localStorage.removeItem(LS_PK_LEGACY);
+        }
+      }catch(e){}
+    }
 
     async function doLogin(u, p){
       setMsg('');
@@ -289,10 +327,10 @@
         setMsg('请先输入用户名');
         return;
       }
+      migrateLegacyForUser(uname);
       let pkId = '';
       try{
-        const raw = localStorage.getItem(LS_PK);
-        const map = raw ? (JSON.parse(raw) || {}) : {};
+        const map = loadMap(LS_PK);
         pkId = map[uname] ? String(map[uname]) : '';
       }catch(e){}
       if(!pkId){
@@ -352,6 +390,10 @@
       }
     }
     if(uel){
+      uel.addEventListener('input', ()=>{
+        const uname = (uel.value || '').trim();
+        if(uname) migrateLegacyForUser(uname);
+      });
       uel.addEventListener('change', refillByUser);
       uel.addEventListener('blur', refillByUser);
     }

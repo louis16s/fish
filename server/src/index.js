@@ -282,7 +282,7 @@ async function main() {
   }
 
   // Quick diagnostics endpoint for troubleshooting (no secrets).
-  app.get('/get', async (req, res) => {
+  app.get('/get', requireAuthApi, async (req, res) => {
     const deviceId = pickDeviceId(req);
     const now = Date.now();
     const DEVICE_ONLINE_TIMEOUT_MS = 15_000;
