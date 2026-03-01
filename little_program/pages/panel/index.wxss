@@ -56,9 +56,10 @@
 }
 
 .device-row {
-  margin-top: 16rpx;
+  margin-top: 14rpx;
   align-items: center;
   flex-wrap: nowrap;
+  gap: 8rpx;
 }
 
 .device-row .picker {
@@ -74,11 +75,11 @@
 }
 
 .device-status {
-  margin-left: 10rpx;
+  margin-left: 0;
   flex: 0 0 auto;
   max-width: none;
-  font-size: 20rpx;
-  padding: 4rpx 12rpx;
+  font-size: 19rpx;
+  padding: 4rpx 10rpx;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,6 +186,31 @@
   line-height: 1.2;
 }
 
+.metric-gate-wrap {
+  margin-top: 8rpx;
+}
+
+.metric-gate-wide {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(2, 6, 23, 0.28);
+  border-radius: 14rpx;
+  padding: 10rpx 14rpx 12rpx;
+  margin-top: 12rpx;
+}
+
+.metric-gate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20rpx;
+  color: rgba(165, 180, 207, 0.9);
+}
+
+.metric-gate-progress {
+  margin-top: 6rpx;
+  height: 10rpx;
+}
+
 .metric-time {
   font-size: 22rpx;
   font-weight: 600;
@@ -226,6 +252,10 @@
   font-weight: 700;
   color: #c7d2fe;
   margin-bottom: 10rpx;
+}
+
+.manual-title {
+  font-size: 30rpx;
 }
 
 .ctl-grid {
@@ -370,12 +400,52 @@
   font-weight: 700;
 }
 
+.summary-group {
+  margin-top: 12rpx;
+}
+
+.summary-group-title {
+  margin: 4rpx 2rpx 8rpx;
+  color: rgba(165, 180, 207, 0.96);
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.summary-detail-item {
+  align-items: flex-start;
+  gap: 14rpx;
+}
+
+.summary-detail-v {
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.summary-item-on {
+  border-color: rgba(34, 211, 238, 0.32);
+  background: rgba(34, 211, 238, 0.08);
+}
+
 .log-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8rpx;
   flex-wrap: nowrap;
+}
+
+.log-head {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.log-head .title2 {
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .log-actions .btn {
@@ -419,5 +489,11 @@
     margin-left: 0;
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+
+  .log-head .log-actions {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
   }
 }

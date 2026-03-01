@@ -14,13 +14,144 @@ function withDev(path) {
   return `${path}${q}`;
 }
 
-function countEnabled(arr) {
-  if (!Array.isArray(arr)) return 0;
-  return arr.filter((x) => x && x.en).length;
-}
-
 function clamp(n, a, b) {
   return Math.min(b, Math.max(a, n));
+}
+
+function num(v, defVal) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : defVal;
+}
+
+function modeLabel(mode) {
+  if (mode === 'daily') return '仅定时';
+  if (mode === 'cycle') return '仅循环';
+  if (mode === 'leveldiff') return '仅水位差';
+  return '混合(推荐)';
+}
+
+function tzLabelFromHours(tzH) {
+  const h = Number.isFinite(Number(tzH)) ? Number(tzH) : 8;
+  return `UTC${h >= 0 ? '+' : ''}${h}`;
+}
+
+function msToHHMMMaybe(v) {
+  const ms = num(v, null);
+  if (ms == null) return '--';
+  const day = 24 * 3600000;
+  const n = ((ms % day) + day) % day;
+  const h = Math.floor(n / 3600000);
+  const m = Math.floor((n % 3600000) / 60000);
+  return `${fmt.pad2(h)}:${fmt.pad2(m)}`;
+}
+
+function durHM(v) {
+  const totalMin = Math.round(Math.max(0, num(v, 0)) / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h${fmt.pad2(m)}m`;
+}
+
+function dowMaskText(mask) {
+  const m = (Number.isFinite(Number(mask)) ? Number(mask) : 127) & 127;
+  if (m === 127) return '';
+  const days = ['一', '二', '三', '四', '五', '六', '日'];
+  let text = '';
+  for (let i = 0; i < 7; i += 1) {
+    if (m & (1 << i)) text += days[i];
+  }
+  return text ? `周${text}` : '周(未选)';
+}
+
+function migrateConfig(raw) {
+  const out = Object.assign({ tz_offset_ms: 28800000, mode: 'mixed', daily: [], cycle: [], leveldiff: [] }, raw || {});
+  if (out.tz_offset_ms == null && out.tz_offset_s != null) out.tz_offset_ms = num(out.tz_offset_s, 28800) * 1000;
+  out.tz_offset_ms = num(out.tz_offset_ms, 28800000);
+  if (!out.mode) out.mode = 'mixed';
+
+  out.daily = Array.isArray(out.daily) ? out.daily : [];
+  out.daily = out.daily.map((r) => {
+    const rr = Object.assign({ en: false, open_en: true, close_en: true, open_ms: null, close_ms: null, dow_mask: 127 }, r || {});
+    if (rr.open_ms == null && typeof rr.open === 'string') {
+      const m = /^(\d{1,2}):(\d{1,2})$/.exec(rr.open.trim());
+      if (m) rr.open_ms = (clamp(num(m[1], 0), 0, 23) * 3600 + clamp(num(m[2], 0), 0, 59) * 60) * 1000;
+    }
+    if (rr.close_ms == null && typeof rr.close === 'string') {
+      const m = /^(\d{1,2}):(\d{1,2})$/.exec(rr.close.trim());
+      if (m) rr.close_ms = (clamp(num(m[1], 0), 0, 23) * 3600 + clamp(num(m[2], 0), 0, 59) * 60) * 1000;
+    }
+    if (rr.open_ms != null) rr.open_ms = num(rr.open_ms, null);
+    if (rr.close_ms != null) rr.close_ms = num(rr.close_ms, null);
+    rr.dow_mask = num(rr.dow_mask, 127) & 127;
+    return rr;
+  });
+
+  out.cycle = Array.isArray(out.cycle) ? out.cycle : [];
+  out.cycle = out.cycle.map((r) => {
+    const rr = Object.assign({ en: false, steps: [] }, r || {});
+    rr.steps = Array.isArray(rr.steps) ? rr.steps : [];
+    rr.steps = rr.steps.map((st) => {
+      const s = Object.assign({ state: 'open', dur_ms: null }, st || {});
+      if (s.dur_ms == null && s.min != null) s.dur_ms = num(s.min, 60) * 60000;
+      if (s.dur_ms == null && s.ms != null) s.dur_ms = num(s.ms, 60000);
+      if (s.dur_ms != null) s.dur_ms = Math.max(1, num(s.dur_ms, 60000));
+      s.state = s.state === 'close' ? 'close' : 'open';
+      return s;
+    });
+    return rr;
+  });
+
+  out.leveldiff = Array.isArray(out.leveldiff) ? out.leveldiff : [];
+  out.leveldiff = out.leveldiff.map((r) => {
+    const rr = Object.assign({ en: false, open_mm: null, close_mm: null }, r || {});
+    if (rr.open_mm != null) rr.open_mm = num(rr.open_mm, null);
+    if (rr.close_mm != null) rr.close_mm = num(rr.close_mm, null);
+    return rr;
+  });
+  return out;
+}
+
+function buildSummaryItems(cfg) {
+  const daily = Array.isArray(cfg.daily) ? cfg.daily : [];
+  const dailyOn = daily.filter((r) => r && r.en);
+  const dailyItems = !daily.length
+    ? [{ title: '定时', value: '未配置', on: false }]
+    : (!dailyOn.length
+      ? [{ title: '定时', value: '无（均未启用）', on: false }]
+      : dailyOn.map((r, i) => {
+        const parts = [];
+        const dow = dowMaskText(r && r.dow_mask);
+        if (dow) parts.push(dow);
+        if (r.open_en !== false) parts.push(`开 ${msToHHMMMaybe(r.open_ms)}`);
+        if (r.close_en !== false) parts.push(`关 ${msToHHMMMaybe(r.close_ms)}`);
+        return { title: `定时 #${i + 1}`, value: `启用 | ${parts.join(' | ')}`, on: true };
+      }));
+
+  const cycle = Array.isArray(cfg.cycle) ? cfg.cycle : [];
+  const cycleOn = cycle.filter((r) => r && r.en);
+  const cycleItems = !cycle.length
+    ? [{ title: '循环', value: '未配置', on: false }]
+    : (!cycleOn.length
+      ? [{ title: '循环', value: '无（均未启用）', on: false }]
+      : cycleOn.map((r, i) => {
+        const steps = Array.isArray(r.steps) ? r.steps : [];
+        const seq = steps.map((st) => `${st && st.state === 'close' ? '关' : '开'} ${st && Number.isFinite(st.dur_ms) ? durHM(st.dur_ms) : '--'}`).join(' -> ');
+        return { title: `循环 #${i + 1}`, value: `启用${seq ? ` | ${seq}` : ''}`, on: true };
+      }));
+
+  const ld = Array.isArray(cfg.leveldiff) ? cfg.leveldiff : [];
+  const ldOn = ld.filter((r) => r && r.en);
+  const leveldiffItems = !ld.length
+    ? [{ title: '水位差', value: '未配置', on: false }]
+    : (!ldOn.length
+      ? [{ title: '水位差', value: '无（均未启用）', on: false }]
+      : ldOn.map((r, i) => ({
+        title: `水位差 #${i + 1}`,
+        value: `启用 | 开阈值 ${Number.isFinite(r.open_mm) ? `${r.open_mm}mm` : '--'} | 关阈值 ${Number.isFinite(r.close_mm) ? `${r.close_mm}mm` : '--'}`,
+        on: true
+      })));
+
+  return { dailyItems, cycleItems, leveldiffItems };
 }
 
 function gateTargetFromTelemetry(t, gateStateNum) {
@@ -66,13 +197,15 @@ Page({
     fwVersion: '--',
     innerText: '--',
     outerText: '--',
+    innerStatusText: '--',
+    outerStatusText: '--',
     deltaText: '--',
     gateText: '--',
     autoText: '--',
     alarmText: '--',
     cmdLoading: false,
     cmdMsg: '',
-    cfgSummary: { mode: '--', tz: '--', daily: '--', cycle: '--', leveldiff: '--', msg: '' },
+    cfgSummary: { mode: '--', tz: '--', dailyItems: [], cycleItems: [], leveldiffItems: [], msg: '' },
     logTab: 'error',
     logText: '加载中…',
     logMsg: '',
@@ -227,6 +360,8 @@ Page({
         fwVersion: fw || '--',
         innerText: inner == null ? '--' : `${inner} mm`,
         outerText: outer == null ? '--' : `${outer} mm`,
+        innerStatusText: inner == null ? '--' : `${(inner / 1000).toFixed(3)} m`,
+        outerStatusText: outer == null ? '--' : `${(outer / 1000).toFixed(3)} m`,
         deltaText: delta == null ? '--' : `${delta} mm`,
         gateText,
         autoText: auto,
@@ -286,7 +421,7 @@ Page({
   cmdManualEnd() { this.sendCmd('manual_end'); },
 
   async loadConfigSummary() {
-    const empty = { mode: '--', tz: '--', daily: '--', cycle: '--', leveldiff: '--', msg: '' };
+    const empty = { mode: '--', tz: '--', dailyItems: [], cycleItems: [], leveldiffItems: [], msg: '' };
     try {
       let raw = '';
       const cacheUrl = `${withDev('/api/config')}${withDev('/api/config').includes('?') ? '&' : '?'}source=cache`;
@@ -295,16 +430,16 @@ Page({
       } catch (e) {
         raw = await api.requestText(withDev('/api/config'));
       }
-      const cfg = fmt.safeParseJSON(raw, {});
-      const tzMs = Number(cfg.tz_offset_ms || 0);
-      const tzH = Number.isFinite(tzMs) ? (tzMs / 3600000) : 8;
+      const cfg = migrateConfig(fmt.safeParseJSON(raw, {}));
+      const tzH = Math.round(num(cfg.tz_offset_ms, 28800000) / 3600000);
+      const { dailyItems, cycleItems, leveldiffItems } = buildSummaryItems(cfg);
       this.setData({
         cfgSummary: {
-          mode: cfg.mode || 'mixed',
-          tz: `UTC${tzH >= 0 ? '+' : ''}${tzH}`,
-          daily: `${countEnabled(cfg.daily)} / ${Array.isArray(cfg.daily) ? cfg.daily.length : 0}`,
-          cycle: `${countEnabled(cfg.cycle)} / ${Array.isArray(cfg.cycle) ? cfg.cycle.length : 0}`,
-          leveldiff: `${countEnabled(cfg.leveldiff)} / ${Array.isArray(cfg.leveldiff) ? cfg.leveldiff.length : 0}`,
+          mode: modeLabel(cfg.mode || 'mixed'),
+          tz: tzLabelFromHours(tzH),
+          dailyItems,
+          cycleItems,
+          leveldiffItems,
           msg: ''
         }
       });
@@ -424,7 +559,7 @@ Page({
       const follow = 1 - Math.pow(0.02, dt / 1.5);
       this._gateRatioCurrent = clamp(cur + (target - cur) * follow, 0, 1);
 
-      this._flowPhase = (this._flowPhase + dt * 1.2) % 1;
+      this._flowPhase = (this._flowPhase + dt * 0.45) % 1;
       this.drawSchematic();
     }, 20);
   },
@@ -463,18 +598,20 @@ Page({
     const pondBottom = H - 34;
     const pondH = pondBottom - pondTop;
     const leftX = margin;
-    const leftW = (W - margin * 2 - 80) / 2;
+    const gateW = 96;
+    const leftW = (W - margin * 2 - gateW) / 2;
     const gateX = leftX + leftW;
-    const gateW = 80;
     const rightX = gateX + gateW;
     const rightW = leftW;
+    const slotX = gateX + 10;
+    const slotW = gateW - 20;
 
     const frameStroke = 'rgba(226,232,240,0.9)';
     ctx.strokeStyle = frameStroke;
     ctx.lineWidth = 4;
     ctx.strokeRect(leftX, pondTop, leftW, pondH);
     ctx.strokeRect(rightX, pondTop, rightW, pondH);
-    ctx.strokeRect(gateX + 14, pondTop, gateW - 28, pondH);
+    ctx.strokeRect(slotX, pondTop, slotW, pondH);
 
     // Vertical ruler: 0m~5m marks (every 1m) to match panel water-level scale.
     ctx.strokeStyle = 'rgba(148,163,184,0.55)';
@@ -542,9 +679,9 @@ Page({
     let gateColor = '#f59e0b';
     if (gateRatio >= 0.95) gateColor = '#22c55e';
     else if (gateRatio <= 0.05) gateColor = '#fb7185';
-    const plateX = gateX + 26;
-    const plateW = gateW - 52;
-    const plateH = pondH + 20;
+    const plateX = gateX + 20;
+    const plateW = gateW - 40;
+    const plateH = pondH + 16;
     ctx.fillStyle = gateColor;
     ctx.globalAlpha = 0.16;
     ctx.fillRect(plateX, gateY, plateW, plateH);
@@ -562,13 +699,13 @@ Page({
         chanGrad.addColorStop(0, 'rgba(56,189,248,0.38)');
         chanGrad.addColorStop(1, 'rgba(14,116,144,0.30)');
         ctx.fillStyle = chanGrad;
-        ctx.fillRect(gateX + 14, pondBottom - chanH, gateW - 28, chanH);
+        ctx.fillRect(slotX, pondBottom - chanH, slotW, chanH);
       }
 
-      const y = pondBottom - Math.max(18, Math.min(lLevelH, rLevelH));
+      const y = H - 58;
       const fromLeft = delta < 0;
-      const ax = gateX - 34;
-      const bx = gateX + gateW + 34;
+      const ax = gateX + 12;
+      const bx = gateX + gateW - 12;
       const color = Math.abs(delta) > 80 ? '#f59e0b' : '#22d3ee';
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
@@ -578,19 +715,15 @@ Page({
       ctx.lineTo(bx, y);
       ctx.stroke();
 
-      ctx.font = '11px sans-serif';
-      ctx.fillStyle = 'rgba(226,232,240,0.95)';
-      ctx.fillText(fromLeft ? '流向: 外塘 -> 内塘' : '流向: 内塘 -> 外塘', gateX - 30, y - 12);
-
       // Animated flow chevrons.
       const dir = fromLeft ? 1 : -1;
       const span = bx - ax;
       const phase = Number.isFinite(this._flowPhase) ? this._flowPhase : 0;
-      for (let i = 0; i < 5; i += 1) {
-        let p = ((i / 5) + phase) % 1;
+      for (let i = 0; i < 3; i += 1) {
+        let p = ((i / 3) + phase) % 1;
         if (dir < 0) p = 1 - p;
         const x = ax + p * span;
-        const s = 7;
+        const s = 6;
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x - s * dir, y - s * 0.7);
@@ -605,9 +738,6 @@ Page({
     ctx.fillText('外塘', leftX + 8, 22);
     ctx.fillText('内塘', rightX + 8, 22);
     ctx.fillText('水闸', gateX + 18, H - 10);
-    ctx.font = '11px sans-serif';
-    ctx.fillStyle = 'rgba(226,232,240,0.9)';
-    ctx.fillText(`开度 ${Math.round(gateRatio * 100)}%`, gateX + 8, 36);
   },
 
   goDeviceConfig() {

@@ -8,16 +8,12 @@
       <button class="btn btn-danger head-logout" size="mini" bindtap="logout">退出</button>
     </view>
 
-    <view class="hero-tags">
-      <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
-      <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
-      <text wx:if="{{deviceOnline}}" class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
-    </view>
-
     <view class="row device-row">
       <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
         <view class="picker">设备：{{currentDeviceLabel}}</view>
       </picker>
+      <text class="tag device-status {{serverMqttTagClass}}">{{serverMqttText}}</text>
+      <text class="tag device-status {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
     </view>
 
     <view class="quick-grid">
@@ -37,9 +33,6 @@
         <view class="gate-title">闸门状态</view>
         <view class="gate-main">{{gateText}}</view>
       </view>
-      <view class="gate-progress">
-        <view class="gate-progress-fill" style="width: {{gateProgress}}%;"></view>
-      </view>
       <view class="gate-info-row">
         <text>自动：{{autoText}}</text>
         <text>告警：{{alarmText}}</text>
@@ -49,11 +42,11 @@
     <view class="metric-grid">
       <view class="metric-item">
         <view class="metric-k">内塘水位</view>
-        <view class="metric-v">{{innerText}}</view>
+        <view class="metric-v">{{innerStatusText}}</view>
       </view>
       <view class="metric-item">
         <view class="metric-k">外塘水位</view>
-        <view class="metric-v">{{outerText}}</view>
+        <view class="metric-v">{{outerStatusText}}</view>
       </view>
       <view class="metric-item">
         <view class="metric-k">水位差</view>
@@ -62,6 +55,15 @@
       <view class="metric-item">
         <view class="metric-k">最近上报</view>
         <view class="metric-v metric-time">{{lastTelemetryAt}}</view>
+      </view>
+    </view>
+    <view wx:if="{{deviceOnline}}" class="metric-gate-wrap metric-gate-wide">
+      <view class="metric-gate-row">
+        <text>闸门 {{gateText}}</text>
+        <text>{{gateProgress}}%</text>
+      </view>
+      <view class="gate-progress metric-gate-progress">
+        <view class="gate-progress-fill" style="width: {{gateProgress}}%;"></view>
       </view>
     </view>
   </view>
@@ -82,11 +84,11 @@
     <view class="control-hint">离线或 MQTT 断开时将自动禁用控制按钮</view>
 
     <view class="control-block">
-      <view class="control-title">手动闸门</view>
+      <view class="control-title manual-title">手动闸门</view>
       <view class="ctl-grid manual-grid">
         <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateOpen">开闸</button>
-        <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateStop">停止</button>
         <button class="btn ctl-btn ctl-close" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateClose">关闸</button>
+        <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateStop">停止</button>
       </view>
     </view>
 
@@ -110,15 +112,39 @@
     <view class="summary-grid">
       <view class="summary-item"><text class="summary-k">模式</text><text class="summary-v">{{cfgSummary.mode}}</text></view>
       <view class="summary-item"><text class="summary-k">时区</text><text class="summary-v">{{cfgSummary.tz}}</text></view>
-      <view class="summary-item"><text class="summary-k">定时启用</text><text class="summary-v">{{cfgSummary.daily}}</text></view>
-      <view class="summary-item"><text class="summary-k">循环启用</text><text class="summary-v">{{cfgSummary.cycle}}</text></view>
-      <view class="summary-item"><text class="summary-k">水位差启用</text><text class="summary-v">{{cfgSummary.leveldiff}}</text></view>
+    </view>
+    <view class="summary-group">
+      <view class="summary-group-title">定时规则（daily）</view>
+      <block wx:for="{{cfgSummary.dailyItems}}" wx:for-item="it" wx:key="title">
+        <view class="summary-item summary-detail-item {{it.on ? 'summary-item-on' : ''}}">
+          <text class="summary-k">{{it.title}}</text>
+          <text class="summary-v summary-detail-v">{{it.value}}</text>
+        </view>
+      </block>
+    </view>
+    <view class="summary-group">
+      <view class="summary-group-title">循环规则（cycle）</view>
+      <block wx:for="{{cfgSummary.cycleItems}}" wx:for-item="it" wx:key="title">
+        <view class="summary-item summary-detail-item {{it.on ? 'summary-item-on' : ''}}">
+          <text class="summary-k">{{it.title}}</text>
+          <text class="summary-v summary-detail-v">{{it.value}}</text>
+        </view>
+      </block>
+    </view>
+    <view class="summary-group">
+      <view class="summary-group-title">水位差规则（leveldiff）</view>
+      <block wx:for="{{cfgSummary.leveldiffItems}}" wx:for-item="it" wx:key="title">
+        <view class="summary-item summary-detail-item {{it.on ? 'summary-item-on' : ''}}">
+          <text class="summary-k">{{it.title}}</text>
+          <text class="summary-v summary-detail-v">{{it.value}}</text>
+        </view>
+      </block>
     </view>
     <view wx:if="{{cfgSummary.msg}}" class="muted">{{cfgSummary.msg}}</view>
   </view>
 
   <view class="card">
-    <view class="row head-row">
+    <view class="row head-row log-head">
       <view class="title2">日志</view>
       <view class="log-actions">
         <button class="btn {{logTab==='error'?'btn-primary':''}}" size="mini" data-tab="error" bindtap="setLogTab">错误</button>

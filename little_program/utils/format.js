@@ -17,7 +17,7 @@ function gateStateText(n) {
 }
 
 function alarmText(alarm) {
-  if (!alarm || !alarm.active) return '正常';
+  if (!alarm || !alarm.active) return '无';
   const sev = Number.isFinite(alarm.severity) ? alarm.severity : 0;
   return `S${sev} ${alarm.text || 'alarm'}`;
 }
