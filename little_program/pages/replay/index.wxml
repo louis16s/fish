@@ -63,9 +63,16 @@
       <view wx:for="{{rows}}" wx:key="index" class="row-item">
         <view class="row-line">
           <view class="cell idx">{{item.idx}}</view>
-          <view class="cell ts">{{item.ts}}</view>
+          <view class="cell ts">
+            <view>{{item.tsDate}}</view>
+            <view>{{item.tsTime}}</view>
+          </view>
           <view class="cell val">内{{item.inner}} / 外{{item.outer}} / Δ{{item.delta}}</view>
-          <view class="cell st">闸门{{item.gate}} / 自动{{item.auto}} / 告警{{item.alarm}}</view>
+          <view class="cell st">
+            <view class="st-line">闸门 {{item.gate}}</view>
+            <view class="st-line">自动 {{item.auto}}</view>
+            <view class="st-line">告警 {{item.alarm}}</view>
+          </view>
         </view>
       </view>
     </scroll-view>

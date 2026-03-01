@@ -82,8 +82,8 @@
 .table-head {
   margin-top: 8rpx;
   display: grid;
-  grid-template-columns: 48rpx 210rpx 1fr 1fr;
-  gap: 8rpx;
+  grid-template-columns: 48rpx 170rpx 1fr 1.3fr;
+  gap: 4rpx;
   padding: 8rpx 0;
   border-bottom: 1px solid rgba(255,255,255,.12);
 }
@@ -95,8 +95,8 @@
 .row-item { padding: 10rpx 0; border-bottom: 1px solid rgba(255,255,255,.08); }
 .row-line {
   display: grid;
-  grid-template-columns: 48rpx 210rpx 1fr 1fr;
-  gap: 8rpx;
+  grid-template-columns: 48rpx 170rpx 1fr 1.3fr;
+  gap: 4rpx;
 }
 .cell {
   font-size: 22rpx;
@@ -105,9 +105,24 @@
   word-break: break-all;
 }
 .cell.ts {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.25;
   white-space: normal;
   word-break: break-all;
   overflow-wrap: anywhere;
+}
+.cell.st {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: normal;
+}
+.st-line {
+  white-space: nowrap;
 }
 .idx { text-align: right; }
 

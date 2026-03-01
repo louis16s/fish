@@ -227,7 +227,7 @@
       </div>
       <div class="topActions">
         <button class="btn primary" id="btnSave" onclick="saveCfg()">保存</button>
-        <button class="btn" id="btnReload" onclick="loadCfg()">重新加载</button>
+        <button class="btn" id="btnReload" onclick="reloadCfgConfirm()">重新加载</button>
         <button class="btn danger" onclick="logout()">退出</button>
         <span class="chip" id="saveChip" style="display:none">已保存</span>
       </div>
@@ -806,7 +806,11 @@
       model.daily.push({en:true, open_en:true, close_en:true, open_ms:hhmmToMs('08:00'), close_ms:hhmmToMs('09:00'), dow_mask:127});
       render();
     }
-    function delDaily(i){ model.daily.splice(i,1); render(); }
+    function delDaily(i){
+      if(!confirm('确认删除该定时规则？')) return;
+      model.daily.splice(i,1);
+      render();
+    }
 
     function addCycleRule(){
       model.cycle = model.cycle || [];
@@ -814,7 +818,11 @@
       model.cycle.push({en:false, steps:[{state:'open',dur_ms:8*3600000},{state:'close',dur_ms:3*3600000},{state:'open',dur_ms:5*3600000}]});
       render();
     }
-    function delCycleRule(i){ model.cycle.splice(i,1); render(); }
+    function delCycleRule(i){
+      if(!confirm('确认删除该循环组？')) return;
+      model.cycle.splice(i,1);
+      render();
+    }
     function addCycleStep(ri){
       const r = model.cycle[ri];
       r.steps = r.steps || [];
@@ -822,7 +830,11 @@
       r.steps.push({state:'open',dur_ms:3600000});
       render();
     }
-    function delCycleStep(ri,si){ model.cycle[ri].steps.splice(si,1); render(); }
+    function delCycleStep(ri,si){
+      if(!confirm('确认删除该循环步骤？')) return;
+      model.cycle[ri].steps.splice(si,1);
+      render();
+    }
 
     function addLevelDiff(){
       model.leveldiff = model.leveldiff || [];
@@ -831,7 +843,16 @@
       model.leveldiff.push({en:!anyOn, open_mm:-1, close_mm:0});
       render();
     }
-    function delLevelDiff(i){ model.leveldiff.splice(i,1); render(); }
+    function delLevelDiff(i){
+      if(!confirm('确认删除该水位差规则？')) return;
+      model.leveldiff.splice(i,1);
+      render();
+    }
+
+    function reloadCfgConfirm(){
+      if(!confirm('确认重新加载规则？未保存的本地修改将丢失。')) return;
+      loadCfg();
+    }
 
     function tzLabelFromHours(h){
       const hh = num(h, 8);
@@ -925,6 +946,7 @@
     window.addCycleRule=addCycleRule; window.delCycleRule=delCycleRule;
     window.addCycleStep=addCycleStep; window.delCycleStep=delCycleStep;
     window.addLevelDiff=addLevelDiff; window.delLevelDiff=delLevelDiff;
+    window.reloadCfgConfirm=reloadCfgConfirm;
     window.loadCfg=loadCfg; window.saveCfg=saveCfg;
 
     (function init(){

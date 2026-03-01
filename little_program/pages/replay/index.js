@@ -147,9 +147,13 @@ Page({
         const outer = s2.valid ? Number(s2.mm) : null;
         const delta = (inner != null && outer != null) ? (inner - outer) : null;
         const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
+        const tsText = fmt.fmtDateTime(r.ts);
+        const tsParts = String(tsText || '').split(' ');
         return {
           idx: 0,
-          ts: fmt.fmtDateTime(r.ts),
+          ts: tsText,
+          tsDate: tsParts[0] || '--',
+          tsTime: tsParts[1] || '--',
           inner: inner == null ? '--' : `${inner}mm`,
           outer: outer == null ? '--' : `${outer}mm`,
           delta: delta == null ? '--' : `${delta}mm`,

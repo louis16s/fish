@@ -123,6 +123,26 @@ async function setUserDisabled(pool, id, disabled) {
   await pool.query(`UPDATE users SET disabled=$2, updated_at=now() WHERE id=$1`, [id, !!disabled]);
 }
 
+async function findUserById(pool, id) {
+  const r = await pool.query(
+    `SELECT id, username, role, disabled, created_at, updated_at
+     FROM users
+     WHERE id=$1
+     LIMIT 1`,
+    [id]
+  );
+  return r.rows && r.rows[0] ? r.rows[0] : null;
+}
+
+async function deleteUser(pool, id) {
+  const r = await pool.query(
+    `DELETE FROM users WHERE id=$1
+     RETURNING id, username, role, disabled, created_at, updated_at`,
+    [id]
+  );
+  return r.rows && r.rows[0] ? r.rows[0] : null;
+}
+
 async function upsertDeviceSeen(pool, deviceId, seenAt) {
   await pool.query(
     `INSERT INTO devices(device_id,last_seen_at)
@@ -211,6 +231,8 @@ module.exports = {
   createUser,
   setUserPassword,
   setUserDisabled,
+  findUserById,
+  deleteUser,
   upsertDeviceSeen,
   listDevices,
   insertTelemetry,
@@ -219,4 +241,3 @@ module.exports = {
   countTelemetry,
   queryHistoryDownsampled
 };
-

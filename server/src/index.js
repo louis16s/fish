@@ -21,6 +21,8 @@ const {
   createUser,
   setUserPassword,
   setUserDisabled,
+  findUserById,
+  deleteUser,
   upsertDeviceSeen,
   listDevices,
   insertTelemetry,
@@ -516,6 +518,19 @@ async function main() {
     if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
     await setUserDisabled(pool, id, disabled);
     res.json({ ok: true });
+  });
+
+  app.post('/api/admin/users/:id/delete', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
+    const id = clampInt(req.params.id, 1, 1_000_000_000, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
+    const u = await findUserById(pool, id);
+    if (!u) return res.status(404).json({ ok: false, error: 'not_found' });
+    if (String(u.role || '').toLowerCase() === 'admin') {
+      return res.status(400).json({ ok: false, error: 'cannot_delete_admin' });
+    }
+    const deleted = await deleteUser(pool, id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'not_found' });
+    res.json({ ok: true, user: deleted });
   });
 
   // --- Device config/logs via MQTT RPC (keeps browser isolated from MQTT creds) ---

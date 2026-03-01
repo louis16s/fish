@@ -263,6 +263,7 @@
     const LS_REM_LEGACY = 'fish_login_remember_v1';
     const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
     let g_currentUser = '';
+    let g_userById = {};
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -486,6 +487,8 @@
       try{
         const j = await apiJson('/api/admin/users');
         const list = (j && Array.isArray(j.users)) ? j.users : [];
+        g_userById = {};
+        list.forEach((u) => { g_userById[String(u.id)] = u; });
         if(!body) return;
         if(!list.length){
           body.innerHTML = '<tr><td colspan="5">(空)</td></tr>';
@@ -494,6 +497,10 @@
         body.innerHTML = list.map(u=>{
           const dis = !!u.disabled;
           const btnDis = dis ? '启用' : '禁用';
+          const isAdmin = String(u.role || '').toLowerCase() === 'admin';
+          const delBtn = isAdmin
+            ? '<button class="btn small danger" disabled>不可删除</button>'
+            : '<button class="btn small danger" onclick="deleteUser(' + u.id + ')">删除</button>';
           return '<tr>' +
             '<td>' + esc(u.id) + '</td>' +
             '<td>' + esc(u.username||'') + '</td>' +
@@ -501,7 +508,8 @@
             '<td>' + statusTag(dis) + '</td>' +
             '<td style="font-family:var(--font)">' +
               '<button class="btn small" onclick="resetPw(' + u.id + ')">重置密码</button> ' +
-              '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button>' +
+              '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button> ' +
+              delBtn +
             '</td>' +
           '</tr>';
         }).join('');
@@ -560,6 +568,32 @@
       }
     }
     window.resetPw = resetPw;
+
+    async function deleteUser(id){
+      const u = g_userById[String(id)] || null;
+      if(!u){
+        showMsg($('userMsg'), '删除失败：用户不存在');
+        return;
+      }
+      if(String(u.role || '').toLowerCase() === 'admin'){
+        showMsg($('userMsg'), 'admin 账号不可删除');
+        return;
+      }
+      const uname = String(u.username || '');
+      if(!confirm('确认删除账号 "' + uname + '"？此操作不可恢复。')) return;
+      try{
+        await apiJson('/api/admin/users/' + id + '/delete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({})
+        });
+        showMsg($('userMsg'), '已删除：' + uname);
+        await loadUsers();
+      }catch(e){
+        showMsg($('userMsg'), '删除失败：' + e.message);
+      }
+    }
+    window.deleteUser = deleteUser;
 
     function fmtTs(v){
       if(!v) return '--';

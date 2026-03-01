@@ -67,7 +67,7 @@
 
   <view class="card">
     <view class="title2">设备列表</view>
-    <view class="muted">添加设备请到网页操作。</view>
+    <view class="muted">添加设备请到网页操作</view>
     <block wx:if="{{devices.length}}">
       <view wx:for="{{devices}}" wx:key="device_id" class="drow">
         <view>{{item.device_id}}</view>

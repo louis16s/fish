@@ -177,7 +177,7 @@ const CMD_LABELS = {
   gate_stop: '停止',
   auto_on: '开启自动',
   auto_off: '手动接管',
-  auto_latch_off: '关闭自动',
+  auto_latch_off: '锁定关闭自动',
   manual_end: '恢复自动'
 };
 
@@ -202,6 +202,10 @@ Page({
     deltaText: '--',
     gateText: '--',
     autoText: '--',
+    autoGate: false,
+    autoLatched: false,
+    autoToggleText: '关闭自动',
+    autoToggleClass: 'ctl-neutral',
     alarmText: '--',
     cmdLoading: false,
     cmdMsg: '',
@@ -225,6 +229,7 @@ Page({
 
   onReady() {
     this.initSchematicCanvas();
+    this.initLogObserver();
     this.startSchematicAnim();
   },
 
@@ -245,6 +250,7 @@ Page({
     this.stopPolling();
     this.stopLogPolling();
     this.stopSchematicAnim();
+    this.stopLogObserver();
   },
 
   async bootstrap() {
@@ -279,7 +285,7 @@ Page({
   startLogPolling() {
     this.stopLogPolling();
     this._logTm = setInterval(() => {
-      this.loadLog();
+      if (this._logVisible) this.loadLog();
     }, LOG_POLL_MS);
   },
 
@@ -288,6 +294,34 @@ Page({
       clearInterval(this._logTm);
       this._logTm = 0;
     }
+  },
+
+  initLogObserver() {
+    if (this._logObserverInited) return;
+    this._logObserverInited = true;
+    this._logVisible = false;
+    if (typeof this.createIntersectionObserver !== 'function') {
+      // Fallback: old base library, keep old behavior.
+      this._logVisible = true;
+      this.loadLog(true);
+      return;
+    }
+    const obs = this.createIntersectionObserver({ thresholds: [0.02] });
+    obs.relativeToViewport().observe('#logCard', (res) => {
+      const visible = !!(res && Number(res.intersectionRatio) > 0);
+      const wasVisible = !!this._logVisible;
+      this._logVisible = visible;
+      if (visible && !wasVisible) this.loadLog(true);
+    });
+    this._logObserver = obs;
+  },
+
+  stopLogObserver() {
+    if (this._logObserver && typeof this._logObserver.disconnect === 'function') {
+      this._logObserver.disconnect();
+    }
+    this._logObserver = null;
+    this._logObserverInited = false;
   },
 
   async loadDevices() {
@@ -327,7 +361,9 @@ Page({
       const outer = s2.valid ? Number(s2.mm) : null;
       const delta = (inner != null && outer != null) ? (inner - outer) : null;
       const fw = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
-      const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
+      const autoGate = !!t.auto_gate;
+      const autoLatched = !!t.auto_latched;
+      const auto = autoLatched ? '锁定关闭' : (autoGate ? '已启用' : '已关闭');
       const gateStateNum = Number(t.gate_state || 0);
       const gateTarget = gateTargetFromTelemetry(t, gateStateNum);
       if (gateTarget != null) {
@@ -365,6 +401,10 @@ Page({
         deltaText: delta == null ? '--' : `${delta} mm`,
         gateText,
         autoText: auto,
+        autoGate,
+        autoLatched,
+        autoToggleText: autoLatched ? '开启自动' : '关闭自动',
+        autoToggleClass: autoLatched ? 'ctl-primary' : 'ctl-neutral',
         alarmText: fmt.alarmText(t.alarm),
         gateTagClass,
         deltaTagClass,
@@ -387,6 +427,10 @@ Page({
         deviceOnlineText: '设备状态 未知',
         deviceOnlineTagClass: 'tag-bad',
         deviceOnline: false,
+        autoGate: false,
+        autoLatched: false,
+        autoToggleText: '关闭自动',
+        autoToggleClass: 'ctl-neutral',
         gateProgress: 0,
         canOperate: false,
         statusHintText: '状态获取失败，请检查网络后重试',
@@ -395,7 +439,11 @@ Page({
     }
   },
 
-  async sendCmd(cmd) {
+  async sendCmd(cmd, opts) {
+    const o = opts || {};
+    const silent = !!o.silent;
+    const keepAutoOff = !!o.keepAutoOff;
+    const isGateCmd = (cmd === 'gate_open' || cmd === 'gate_close' || cmd === 'gate_stop');
     this.setData({ cmdLoading: true, cmdMsg: '' });
     try {
       await api.requestJSON(withDev('/api/cmd'), {
@@ -403,21 +451,49 @@ Page({
         headers: { 'Content-Type': 'application/json' },
         data: { cmd }
       });
-      this.setData({ cmdMsg: `已发送：${CMD_LABELS[cmd] || cmd}` });
+
+      // Keep "锁定关闭自动" sticky across manual gate operations (firmware may clear latch on manual actions).
+      if (keepAutoOff && isGateCmd) {
+        try {
+          await api.requestJSON(withDev('/api/cmd'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            data: { cmd: 'auto_latch_off' }
+          });
+        } catch (e2) {
+          if (!silent) this.setData({ cmdMsg: '已执行闸门动作，但保持自动关闭失败（请再点一次）' });
+        }
+      }
+
+      if (!silent) this.setData({ cmdMsg: `已发送：${CMD_LABELS[cmd] || cmd}` });
       await this.loadState();
     } catch (e) {
-      this.setData({ cmdMsg: `发送失败：${e.message}` });
+      if (!silent) this.setData({ cmdMsg: `发送失败：${e.message}` });
     } finally {
       this.setData({ cmdLoading: false });
     }
   },
 
-  cmdGateOpen() { this.sendCmd('gate_open'); },
-  cmdGateClose() { this.sendCmd('gate_close'); },
-  cmdGateStop() { this.sendCmd('gate_stop'); },
+  cmdGateOpen() { this.sendCmd('gate_open', { keepAutoOff: !!this.data.autoLatched }); },
+  cmdGateClose() { this.sendCmd('gate_close', { keepAutoOff: !!this.data.autoLatched }); },
+  cmdGateStop() { this.sendCmd('gate_stop', { keepAutoOff: !!this.data.autoLatched }); },
   cmdAutoOn() { this.sendCmd('auto_on'); },
   cmdAutoOff() { this.sendCmd('auto_off'); },
   cmdAutoLatchOff() { this.sendCmd('auto_latch_off'); },
+  cmdAutoToggle() {
+    if (this.data.autoLatched) {
+      this.sendCmd('auto_on');
+      return;
+    }
+    wx.showModal({
+      title: '确认关闭自动',
+      content: '将锁定关闭自动控制，是否继续？',
+      success: (ret) => {
+        if (!ret.confirm) return;
+        this.sendCmd('auto_latch_off');
+      }
+    });
+  },
   cmdManualEnd() { this.sendCmd('manual_end'); },
 
   async loadConfigSummary() {
@@ -449,7 +525,8 @@ Page({
     }
   },
 
-  async loadLog() {
+  async loadLog(force) {
+    if (!force && !this._logVisible) return;
     if (this._logInflight) return;
     this._logInflight = true;
     const reqId = (this._logReqId || 0) + 1;
@@ -485,7 +562,7 @@ Page({
         data: { name: this.data.logTab }
       });
       this.setData({ logMsg: '已清空' });
-      await this.loadLog();
+      await this.loadLog(true);
     } catch (e) {
       this.setData({ logMsg: `清空失败：${e.message}` });
     }
@@ -494,17 +571,17 @@ Page({
   async refreshAll() {
     await this.loadState();
     await this.loadConfigSummary();
-    await this.loadLog();
+    await this.loadLog(false);
   },
 
   refreshLog() {
-    this.loadLog();
+    this.loadLog(true);
   },
 
   setLogTab(e) {
     const tab = (e.currentTarget.dataset.tab || 'error');
     this.setData({ logTab: tab });
-    this.loadLog();
+    this.loadLog(true);
   },
 
   onDeviceChange(e) {

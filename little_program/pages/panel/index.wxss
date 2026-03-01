@@ -264,6 +264,10 @@
   gap: 8rpx;
 }
 
+.gate-control-grid {
+  gap: 12rpx;
+}
+
 .auto-grid {
   display: flex !important;
   flex-wrap: wrap;
@@ -329,6 +333,11 @@
 .ctl-close {
   border-color: rgba(255, 255, 255, 0.24);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+}
+
+.ctl-neutral {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(2, 6, 23, 0.42);
 }
 
 .ctl-open {
