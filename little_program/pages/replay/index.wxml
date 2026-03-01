@@ -42,7 +42,8 @@
       <view class="legend-item"><view class="dot dot-outer"></view><text>外塘(mm)</text></view>
     </view>
     <view wx:if="{{historyMeta}}" class="muted">{{historyMeta}}</view>
-    <view wx:if="{{historyPointText}}" class="muted">{{historyPointText}}</view>
+    <view wx:if="{{historyPointTs}}" class="muted">{{historyPointTs}}</view>
+    <view wx:if="{{historyPointDetail}}" class="muted point-detail">{{historyPointDetail}}</view>
     <view class="row btn-row">
       <button class="btn" size="mini" data-win="900" bindtap="loadHistory">15m</button>
       <button class="btn" size="mini" data-win="3600" bindtap="loadHistory">1h</button>
@@ -61,10 +62,10 @@
     <scroll-view scroll-y="true" class="list">
       <view wx:for="{{rows}}" wx:key="index" class="row-item">
         <view class="row-line">
-          <text class="cell idx">{{item.idx}}</text>
-          <text class="cell ts">{{item.ts}}</text>
-          <text class="cell val">内{{item.inner}} / 外{{item.outer}} / Δ{{item.delta}}</text>
-          <text class="cell st">闸门{{item.gate}} / 自动{{item.auto}} / 告警{{item.alarm}}</text>
+          <view class="cell idx">{{item.idx}}</view>
+          <view class="cell ts">{{item.ts}}</view>
+          <view class="cell val">内{{item.inner}} / 外{{item.outer}} / Δ{{item.delta}}</view>
+          <view class="cell st">闸门{{item.gate}} / 自动{{item.auto}} / 告警{{item.alarm}}</view>
         </view>
       </view>
     </scroll-view>

@@ -528,21 +528,19 @@ Page({
     }
   },
 
-  formatJson() {
-    try {
-      const parsed = fmt.safeParseJSON(this.data.raw || '{}', null);
-      if (!parsed || typeof parsed !== 'object') {
-        this.setData({ msg: 'JSON 无效，无法格式化' });
-        return;
+  resetJson() {
+    wx.showModal({
+      title: '确认重置',
+      content: '将使用当前表单内容重置原始 JSON，是否继续？',
+      success: (res) => {
+        if (!res.confirm) return;
+        const c = this.buildCfgFromForm();
+        this.setData({
+          raw: JSON.stringify(c, null, 2),
+          msg: '已重置'
+        });
       }
-      const c = migrate(parsed);
-      this.setData({
-        raw: JSON.stringify(c, null, 2),
-        msg: '已格式化'
-      });
-    } catch (e) {
-      this.setData({ msg: `格式化失败：${e.message}` });
-    }
+    });
   },
 
   async saveCfg() {

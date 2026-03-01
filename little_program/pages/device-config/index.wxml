@@ -1,7 +1,7 @@
 <view class="container">
   <view class="card">
     <view class="row head-row page-head">
-      <view class="title head-title">规则设置</view>
+      <view class="title head-title">规则</view>
       <button class="btn back-btn" size="mini" bindtap="backPanel">返回面板</button>
     </view>
 
@@ -45,7 +45,7 @@
           <button class="btn btn-danger" size="mini" data-i="{{ri}}" bindtap="delDaily">删除</button>
         </view>
 
-        <view class="switch-row">
+        <view class="switch-row daily-switch-row">
           <view class="switch-item"><text>启用</text><switch checked="{{rule.en}}" data-i="{{ri}}" data-k="en" bindchange="onDailyFlag" color="#22d3ee" /></view>
           <view class="switch-item"><text>开闸动作</text><switch checked="{{rule.open_en}}" data-i="{{ri}}" data-k="open_en" bindchange="onDailyFlag" color="#22d3ee" /></view>
           <view class="switch-item"><text>关闸动作</text><switch checked="{{rule.close_en}}" data-i="{{ri}}" data-k="close_en" bindchange="onDailyFlag" color="#22d3ee" /></view>
@@ -53,11 +53,13 @@
 
         <view class="time-row">
           <view class="time-col">
-            <text class="lbl">开闸时间 HH:MM</text>
+            <text class="lbl">开闸时间
+HH:MM</text>
             <input class="ipt" value="{{rule.open_hhmm}}" data-i="{{ri}}" data-k="open_hhmm" bindinput="onDailyTime" />
           </view>
           <view class="time-col">
-            <text class="lbl">关闸时间 HH:MM</text>
+            <text class="lbl">关闸时间
+HH:MM</text>
             <input class="ipt" value="{{rule.close_hhmm}}" data-i="{{ri}}" data-k="close_hhmm" bindinput="onDailyTime" />
           </view>
         </view>
@@ -86,7 +88,7 @@
           <button class="btn btn-danger" size="mini" data-ri="{{ci}}" bindtap="delCycleRule">删除</button>
         </view>
 
-        <view class="switch-row">
+        <view class="switch-row cycle-tools-row">
           <view class="switch-item"><text>启用本组</text><switch checked="{{cRule.en}}" data-ri="{{ci}}" bindchange="onCycleEnable" color="#22d3ee" /></view>
           <button class="btn" size="mini" data-ri="{{ci}}" bindtap="addCycleStep">新增步骤</button>
         </view>
@@ -132,11 +134,11 @@
       <view class="rule-card">
         <view class="row head-row">
           <view class="rule-title">水位差 #{{li+1}}</view>
-          <button class="btn btn-danger" size="mini" data-i="{{li}}" bindtap="delLeveldiff">删除</button>
         </view>
 
-        <view class="switch-row">
+        <view class="switch-row ld-tools-row">
           <view class="switch-item"><text>启用本组</text><switch checked="{{ld.en}}" data-i="{{li}}" bindchange="onLeveldiffEnable" color="#22d3ee" /></view>
+          <button class="btn btn-danger ld-del-btn" size="mini" data-i="{{li}}" bindtap="delLeveldiff">删除</button>
         </view>
 
         <view class="time-row">
@@ -159,7 +161,7 @@
     <view class="row head-row json-head">
       <view class="title2 no-mb">原始 JSON（ctrl.json）</view>
       <view class="row btn-row json-actions">
-        <button class="btn" size="mini" bindtap="formatJson">格式化</button>
+        <button class="btn" size="mini" bindtap="resetJson">重置</button>
         <button class="btn" size="mini" bindtap="applyRaw">应用</button>
       </view>
     </view>

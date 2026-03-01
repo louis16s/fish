@@ -26,6 +26,31 @@ function csvEsc(s) {
   return t;
 }
 
+function calcYRange(points) {
+  const vals = [];
+  (points || []).forEach((pt) => {
+    if (pt && pt.inner_ok && Number.isFinite(Number(pt.inner_mm))) vals.push(Number(pt.inner_mm));
+    if (pt && pt.outer_ok && Number.isFinite(Number(pt.outer_mm))) vals.push(Number(pt.outer_mm));
+  });
+  if (!vals.length) return { yMin: 0, yMax: 5000 };
+
+  let minV = Math.min(...vals);
+  let maxV = Math.max(...vals);
+  if (!Number.isFinite(minV) || !Number.isFinite(maxV)) return { yMin: 0, yMax: 5000 };
+
+  if (minV === maxV) {
+    const pad = Math.max(50, Math.abs(minV) * 0.1);
+    minV -= pad;
+    maxV += pad;
+  }
+  const span = Math.max(1, maxV - minV);
+  const pad = Math.max(20, span * 0.08);
+  return {
+    yMin: Math.floor(minV - pad),
+    yMax: Math.ceil(maxV + pad)
+  };
+}
+
 Page({
   data: {
     deviceOptions: [],
@@ -38,6 +63,8 @@ Page({
     meta: '--',
     historyMeta: '',
     historyPointText: '',
+    historyPointTs: '',
+    historyPointDetail: '',
     rangeHint: '每条记录代表一次设备遥测快照（telemetry payload）。单位：mm。',
     msg: '',
     rows: [],
@@ -63,6 +90,7 @@ Page({
       const from = new Date(now.getTime() - 3600 * 1000);
       this.setData({ from: from.toISOString(), to: now.toISOString() });
     }
+    await this.loadData();
     await this.loadHistoryWindow(3600);
   },
 
@@ -154,7 +182,7 @@ Page({
       const qs = api.buildQuery({ device_id: pickDeviceId(), window_s: windowS, max_points: 700 });
       const j = await api.requestJSON(`/api/history${qs}`);
       const pts = Array.isArray(j.points) ? j.points : [];
-      this.setData({ historyPointText: '' });
+      this.setData({ historyPointText: '', historyPointTs: '', historyPointDetail: '' });
       this.drawHistory(pts);
     } catch (e) {
       this.setData({ msg: `历史加载失败：${e.message}` });
@@ -183,16 +211,20 @@ Page({
         ctx.fillStyle = '#94a3b8';
         ctx.font = '14px sans-serif';
         ctx.fillText('暂无历史数据', 20, 28);
-        this.setData({ historyMeta: '窗口 0 点' });
+        this.setData({ historyMeta: '' });
         this._histPointsForTap = [];
         return;
       }
 
-      // Match panel semantics: water level shown in 0~5000mm range.
-      const yMin = 0;
-      const yMax = 5000;
-      const xMin = Number(points[0].ts_s || 0);
-      const xMax = Number(points[points.length - 1].ts_s || xMin + 1);
+      const pointsSorted = points.slice().sort((a, b) => Number(a.ts_s || 0) - Number(b.ts_s || 0));
+
+      const { yMin, yMax } = calcYRange(pointsSorted);
+      const tsVals = pointsSorted
+        .map((pt) => Number(pt.ts_s))
+        .filter((v) => Number.isFinite(v));
+      const xMin = tsVals.length ? Math.min(...tsVals) : Number(pointsSorted[0].ts_s || 0);
+      const xMaxRaw = tsVals.length ? Math.max(...tsVals) : Number(pointsSorted[pointsSorted.length - 1].ts_s || xMin + 1);
+      const xMax = xMaxRaw > xMin ? xMaxRaw : (xMin + 1);
 
       const p = { l: 54, r: 16, t: 14, b: 28 };
       const pw = width - p.l - p.r;
@@ -222,7 +254,6 @@ Page({
         const v = yMax - ((y - p.t) / (ph || 1)) * (yMax - yMin);
         ctx.fillText(`${Math.round(v)}mm`, 6, y + 4);
       }
-      ctx.fillText('水位(mm)', 6, 12);
       const t0 = new Date((xMin || 0) * 1000);
       const t1 = new Date((xMax || 0) * 1000);
       const tShort = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -235,7 +266,7 @@ Page({
       const drawLine = (selector, color) => {
         let started = false;
         ctx.beginPath();
-        points.forEach((pt) => {
+        pointsSorted.forEach((pt) => {
           const v = selector(pt);
           if (v == null) {
             started = false;
@@ -258,7 +289,7 @@ Page({
       drawLine((pt) => (pt.inner_ok ? Number(pt.inner_mm) : null), '#4ade80');
       drawLine((pt) => (pt.outer_ok ? Number(pt.outer_mm) : null), '#38bdf8');
 
-      this._histPointsForTap = points.map((pt) => {
+      this._histPointsForTap = pointsSorted.map((pt) => {
         const ts = Number(pt.ts_s || 0);
         return {
           x: mapX(ts),
@@ -269,7 +300,7 @@ Page({
       });
 
       this.setData({
-        historyMeta: `窗口 ${points.length} 点 | 点击曲线查看该点水位`
+        historyMeta: ''
       });
     });
   },
@@ -369,7 +400,11 @@ Page({
     const inner = best.inner == null ? '--' : `${Math.round(best.inner)}mm`;
     const outer = best.outer == null ? '--' : `${Math.round(best.outer)}mm`;
     const delta = (best.inner != null && best.outer != null) ? `${Math.round(best.inner - best.outer)}mm` : '--';
-    this.setData({ historyPointText: `${tsText} | 内塘 ${inner} | 外塘 ${outer} | Δ ${delta}` });
+    this.setData({
+      historyPointText: `${tsText} | 内塘 ${inner} | 外塘 ${outer} | Δ ${delta}`,
+      historyPointTs: tsText,
+      historyPointDetail: `内塘 ${inner} | 外塘 ${outer} | Δ ${delta}`
+    });
   },
 
   backPanel() {

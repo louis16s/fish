@@ -71,6 +71,28 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.daily-switch-row {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+.daily-switch-row .switch-item {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: space-between;
+}
+.cycle-tools-row,
+.ld-tools-row {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+}
+.cycle-tools-row .btn,
+.ld-tools-row .btn {
+  flex: 0 0 auto;
+}
+.ld-del-btn {
+  margin-left: auto !important;
+}
 .switch-item {
   display: flex;
   align-items: center;
@@ -89,6 +111,10 @@
 }
 .time-col {
   min-width: 0;
+}
+.time-col .lbl {
+  white-space: pre-line;
+  line-height: 1.25;
 }
 .day-grid {
   margin-top: 8rpx;
@@ -150,6 +176,15 @@
   }
   .day-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .daily-switch-row {
+    gap: 6rpx;
+  }
+  .daily-switch-row .switch-item {
+    padding: 0 6rpx;
+  }
+  .daily-switch-row .switch-item text {
+    font-size: 22rpx;
   }
   .time-row,
   .step-grid {

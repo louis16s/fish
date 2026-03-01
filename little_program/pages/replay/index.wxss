@@ -74,6 +74,11 @@
 }
 .dot-inner { background: #4ade80; }
 .dot-outer { background: #38bdf8; }
+.point-detail {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.4;
+}
 .table-head {
   margin-top: 8rpx;
   display: grid;
@@ -98,6 +103,11 @@
   color: #e7eefc;
   line-height: 1.35;
   word-break: break-all;
+}
+.cell.ts {
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .idx { text-align: right; }
 

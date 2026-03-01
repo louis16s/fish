@@ -164,16 +164,23 @@ Page({
       this.setData({ userMsg: 'admin 账号不可禁用' });
       return;
     }
-    try {
-      await api.requestJSON(`/api/admin/users/${id}/disable`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        data: { disabled }
-      });
-      await this.loadUsers();
-    } catch (err) {
-      this.setData({ userMsg: `操作失败：${err.message}` });
-    }
+    wx.showModal({
+      title: '二次确认',
+      content: disabled ? '确认启用该账号？' : '确认禁用该账号？',
+      success: async (ret) => {
+        if (!ret.confirm) return;
+        try {
+          await api.requestJSON(`/api/admin/users/${id}/disable`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            data: { disabled }
+          });
+          await this.loadUsers();
+        } catch (err) {
+          this.setData({ userMsg: `操作失败：${err.message}` });
+        }
+      }
+    });
   },
 
   resetPassword(e) {

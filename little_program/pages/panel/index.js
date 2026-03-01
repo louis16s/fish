@@ -737,7 +737,9 @@ Page({
     ctx.font = '13px sans-serif';
     ctx.fillText('外塘', leftX + 8, 22);
     ctx.fillText('内塘', rightX + 8, 22);
-    ctx.fillText('水闸', gateX + 18, H - 10);
+    ctx.textAlign = 'center';
+    ctx.fillText('水闸', gateX + gateW / 2, H - 20);
+    ctx.textAlign = 'left';
   },
 
   goDeviceConfig() {
