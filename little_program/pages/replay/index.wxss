@@ -25,6 +25,12 @@
 .btn-row .btn {
   flex: 0 0 auto;
 }
+.action-row {
+  flex-wrap: nowrap;
+}
+.action-row .btn {
+  min-width: 170rpx;
+}
 .field { margin-top: 14rpx; }
 .lbl { display: block; color: rgba(165,180,207,.9); font-size: 24rpx; margin-bottom: 8rpx; }
 .ipt {

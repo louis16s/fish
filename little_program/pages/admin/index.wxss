@@ -12,6 +12,7 @@
   flex: 0 0 auto;
 }
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
+.no-mb { margin-bottom: 0; }
 .ipt {
   min-height: 78rpx;
   border: 1px solid rgba(255,255,255,.14);

@@ -28,17 +28,22 @@
   </view>
 
   <view class="card">
-    <view class="title2">创建用户</view>
-    <view class="field"><text class="lbl">用户名</text><input class="ipt" value="{{newUser}}" bindinput="onNewUser" /></view>
-    <view class="field"><text class="lbl">密码</text><input class="ipt" password="true" value="{{newPass}}" bindinput="onNewPass" /></view>
-    <view class="field">
-      <text class="lbl">角色</text>
-      <picker mode="selector" range="{{roleOptions}}" value="{{roleIndex}}" bindchange="onRoleChange">
-        <view class="picker">{{roleOptions[roleIndex]}}</view>
-      </picker>
+    <view class="row head-row">
+      <view class="title2 no-mb">创建用户</view>
+      <button class="btn" size="mini" bindtap="toggleCreateUserFold">{{createUserCollapsed ? '展开' : '折叠'}}</button>
     </view>
-    <view class="row btn-row">
-      <button class="btn btn-primary" size="mini" bindtap="createUser">创建</button>
+    <view wx:if="{{!createUserCollapsed}}">
+      <view class="field"><text class="lbl">用户名</text><input class="ipt" value="{{newUser}}" bindinput="onNewUser" /></view>
+      <view class="field"><text class="lbl">密码</text><input class="ipt" password="true" value="{{newPass}}" bindinput="onNewPass" /></view>
+      <view class="field">
+        <text class="lbl">角色</text>
+        <picker mode="selector" range="{{roleOptions}}" value="{{roleIndex}}" bindchange="onRoleChange">
+          <view class="picker">{{roleOptions[roleIndex]}}</view>
+        </picker>
+      </view>
+      <view class="row btn-row">
+        <button class="btn btn-primary" size="mini" bindtap="createUser">创建</button>
+      </view>
     </view>
     <view wx:if="{{userMsg}}" class="muted">{{userMsg}}</view>
   </view>
@@ -52,7 +57,7 @@
           <text class="tag {{item.disabled ? 'tag-bad':'tag-good'}}">{{item.disabled ? 'disabled':'active'}}</text>
         </view>
         <view class="row btn-row" style="margin-top:8rpx">
-          <button class="btn" size="mini" data-id="{{item.id}}" data-disabled="{{!item.disabled}}" bindtap="toggleDisable">{{item.disabled ? '启用':'禁用'}}</button>
+          <button class="btn" size="mini" data-id="{{item.id}}" data-role="{{item.role}}" data-disabled="{{!item.disabled}}" disabled="{{item.role==='admin'}}" bindtap="toggleDisable">{{item.role==='admin' ? '不可禁用' : (item.disabled ? '启用':'禁用')}}</button>
           <button class="btn" size="mini" data-id="{{item.id}}" bindtap="resetPassword">重置密码</button>
         </view>
       </view>
@@ -65,7 +70,10 @@
     <block wx:if="{{devices.length}}">
       <view wx:for="{{devices}}" wx:key="device_id" class="drow">
         <view>{{item.device_id}}</view>
-        <view class="muted">last_seen: {{item.last_seen_at}}</view>
+        <view class="muted">最近上报: {{item.last_seen_at}}</view>
+        <view class="muted">固件版本: {{item.fw_version}}</view>
+        <view class="muted">WiFi 强度: {{item.wifi_rssi}}</view>
+        <view class="muted">内网 IP: {{item.lan_ip}}</view>
       </view>
     </block>
     <view wx:else class="muted">(空)</view>

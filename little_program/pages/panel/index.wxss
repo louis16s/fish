@@ -214,6 +214,25 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8rpx;
 }
+
+.auto-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.auto-grid .ctl-btn {
+  flex: 0 0 calc((100% - 8rpx) / 2);
+  max-width: calc((100% - 8rpx) / 2);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  font-size: 23rpx;
+  padding: 0 4rpx;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(2, 6, 23, 0.46) !important;
+  color: rgba(231, 238, 252, 0.96);
+}
 .manual-grid {
   display: flex;
   gap: 12rpx;

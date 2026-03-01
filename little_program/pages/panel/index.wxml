@@ -64,8 +64,8 @@
         <view class="metric-v">{{deltaText}}</view>
       </view>
       <view class="metric-item">
-        <view class="metric-k">固件版本</view>
-        <view class="metric-v">{{fwVersion}}</view>
+        <view class="metric-k">最近上报</view>
+        <view class="metric-v">{{lastTelemetryAt}}</view>
       </view>
     </view>
   </view>
@@ -76,6 +76,7 @@
     <view class="row schematic-legend">
       <text class="tag">内塘 {{innerText}}</text>
       <text class="tag">外塘 {{outerText}}</text>
+      <text class="tag">水位差 {{deltaText}}</text>
     </view>
     <view wx:if="{{schematicMsg}}" class="muted">{{schematicMsg}}</view>
   </view>

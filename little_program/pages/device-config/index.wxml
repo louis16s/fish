@@ -21,7 +21,7 @@
     <view class="field">
       <text class="lbl">模式</text>
       <picker mode="selector" range="{{modeOptions}}" range-key="label" value="{{modeIndex}}" bindchange="onModeChange">
-        <view class="picker">{{modeOptions[modeIndex].label}}</view>
+        <view class="picker">{{modeLabel}}</view>
       </picker>
     </view>
     <view class="field">
@@ -64,7 +64,7 @@
 
         <view class="lbl">生效星期（dow_mask）</view>
         <view class="day-grid">
-          <view wx:for="{{dowOptions}}" wx:for-item="day" wx:for-index="di" wx:key="index" class="day-pill {{rule.dow[di]?'on':''}}" data-ri="{{ri}}" data-di="{{di}}" bindtap="onDailyDowToggle">{{day}}</view>
+          <view wx:for="{{rule.dowUi}}" wx:for-item="day" wx:for-index="di" wx:key="di" class="{{day.className}}" data-ri="{{ri}}" data-di="{{day.di}}" bindtap="onDailyDowToggle">{{day.label}}</view>
         </view>
       </view>
     </block>
@@ -101,7 +101,7 @@
               <view>
                 <text class="lbl">动作</text>
                 <picker mode="selector" range="{{stateOptions}}" range-key="label" value="{{step.stateIndex}}" data-ri="{{ci}}" data-si="{{si}}" bindchange="onCycleStepState">
-                  <view class="picker">{{stateOptions[step.stateIndex].label}}</view>
+                  <view class="picker">{{step.stateLabel}}</view>
                 </picker>
               </view>
               <view>

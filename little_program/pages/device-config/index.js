@@ -112,7 +112,12 @@ function dailyToUi(r, idx) {
     close_en: r.close_en !== false,
     open_hhmm: msToHHMM(r.open_ms),
     close_hhmm: msToHHMM(r.close_ms),
-    dow
+    dow,
+    dowUi: DOW_OPTIONS.map((label, di) => ({
+      di,
+      label,
+      className: dow[di] ? 'day-pill on' : 'day-pill'
+    }))
   };
 }
 
@@ -126,6 +131,7 @@ function cycleStepToUi(st, idx) {
     _id: `s${idx}`,
     state,
     stateIndex: state === 'close' ? 1 : 0,
+    stateLabel: state === 'close' ? '关闸' : '开闸',
     dur_h: durH,
     dur_m: durM
   };
@@ -160,6 +166,7 @@ Page({
     stateOptions: STATE_OPTIONS,
     dowOptions: DOW_OPTIONS,
     modeIndex: 0,
+    modeLabel: MODE_OPTIONS[0].label,
     tzHours: 8,
     dailyRules: [],
     cycleRules: [],
@@ -207,6 +214,7 @@ Page({
     const leveldiffRules = c.leveldiff.map((r, i) => ldToUi(r, i));
     this.setData({
       modeIndex,
+      modeLabel: MODE_OPTIONS[modeIndex] ? MODE_OPTIONS[modeIndex].label : MODE_OPTIONS[0].label,
       tzHours,
       dailyRules,
       cycleRules,
@@ -297,7 +305,11 @@ Page({
   },
 
   onModeChange(e) {
-    this.setData({ modeIndex: Number(e.detail.value) || 0 });
+    const modeIndex = Number(e.detail.value) || 0;
+    this.setData({
+      modeIndex,
+      modeLabel: MODE_OPTIONS[modeIndex] ? MODE_OPTIONS[modeIndex].label : MODE_OPTIONS[0].label
+    });
     this.syncRawFromForm();
   },
 
@@ -353,6 +365,11 @@ Page({
     if (!list[ri]) return;
     if (!Array.isArray(list[ri].dow)) list[ri].dow = [true, true, true, true, true, true, true];
     list[ri].dow[di] = !list[ri].dow[di];
+    list[ri].dowUi = DOW_OPTIONS.map((label, i) => ({
+      di: i,
+      label,
+      className: list[ri].dow[i] ? 'day-pill on' : 'day-pill'
+    }));
     this.setData({ dailyRules: list, msg: '' });
     this.syncRawFromForm();
   },
@@ -433,6 +450,7 @@ Page({
     const st = list[ri].steps[si];
     st.stateIndex = idx;
     st.state = idx === 1 ? 'close' : 'open';
+    st.stateLabel = st.state === 'close' ? '关闸' : '开闸';
     this.setData({ cycleRules: list, msg: '' });
     this.syncRawFromForm();
   },

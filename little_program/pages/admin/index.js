@@ -13,6 +13,7 @@ Page({
     users: [],
     devices: [],
     userMsg: '',
+    createUserCollapsed: true,
     newUser: '',
     newPass: '',
     roleOptions: ['user', 'admin'],
@@ -100,14 +101,33 @@ Page({
     try {
       const j = await api.requestJSON('/api/devices');
       const list = Array.isArray(j.devices) ? j.devices : [];
-      const mapped = list.map((d) => ({
-        device_id: d.device_id || '',
-        last_seen_at: fmt.fmtDateTime(d.last_seen_at)
+      const mapped = await Promise.all(list.map(async (d) => {
+        const out = {
+          device_id: d.device_id || '',
+          last_seen_at: fmt.fmtDateTime(d.last_seen_at),
+          fw_version: '--',
+          wifi_rssi: '--',
+          lan_ip: '--'
+        };
+        try {
+          const q = api.buildQuery({ device_id: d.device_id || '' });
+          const st = await api.requestJSON(`/api/state${q}`);
+          const t = st.telemetry || {};
+          const net = t.net || {};
+          out.fw_version = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
+          out.wifi_rssi = Number.isFinite(Number(net.rssi)) ? `${Number(net.rssi)} dBm` : '--';
+          out.lan_ip = net.ip || '--';
+        } catch (e) {}
+        return out;
       }));
       this.setData({ devices: mapped });
     } catch (e) {
       this.setData({ devices: [] });
     }
+  },
+
+  toggleCreateUserFold() {
+    this.setData({ createUserCollapsed: !this.data.createUserCollapsed });
   },
 
   onNewUser(e) { this.setData({ newUser: e.detail.value || '' }); },
@@ -138,7 +158,12 @@ Page({
   async toggleDisable(e) {
     const id = Number(e.currentTarget.dataset.id || 0);
     const disabled = !!e.currentTarget.dataset.disabled;
+    const role = String(e.currentTarget.dataset.role || '');
     if (!id) return;
+    if (role === 'admin') {
+      this.setData({ userMsg: 'admin 账号不可禁用' });
+      return;
+    }
     try {
       await api.requestJSON(`/api/admin/users/${id}/disable`, {
         method: 'POST',
