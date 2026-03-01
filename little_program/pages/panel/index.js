@@ -605,7 +605,9 @@ Page({
         return;
       }
       const { node, width, height } = res[0];
-      const dpr = (wx.getSystemInfoSync().pixelRatio || 1);
+      const winInfo = (typeof wx.getWindowInfo === 'function') ? wx.getWindowInfo() : null;
+      const devInfo = (typeof wx.getDeviceInfo === 'function') ? wx.getDeviceInfo() : null;
+      const dpr = Number((winInfo && winInfo.pixelRatio) || (devInfo && devInfo.pixelRatio) || 1) || 1;
       node.width = width * dpr;
       node.height = height * dpr;
       const ctx = node.getContext('2d');

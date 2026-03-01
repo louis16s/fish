@@ -26,6 +26,40 @@ function csvEsc(s) {
   return t;
 }
 
+function shouldCleanupStorage(err) {
+  const msg = String((err && err.errMsg) || err || '').toLowerCase();
+  return msg.includes('maximum size of the file storage limit is exceeded')
+    || msg.includes('storage limit exceeded')
+    || msg.includes('exceed');
+}
+
+function cleanupReplayExports(fs, done) {
+  const dir = wx.env.USER_DATA_PATH;
+  fs.readdir({
+    dirPath: dir,
+    success: (res) => {
+      const files = (res && Array.isArray(res.files)) ? res.files : [];
+      const targets = files.filter((name) => /^replay_\d+\.(json|csv)$/i.test(String(name || '')));
+      if (!targets.length) {
+        done();
+        return;
+      }
+      let left = targets.length;
+      const next = () => {
+        left -= 1;
+        if (left <= 0) done();
+      };
+      targets.forEach((name) => {
+        fs.unlink({
+          filePath: `${dir}/${name}`,
+          complete: next
+        });
+      });
+    },
+    fail: () => done()
+  });
+}
+
 function calcYRange(points) {
   const vals = [];
   (points || []).forEach((pt) => {
@@ -201,7 +235,9 @@ Page({
       const width = res[0].width;
       const height = res[0].height;
       this._histCanvasLeft = Number(res[0].left || 0);
-      const dpr = wx.getSystemInfoSync().pixelRatio || 1;
+      const winInfo = (typeof wx.getWindowInfo === 'function') ? wx.getWindowInfo() : null;
+      const devInfo = (typeof wx.getDeviceInfo === 'function') ? wx.getDeviceInfo() : null;
+      const dpr = Number((winInfo && winInfo.pixelRatio) || (devInfo && devInfo.pixelRatio) || 1) || 1;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       const ctx = canvas.getContext('2d');
@@ -356,23 +392,42 @@ Page({
         const content = isJson ? JSON.stringify(rows, null, 2) : this.buildCsvText();
         const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
         const fs = wx.getFileSystemManager();
-        fs.writeFile({
-          filePath,
-          data: content,
-          encoding: 'utf8',
-          success: () => {
-            if (typeof wx.shareFileMessage === 'function') {
-              wx.shareFileMessage({
-                filePath,
-                fileName,
-                success: () => this.setData({ msg: `已导出并可发送：${fileName}` }),
-                fail: () => this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` })
+        const shareOrNotify = () => {
+          if (typeof wx.shareFileMessage === 'function') {
+            wx.shareFileMessage({
+              filePath,
+              fileName,
+              success: () => this.setData({ msg: `已导出并可发送：${fileName}` }),
+              fail: () => this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` })
+            });
+            return;
+          }
+          this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` });
+        };
+        const writeOnce = (onFail) => {
+          fs.writeFile({
+            filePath,
+            data: content,
+            encoding: 'utf8',
+            success: shareOrNotify,
+            fail: onFail
+          });
+        };
+
+        writeOnce((e) => {
+          if (!shouldCleanupStorage(e)) {
+            this.setData({ msg: `导出失败：${(e && e.errMsg) || 'write_failed'}` });
+            return;
+          }
+          cleanupReplayExports(fs, () => {
+            writeOnce((e2) => {
+              this.setData({
+                msg: shouldCleanupStorage(e2)
+                  ? '导出失败：本地文件空间不足，请缩小查询时间范围或条数后重试'
+                  : `导出失败：${(e2 && e2.errMsg) || 'write_failed'}`
               });
-              return;
-            }
-            this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` });
-          },
-          fail: (e) => this.setData({ msg: `导出失败：${(e && e.errMsg) || 'write_failed'}` })
+            });
+          });
         });
       }
     });
