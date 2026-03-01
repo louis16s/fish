@@ -1,6 +1,5 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
-const { RAW_BASE_URL } = require('../../utils/config');
 
 function pickDeviceId() {
   const app = getApp();
@@ -13,12 +12,6 @@ function withDev(path) {
   return `${path}${q}`;
 }
 
-function withDevRaw(path) {
-  const did = pickDeviceId();
-  const q = api.buildQuery({ device_id: did });
-  return `${path}${q}`;
-}
-
 function countEnabled(arr) {
   if (!Array.isArray(arr)) return 0;
   return arr.filter((x) => x && x.en).length;
@@ -26,6 +19,23 @@ function countEnabled(arr) {
 
 function clamp(n, a, b) {
   return Math.min(b, Math.max(a, n));
+}
+
+function gateTargetFromTelemetry(t, gateStateNum) {
+  const vals = [
+    t && t.gate_open_pct,
+    t && t.gate_open_percent,
+    t && t.gate_open_ratio
+  ];
+  for (let i = 0; i < vals.length; i += 1) {
+    const v = Number(vals[i]);
+    if (!Number.isFinite(v)) continue;
+    if (v >= 0 && v <= 1) return clamp(v, 0, 1);
+    if (v >= 0 && v <= 100) return clamp(v / 100, 0, 1);
+  }
+  if (Number(gateStateNum) === 1) return 1;
+  if (Number(gateStateNum) === 2) return 0;
+  return null;
 }
 
 const CMD_LABELS = {
@@ -74,24 +84,29 @@ Page({
     gateProgress: 0,
     pageStatusClass: 'is-warn',
     statusHintText: '等待设备状态...',
-    canOperate: false
+    canOperate: false,
+    deviceOnline: false
   },
 
   onReady() {
     this.initSchematicCanvas();
+    this.startSchematicAnim();
   },
 
   onShow() {
     this.bootstrap();
     this.startPolling();
+    this.startSchematicAnim();
   },
 
   onHide() {
     this.stopPolling();
+    this.stopSchematicAnim();
   },
 
   onUnload() {
     this.stopPolling();
+    this.stopSchematicAnim();
   },
 
   async bootstrap() {
@@ -146,23 +161,14 @@ Page({
 
   async loadState() {
     try {
-      let j = null;
       let t = {};
       let lastAt = 0;
       let mqttConnected = false;
 
-      try {
-        if (!RAW_BASE_URL) throw new Error('raw_base_url_empty');
-        const raw = await api.requestJSON(`${RAW_BASE_URL}${withDevRaw('/api/state')}`);
-        t = raw.telemetry || {};
-        lastAt = raw.last_telemetry_at || 0;
-        mqttConnected = !!raw.mqtt_connected;
-      } catch (eRaw) {
-        j = await api.requestJSON(withDev('/api/state'));
-        t = j.telemetry || {};
-        lastAt = j.last_telemetry_at || 0;
-        mqttConnected = !!j.mqtt_connected;
-      }
+      const j = await api.requestJSON(withDev('/api/state'));
+      t = j.telemetry || {};
+      lastAt = j.last_telemetry_at || 0;
+      mqttConnected = !!j.mqtt_connected;
 
       const s1 = t.sensor1 || {};
       const s2 = t.sensor2 || {};
@@ -172,13 +178,21 @@ Page({
       const fw = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
       const auto = t.auto_latched ? '锁定关' : (t.auto_gate ? '开' : '关');
       const gateStateNum = Number(t.gate_state || 0);
-      const gateTagClass = gateStateNum === 1 ? 'tag-good' : (gateStateNum === 2 ? 'tag-bad' : 'tag-warn');
+      const gateTarget = gateTargetFromTelemetry(t, gateStateNum);
+      if (gateTarget != null) {
+        this._gateRatioTarget = gateTarget;
+        if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = gateTarget;
+      }
       const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
       const now = Date.now();
       const ageMs = lastAt > 0 ? Math.max(0, now - Number(lastAt || 0)) : 9e9;
       const deviceOnline = ageMs <= 15000;
-      const gateProgress = gateStateNum === 1 ? 100 : (gateStateNum === 2 ? 0 : 50);
+      const gateProgress = Math.round(100 * (Number.isFinite(this._gateRatioTarget) ? this._gateRatioTarget : (gateStateNum === 1 ? 1 : (gateStateNum === 2 ? 0 : 0.5))));
       const canOperate = !!(mqttConnected && deviceOnline);
+      const gateText = deviceOnline ? fmt.gateStateText(t.gate_state) : '离线';
+      const gateTagClass = deviceOnline
+        ? (gateStateNum === 1 ? 'tag-good' : (gateStateNum === 2 ? 'tag-bad' : 'tag-warn'))
+        : 'tag-bad';
       const statusHintText = !mqttConnected
         ? '服务器 MQTT 未连接，暂不可控'
         : (deviceOnline ? '设备在线，可执行控制命令' : '设备离线，控制命令可能超时');
@@ -188,14 +202,15 @@ Page({
         mqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
         serverMqttText: mqttConnected ? '服务器 已连接' : '服务器 未连接',
         serverMqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
-        deviceOnlineText: deviceOnline ? '状态 在线' : '状态 离线',
+        deviceOnlineText: deviceOnline ? '设备状态 在线' : '设备状态 离线',
         deviceOnlineTagClass: deviceOnline ? 'tag-good' : 'tag-bad',
+        deviceOnline,
         lastTelemetryAt: fmt.fmtDateTime(lastAt || 0),
         fwVersion: fw || '--',
         innerText: inner == null ? '--' : `${inner} mm`,
         outerText: outer == null ? '--' : `${outer} mm`,
         deltaText: delta == null ? '--' : `${delta} mm`,
-        gateText: fmt.gateStateText(t.gate_state),
+        gateText,
         autoText: auto,
         alarmText: fmt.alarmText(t.alarm),
         gateTagClass,
@@ -216,8 +231,9 @@ Page({
         mqttTagClass: 'tag-bad',
         serverMqttText: '服务器 状态未知',
         serverMqttTagClass: 'tag-bad',
-        deviceOnlineText: '状态 未知',
+        deviceOnlineText: '设备状态 未知',
         deviceOnlineTagClass: 'tag-bad',
+        deviceOnline: false,
         gateProgress: 0,
         canOperate: false,
         statusHintText: '状态获取失败，请检查网络后重试',
@@ -362,6 +378,36 @@ Page({
     });
   },
 
+  startSchematicAnim() {
+    if (this._schemAnimTimer) return;
+    this._lastAnimTs = 0;
+    this._flowPhase = Number.isFinite(this._flowPhase) ? this._flowPhase : 0;
+    if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = 0;
+    if (!Number.isFinite(this._gateRatioTarget)) this._gateRatioTarget = 0;
+    this._schemAnimTimer = setInterval(() => {
+      if (!this._schemCtx || !this._schemW || !this._schemH) return;
+      const now = Date.now();
+      const dt = this._lastAnimTs ? Math.max(0.016, (now - this._lastAnimTs) / 1000) : 0.016;
+      this._lastAnimTs = now;
+
+      const cur = Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : 0;
+      const target = Number.isFinite(this._gateRatioTarget) ? this._gateRatioTarget : cur;
+      // Exponential follow gives smoother start/stop than fixed-step movement.
+      const follow = 1 - Math.pow(0.02, dt / 1.5);
+      this._gateRatioCurrent = clamp(cur + (target - cur) * follow, 0, 1);
+
+      this._flowPhase = (this._flowPhase + dt * 1.2) % 1;
+      this.drawSchematic();
+    }, 20);
+  },
+
+  stopSchematicAnim() {
+    if (this._schemAnimTimer) {
+      clearInterval(this._schemAnimTimer);
+      this._schemAnimTimer = 0;
+    }
+  },
+
   drawSchematic() {
     const ctx = this._schemCtx;
     const W = this._schemW;
@@ -372,6 +418,9 @@ Page({
     const outer = this.data.outerMm;
     const delta = this.data.deltaMm;
     const gateState = Number(this.data.gateStateNum || 0);
+    const deviceOnline = !!this.data.deviceOnline;
+    const gateRatio = clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : (gateState === 1 ? 1 : 0), 0, 1);
+    const wavePhase = (Number.isFinite(this._flowPhase) ? this._flowPhase : 0) * Math.PI * 2;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -399,6 +448,25 @@ Page({
     ctx.strokeRect(rightX, pondTop, rightW, pondH);
     ctx.strokeRect(gateX + 14, pondTop, gateW - 28, pondH);
 
+    // Vertical ruler: 0m~5m marks (every 1m) to match panel water-level scale.
+    ctx.strokeStyle = 'rgba(148,163,184,0.55)';
+    ctx.fillStyle = 'rgba(148,163,184,0.9)';
+    ctx.lineWidth = 1;
+    ctx.font = '10px sans-serif';
+    for (let mm = 0; mm <= 5000; mm += 1000) {
+      const ratio = mm / 5000;
+      const y = pondBottom - pondH * ratio;
+      ctx.beginPath();
+      ctx.moveTo(leftX - 12, y);
+      ctx.lineTo(leftX, y);
+      ctx.moveTo(rightX + rightW, y);
+      ctx.lineTo(rightX + rightW + 12, y);
+      ctx.stroke();
+      const label = `${mm / 1000}m`;
+      ctx.fillText(label, leftX - 34, y + 3);
+      ctx.fillText(label, rightX + rightW + 14, y + 3);
+    }
+
     const mmToRatio = (mm) => clamp((Number(mm) || 0) / 5000, 0, 1);
     const lRatio = outer == null ? 0 : mmToRatio(outer);
     const rRatio = inner == null ? 0 : mmToRatio(inner);
@@ -420,16 +488,32 @@ Page({
       ctx.fillStyle = waterInner;
       ctx.fillRect(rightX + 2, pondBottom - rLevelH, rightW - 4, rLevelH);
     }
-
-    let gateY = pondTop + 8;
-    let gateColor = '#f59e0b';
-    if (gateState === 1) {
-      gateY = pondTop - pondH * 0.42;
-      gateColor = '#22c55e';
-    } else if (gateState === 2) {
-      gateY = pondTop + 6;
-      gateColor = '#fb7185';
+    const drawWave = (x, w, y, color, reverse) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      const amp = 2.8;
+      for (let i = 0; i <= 14; i += 1) {
+        const rx = i / 14;
+        const px = x + w * rx;
+        const phase = wavePhase + (reverse ? -1 : 1) * rx * Math.PI * 2.2;
+        const py = y + Math.sin(phase) * amp;
+        ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    };
+    if (outer != null && lLevelH > 3) {
+      drawWave(leftX + 3, leftW - 6, pondBottom - lLevelH, 'rgba(186, 230, 253, 0.85)', false);
     }
+    if (inner != null && rLevelH > 3) {
+      drawWave(rightX + 3, rightW - 6, pondBottom - rLevelH, 'rgba(186, 230, 253, 0.85)', true);
+    }
+
+    const gateY = pondTop + 6 - pondH * 0.42 * gateRatio;
+    let gateColor = '#f59e0b';
+    if (gateRatio >= 0.95) gateColor = '#22c55e';
+    else if (gateRatio <= 0.05) gateColor = '#fb7185';
     const plateX = gateX + 26;
     const plateW = gateW - 52;
     const plateH = pondH + 20;
@@ -441,26 +525,51 @@ Page({
     ctx.lineWidth = 3;
     ctx.strokeRect(plateX, gateY, plateW, plateH);
 
-    if (delta != null && Math.abs(delta) >= 20) {
+    const connected = deviceOnline && (delta != null) && Math.abs(delta) >= 20 && gateRatio > 0.12;
+    if (connected) {
+      // Gate opening joins both sides; fill gate slot with channel water.
+      const chanH = Math.max(0, Math.min(lLevelH, rLevelH));
+      if (chanH > 1) {
+        const chanGrad = ctx.createLinearGradient(gateX, pondBottom - chanH, gateX, pondBottom);
+        chanGrad.addColorStop(0, 'rgba(56,189,248,0.38)');
+        chanGrad.addColorStop(1, 'rgba(14,116,144,0.30)');
+        ctx.fillStyle = chanGrad;
+        ctx.fillRect(gateX + 14, pondBottom - chanH, gateW - 28, chanH);
+      }
+
       const y = pondBottom - Math.max(18, Math.min(lLevelH, rLevelH));
       const fromLeft = delta < 0;
-      const ax = fromLeft ? gateX - 30 : gateX + gateW + 30;
-      const bx = fromLeft ? gateX + gateW + 30 : gateX - 30;
+      const ax = gateX - 34;
+      const bx = gateX + gateW + 34;
       const color = Math.abs(delta) > 80 ? '#f59e0b' : '#22d3ee';
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(ax, y);
       ctx.lineTo(bx, y);
       ctx.stroke();
+
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = 'rgba(226,232,240,0.95)';
+      ctx.fillText(fromLeft ? '流向: 外塘 -> 内塘' : '流向: 内塘 -> 外塘', gateX - 30, y - 12);
+
+      // Animated flow chevrons.
       const dir = fromLeft ? 1 : -1;
-      ctx.beginPath();
-      ctx.moveTo(bx, y);
-      ctx.lineTo(bx - 10 * dir, y - 7);
-      ctx.lineTo(bx - 10 * dir, y + 7);
-      ctx.closePath();
-      ctx.fill();
+      const span = bx - ax;
+      const phase = Number.isFinite(this._flowPhase) ? this._flowPhase : 0;
+      for (let i = 0; i < 5; i += 1) {
+        let p = ((i / 5) + phase) % 1;
+        if (dir < 0) p = 1 - p;
+        const x = ax + p * span;
+        const s = 7;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - s * dir, y - s * 0.7);
+        ctx.lineTo(x - s * dir, y + s * 0.7);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
     ctx.fillStyle = '#e2e8f0';
@@ -468,6 +577,9 @@ Page({
     ctx.fillText('外塘', leftX + 8, 22);
     ctx.fillText('内塘', rightX + 8, 22);
     ctx.fillText('水闸', gateX + 18, H - 10);
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = 'rgba(226,232,240,0.9)';
+    ctx.fillText(`开度 ${Math.round(gateRatio * 100)}%`, gateX + 8, 36);
   },
 
   goDeviceConfig() {

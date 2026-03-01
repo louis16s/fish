@@ -26,6 +26,20 @@
 .btn-row .btn {
   flex: 0 0 auto;
 }
+.json-head {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.json-actions {
+  margin-left: auto;
+  flex-wrap: nowrap;
+  gap: 8rpx;
+}
+.json-actions .btn {
+  min-height: 56rpx;
+  padding: 0 12rpx;
+  font-size: 22rpx;
+}
 .mt12 { margin-top: 12rpx; }
 .title2 { font-size: 30rpx; font-weight: 700; margin-bottom: 12rpx; }
 .no-mb { margin-bottom: 0; }

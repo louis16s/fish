@@ -156,11 +156,11 @@
   </view>
 
   <view class="card">
-    <view class="row head-row">
+    <view class="row head-row json-head">
       <view class="title2 no-mb">原始 JSON（ctrl.json）</view>
-      <view class="row btn-row">
+      <view class="row btn-row json-actions">
         <button class="btn" size="mini" bindtap="formatJson">格式化</button>
-        <button class="btn" size="mini" bindtap="applyRaw">应用到表单</button>
+        <button class="btn" size="mini" bindtap="applyRaw">应用</button>
       </view>
     </view>
     <textarea class="ta" value="{{raw}}" maxlength="-1" bindinput="onRawInput" />

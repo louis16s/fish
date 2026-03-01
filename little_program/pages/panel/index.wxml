@@ -11,23 +11,19 @@
     <view class="hero-tags">
       <text class="tag {{serverMqttTagClass}}">{{serverMqttText}}</text>
       <text class="tag {{deviceOnlineTagClass}}">{{deviceOnlineText}}</text>
-      <text class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
-      <text class="tag {{deltaTagClass}}">Δ {{deltaText}}</text>
+      <text wx:if="{{deviceOnline}}" class="tag {{gateTagClass}}">闸门 {{gateText}}</text>
     </view>
 
-    <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
-      <view class="picker">设备：{{currentDeviceLabel}}</view>
-    </picker>
+    <view class="row device-row">
+      <picker mode="selector" range="{{deviceOptions}}" range-key="label" value="{{deviceIndex}}" bindchange="onDeviceChange">
+        <view class="picker">设备：{{currentDeviceLabel}}</view>
+      </picker>
+    </view>
 
     <view class="quick-grid">
       <button class="btn quick-btn" size="mini" bindtap="goDeviceConfig">规则</button>
       <button class="btn quick-btn" size="mini" bindtap="goReplay">回放</button>
       <button class="btn quick-btn" size="mini" bindtap="goAdmin">管理</button>
-    </view>
-
-    <view class="hero-foot">
-      <text class="hero-status">{{statusHintText}}</text>
-      <text class="hero-time">最近上报 {{lastTelemetryAt}}</text>
     </view>
   </view>
 
@@ -36,7 +32,7 @@
       <view class="title2">实时状态</view>
     </view>
 
-    <view class="gate-focus">
+    <view wx:if="{{deviceOnline}}" class="gate-focus">
       <view class="gate-title-row">
         <view class="gate-title">闸门状态</view>
         <view class="gate-main">{{gateText}}</view>
@@ -65,7 +61,7 @@
       </view>
       <view class="metric-item">
         <view class="metric-k">最近上报</view>
-        <view class="metric-v">{{lastTelemetryAt}}</view>
+        <view class="metric-v metric-time">{{lastTelemetryAt}}</view>
       </view>
     </view>
   </view>
@@ -76,7 +72,7 @@
     <view class="row schematic-legend">
       <text class="tag">内塘 {{innerText}}</text>
       <text class="tag">外塘 {{outerText}}</text>
-      <text class="tag">水位差 {{deltaText}}</text>
+      <text class="tag">Δ {{deltaText}}</text>
     </view>
     <view wx:if="{{schematicMsg}}" class="muted">{{schematicMsg}}</view>
   </view>

@@ -55,6 +55,35 @@
   font-weight: 650;
 }
 
+.device-row {
+  margin-top: 16rpx;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.device-row .picker {
+  margin-top: 0;
+  flex: 1 1 auto;
+  max-width: none;
+  min-width: 0;
+  padding: 14rpx 16rpx;
+  font-size: 24rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-status {
+  margin-left: 10rpx;
+  flex: 0 0 auto;
+  max-width: none;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .quick-grid {
   margin-top: 16rpx;
   display: grid;
@@ -74,24 +103,6 @@
   padding: 0 6rpx;
   white-space: normal;
   line-height: 1.2;
-}
-
-.hero-foot {
-  margin-top: 16rpx;
-  padding-top: 14rpx;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: grid;
-  gap: 6rpx;
-}
-
-.hero-status {
-  font-size: 24rpx;
-  color: rgba(167, 243, 208, 0.96);
-}
-
-.hero-time {
-  font-size: 22rpx;
-  color: rgba(165, 180, 207, 0.9);
 }
 
 .section-head {
@@ -172,6 +183,14 @@
   font-weight: 700;
   color: #e7eefc;
   line-height: 1.2;
+}
+
+.metric-time {
+  font-size: 22rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .schematic-canvas {
