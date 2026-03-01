@@ -33,30 +33,19 @@ function shouldCleanupStorage(err) {
     || msg.includes('exceed');
 }
 
-function cleanupReplayExports(fs, done) {
+function cleanupReplayExports(fs) {
   const dir = wx.env.USER_DATA_PATH;
-  fs.readdir({
-    dirPath: dir,
-    success: (res) => {
-      const files = (res && Array.isArray(res.files)) ? res.files : [];
-      const targets = files.filter((name) => /^replay_\d+\.(json|csv)$/i.test(String(name || '')));
-      if (!targets.length) {
-        done();
-        return;
-      }
-      let left = targets.length;
-      const next = () => {
-        left -= 1;
-        if (left <= 0) done();
-      };
-      targets.forEach((name) => {
-        fs.unlink({
-          filePath: `${dir}/${name}`,
-          complete: next
-        });
-      });
-    },
-    fail: () => done()
+  let files = [];
+  try {
+    files = fs.readdirSync(dir) || [];
+  } catch (e) {
+    return;
+  }
+  const targets = files.filter((name) => /^(replay_\d+\.(json|csv)|tmp_\d+\.(json|csv))$/i.test(String(name || '')));
+  targets.forEach((name) => {
+    try {
+      fs.unlinkSync(`${dir}/${name}`);
+    } catch (e) {}
   });
 }
 
@@ -102,7 +91,8 @@ Page({
     rangeHint: '每条记录代表一次设备遥测快照（telemetry payload）。单位：mm。',
     msg: '',
     rows: [],
-    rawRows: []
+    rawRows: [],
+    exporting: false
   },
 
   onShow() {
@@ -374,6 +364,34 @@ Page({
     return lines.join('\n');
   },
 
+  doShareFile(path, name) {
+    const canShare = (typeof wx.canIUse === 'function' && wx.canIUse('shareFileMessage'))
+      || typeof wx.shareFileMessage === 'function';
+    if (!canShare || typeof wx.shareFileMessage !== 'function') {
+      this.setData({ msg: '当前微信环境不支持文件发送（需基础库 2.16.1+ 且非插件环境）', exporting: false });
+      return;
+    }
+    try {
+      wx.shareFileMessage({
+        filePath: path,
+        fileName: name,
+        success: () => this.setData({ msg: `已导出并发送：${name}`, exporting: false }),
+        fail: (e) => {
+          const errMsg = (e && e.errMsg) ? String(e.errMsg) : 'share_failed';
+          this.setData({
+            msg: `导出成功，但发送失败：${errMsg}`,
+            exporting: false
+          });
+        }
+      });
+    } catch (e) {
+      this.setData({
+        msg: `导出成功，但发送调用异常：${(e && e.message) || 'share_failed'}`,
+        exporting: false
+      });
+    }
+  },
+
   async exportData() {
     const rows = this.data.rawRows || [];
     if (!rows.length) {
@@ -384,51 +402,46 @@ Page({
     wx.showActionSheet({
       itemList: ['导出 JSON', '导出 CSV'],
       success: (ret) => {
+        this.setData({ exporting: true, msg: '' });
         const idx = Number(ret.tapIndex || 0);
         const isJson = idx === 0;
         const ext = isJson ? 'json' : 'csv';
         const ts = Date.now();
         const fileName = `replay_${ts}.${ext}`;
         const content = isJson ? JSON.stringify(rows, null, 2) : this.buildCsvText();
-        const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
         const fs = wx.getFileSystemManager();
-        const shareOrNotify = () => {
-          if (typeof wx.shareFileMessage === 'function') {
-            wx.shareFileMessage({
-              filePath,
-              fileName,
-              success: () => this.setData({ msg: `已导出并可发送：${fileName}` }),
-              fail: () => this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` })
-            });
-            return;
+        const root = wx.env.USER_DATA_PATH;
+        const finalPath = `${root}/${fileName}`;
+
+        const writeAndShareOnce = () => {
+          try {
+            fs.writeFileSync(finalPath, content, 'utf8');
+            this.doShareFile(finalPath, fileName);
+            return null;
+          } catch (e) {
+            return e;
           }
-          this.setData({ msg: `文件已生成：${fileName}（当前环境不支持直接发送）` });
-        };
-        const writeOnce = (onFail) => {
-          fs.writeFile({
-            filePath,
-            data: content,
-            encoding: 'utf8',
-            success: shareOrNotify,
-            fail: onFail
-          });
         };
 
-        writeOnce((e) => {
-          if (!shouldCleanupStorage(e)) {
-            this.setData({ msg: `导出失败：${(e && e.errMsg) || 'write_failed'}` });
-            return;
-          }
-          cleanupReplayExports(fs, () => {
-            writeOnce((e2) => {
-              this.setData({
-                msg: shouldCleanupStorage(e2)
-                  ? '导出失败：本地文件空间不足，请缩小查询时间范围或条数后重试'
-                  : `导出失败：${(e2 && e2.errMsg) || 'write_failed'}`
-              });
-            });
-          });
+        let err = writeAndShareOnce();
+        if (!err) return;
+        if (!shouldCleanupStorage(err)) {
+          this.setData({ msg: `导出失败：${(err && err.errMsg) || 'write_failed'}`, exporting: false });
+          return;
+        }
+
+        cleanupReplayExports(fs);
+        err = writeAndShareOnce();
+        if (!err) return;
+        this.setData({
+          msg: shouldCleanupStorage(err)
+            ? '导出失败：本地文件空间不足，请缩小查询时间范围或条数后重试'
+            : `导出失败：${(err && err.errMsg) || 'write_failed'}`,
+          exporting: false
         });
+      },
+      fail: () => {
+        this.setData({ exporting: false });
       }
     });
   },
