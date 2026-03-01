@@ -1,5 +1,7 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const STATE_POLL_MS = 2500;
+const LOG_POLL_MS = 10000;
 
 function pickDeviceId() {
   const app = getApp();
@@ -96,16 +98,19 @@ Page({
   onShow() {
     this.bootstrap();
     this.startPolling();
+    this.startLogPolling();
     this.startSchematicAnim();
   },
 
   onHide() {
     this.stopPolling();
+    this.stopLogPolling();
     this.stopSchematicAnim();
   },
 
   onUnload() {
     this.stopPolling();
+    this.stopLogPolling();
     this.stopSchematicAnim();
   },
 
@@ -128,14 +133,27 @@ Page({
     this.stopPolling();
     this._tm = setInterval(() => {
       this.loadState();
-      this.loadLog();
-    }, 2500);
+    }, STATE_POLL_MS);
   },
 
   stopPolling() {
     if (this._tm) {
       clearInterval(this._tm);
       this._tm = 0;
+    }
+  },
+
+  startLogPolling() {
+    this.stopLogPolling();
+    this._logTm = setInterval(() => {
+      this.loadLog();
+    }, LOG_POLL_MS);
+  },
+
+  stopLogPolling() {
+    if (this._logTm) {
+      clearInterval(this._logTm);
+      this._logTm = 0;
     }
   },
 
@@ -297,6 +315,10 @@ Page({
   },
 
   async loadLog() {
+    if (this._logInflight) return;
+    this._logInflight = true;
+    const reqId = (this._logReqId || 0) + 1;
+    this._logReqId = reqId;
     const tab = this.data.logTab;
     const urlBase = `${withDev('/api/log')}${withDev('/api/log').includes('?') ? '&' : '?'}name=${encodeURIComponent(tab)}&tail=16384`;
     try {
@@ -308,9 +330,15 @@ Page({
         text = await api.requestText(urlBase);
         msg = '缓存未命中，已回退设备 RPC';
       }
-      this.setData({ logText: text || '(空)', logMsg: msg });
+      if (reqId === this._logReqId) {
+        this.setData({ logText: text || '(空)', logMsg: msg });
+      }
     } catch (e) {
-      this.setData({ logMsg: `读取失败：${e.message}` });
+      if (reqId === this._logReqId) {
+        this.setData({ logMsg: `读取失败：${e.message}` });
+      }
+    } finally {
+      if (reqId === this._logReqId) this._logInflight = false;
     }
   },
 

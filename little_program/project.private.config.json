@@ -1,6 +1,6 @@
 {
   "libVersion": "3.14.3",
-  "projectname": "little_program",
+  "projectname": "水闸控制器",
   "setting": {
     "urlCheck": true,
     "coverView": true,
