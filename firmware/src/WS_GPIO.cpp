@@ -46,6 +46,19 @@ void Buzzer_Startup_Melody(uint16_t total_ms)
 
   ledcWriteTone(PWM_Channel, 0);
 }
+void Buzzer_WiFi_Connected_Chime()
+{
+  // Keep this rhythm aligned with CH6 Wi-Fi connected pattern:
+  // 80ms on -> 70ms off -> 120ms on -> 80ms off
+  ledcWrite(PWM_Channel, Dutyfactor);
+  delay(80);
+  ledcWrite(PWM_Channel, 0);
+  delay(70);
+  ledcWrite(PWM_Channel, Dutyfactor);
+  delay(120);
+  ledcWrite(PWM_Channel, 0);
+  delay(80);
+}
 void GPIO_Init()
 {
   /*************************************************************************

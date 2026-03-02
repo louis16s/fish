@@ -27,5 +27,6 @@ void RGB_Light(uint8_t red_val, uint8_t green_val, uint8_t blue_val);
 void GPIO_Init();
 void Buzzer_PWM(uint16_t Time);
 void Buzzer_Startup_Melody(uint16_t total_ms);
+void Buzzer_WiFi_Connected_Chime();
 
 #endif

@@ -136,8 +136,42 @@ void End_Manual_Takeover();
 void Enable_Auto_Mode();
 void Latch_Auto_Off();
 void Pause_Auto_By_ManualTakeover();
+static void SignalTower_Loop();
+static void SignalTower_UpdateRed(bool wifiOnline, bool sensorLostPersistent);
+static void SignalTower_UpdateGateLamps();
+static void SignalTower_UpdateBuzzer(bool wifiOnline);
+static void SetRelayCh3ToCh6(uint8_t ch, bool on);
 
 static void Offline_Network_RGB_Loop();
+
+static const uint32_t SIGNAL_SENSOR_LOST_HOLD_MS = 10000UL;
+static const uint32_t SIGNAL_RED_BLINK_MS = 500UL;
+static const uint32_t SIGNAL_WIFI_BEEP_MIN_GAP_MS = 5000UL;
+
+// CH6 relay pattern for boot indication (A).
+static const uint16_t kSignalBeepBootDur[] = {130, 90, 130, 100, 180, 120};
+static const uint8_t  kSignalBeepBootOn[]  = {1,   0,  1,   0,   1,   0};
+
+// CH6 relay pattern for Wi-Fi connected indication (B).
+static const uint16_t kSignalBeepWifiConnectedDur[] = {80, 70, 120, 80};
+static const uint8_t  kSignalBeepWifiConnectedOn[]  = {1,  0,  1,   0};
+
+static bool g_signalRedBlinkPhase = false;
+static uint32_t g_signalRedBlinkLastMs = 0;
+static uint32_t g_signalSensorOfflineSinceMs = 0;
+
+static bool g_signalWifiPrev = false;
+static bool g_signalWifiPrevInit = false;
+static bool g_signalWifiBeepPending = false;
+
+static bool g_signalBeepActive = false;
+static const uint16_t* g_signalBeepDurSeq = nullptr;
+static const uint8_t* g_signalBeepOnSeq = nullptr;
+static uint8_t g_signalBeepLen = 0;
+static uint8_t g_signalBeepIdx = 0;
+static uint32_t g_signalBeepNextMs = 0;
+static uint32_t g_signalBeepLastStartMs = 0;
+static uint32_t g_signalMainWifiBeepLastMs = 0;
 
 static void Gate_Stop()
 {
@@ -920,6 +954,149 @@ void Relay_Analysis(uint8_t *buf,uint8_t Mode_Flag)
   }
 }
 
+static void SetRelayCh3ToCh6(uint8_t ch, bool on)
+{
+  uint8_t pin = 0;
+  switch (ch) {
+    case 3: pin = GPIO_PIN_CH3; break;
+    case 4: pin = GPIO_PIN_CH4; break;
+    case 5: pin = GPIO_PIN_CH5; break;
+    case 6: pin = GPIO_PIN_CH6; break;
+    default: return;
+  }
+  digitalWrite(pin, on ? HIGH : LOW);
+  Relay_Flag[ch - 1] = on ? 1 : 0;
+}
+
+static bool SignalBeep_Start(const uint16_t* durSeq, const uint8_t* onSeq, uint8_t len, uint32_t minGapMs)
+{
+  if (durSeq == nullptr || onSeq == nullptr || len == 0) {
+    return false;
+  }
+  const uint32_t now = millis();
+  if (minGapMs > 0 && (now - g_signalBeepLastStartMs) < minGapMs) {
+    return false;
+  }
+  g_signalBeepActive = true;
+  g_signalBeepDurSeq = durSeq;
+  g_signalBeepOnSeq = onSeq;
+  g_signalBeepLen = len;
+  g_signalBeepIdx = 0;
+  g_signalBeepLastStartMs = now;
+  SetRelayCh3ToCh6(6, g_signalBeepOnSeq[0] != 0);
+  g_signalBeepNextMs = now + g_signalBeepDurSeq[0];
+  return true;
+}
+
+static void SignalBeep_Stop()
+{
+  g_signalBeepActive = false;
+  g_signalBeepDurSeq = nullptr;
+  g_signalBeepOnSeq = nullptr;
+  g_signalBeepLen = 0;
+  g_signalBeepIdx = 0;
+  g_signalBeepNextMs = 0;
+  SetRelayCh3ToCh6(6, false);
+}
+
+static void SignalTower_UpdateRed(bool wifiOnline, bool sensorLostPersistent)
+{
+  const uint32_t now = millis();
+  if (!wifiOnline) {
+    g_signalRedBlinkPhase = true;
+    SetRelayCh3ToCh6(3, true);
+    return;
+  }
+  if (sensorLostPersistent) {
+    if ((now - g_signalRedBlinkLastMs) >= SIGNAL_RED_BLINK_MS) {
+      g_signalRedBlinkLastMs = now;
+      g_signalRedBlinkPhase = !g_signalRedBlinkPhase;
+    }
+    SetRelayCh3ToCh6(3, g_signalRedBlinkPhase);
+    return;
+  }
+  g_signalRedBlinkPhase = false;
+  SetRelayCh3ToCh6(3, false);
+}
+
+static void SignalTower_UpdateGateLamps()
+{
+  if (Manual_Takeover_Active) {
+    SetRelayCh3ToCh6(4, true);
+    SetRelayCh3ToCh6(5, true);
+    return;
+  }
+
+  const bool gateOpenState = (Gate_State == GATE_STATE_OPENING) ||
+                             ((Gate_State == GATE_STATE_STOPPED) && Gate_Position_Open);
+  SetRelayCh3ToCh6(4, !gateOpenState);
+  SetRelayCh3ToCh6(5, gateOpenState);
+}
+
+static void SignalTower_UpdateBuzzer(bool wifiOnline)
+{
+  const uint32_t now = millis();
+
+  if (!g_signalWifiPrevInit) {
+    g_signalWifiPrev = wifiOnline;
+    g_signalWifiPrevInit = true;
+  } else if (!g_signalWifiPrev && wifiOnline) {
+    g_signalWifiBeepPending = true;
+    if ((now - g_signalMainWifiBeepLastMs) >= SIGNAL_WIFI_BEEP_MIN_GAP_MS) {
+      Buzzer_WiFi_Connected_Chime();
+      g_signalMainWifiBeepLastMs = millis();
+    }
+  }
+  g_signalWifiPrev = wifiOnline;
+
+  if (!g_signalBeepActive && g_signalWifiBeepPending) {
+    if (SignalBeep_Start(
+          kSignalBeepWifiConnectedDur,
+          kSignalBeepWifiConnectedOn,
+          (uint8_t)(sizeof(kSignalBeepWifiConnectedDur) / sizeof(kSignalBeepWifiConnectedDur[0])),
+          SIGNAL_WIFI_BEEP_MIN_GAP_MS)) {
+      g_signalWifiBeepPending = false;
+    }
+  }
+
+  if (!g_signalBeepActive) {
+    return;
+  }
+  if ((int32_t)(now - g_signalBeepNextMs) < 0) {
+    return;
+  }
+
+  g_signalBeepIdx++;
+  if (g_signalBeepIdx >= g_signalBeepLen || g_signalBeepDurSeq == nullptr || g_signalBeepOnSeq == nullptr) {
+    SignalBeep_Stop();
+    return;
+  }
+
+  SetRelayCh3ToCh6(6, g_signalBeepOnSeq[g_signalBeepIdx] != 0);
+  g_signalBeepNextMs = now + g_signalBeepDurSeq[g_signalBeepIdx];
+}
+
+static void SignalTower_Loop()
+{
+  const uint32_t now = millis();
+  const bool wifiOnline = WIFI_Connection && (WiFi.status() == WL_CONNECTED);
+  const bool sensorAnyOffline = (!Sensor_Online_1) || (!Sensor_Online_2);
+  bool sensorLostPersistent = false;
+
+  if (sensorAnyOffline) {
+    if (g_signalSensorOfflineSinceMs == 0) {
+      g_signalSensorOfflineSinceMs = now;
+    }
+    sensorLostPersistent = (now - g_signalSensorOfflineSinceMs) >= SIGNAL_SENSOR_LOST_HOLD_MS;
+  } else {
+    g_signalSensorOfflineSinceMs = 0;
+  }
+
+  SignalTower_UpdateRed(wifiOnline, sensorLostPersistent);
+  SignalTower_UpdateGateLamps();
+  SignalTower_UpdateBuzzer(wifiOnline);
+}
+
 
 
 static void Offline_Network_RGB_Loop()
@@ -962,6 +1139,11 @@ void setup() {
   WS_Log_SetTimeProvider(WS_Time_NowEpoch);
 // Relay . RGB . Buzzer GPIO
   GPIO_Init();
+  (void)SignalBeep_Start(
+    kSignalBeepBootDur,
+    kSignalBeepBootOn,
+    (uint8_t)(sizeof(kSignalBeepBootDur) / sizeof(kSignalBeepBootDur[0])),
+    0);
   Buzzer_Startup_Melody(STARTUP_BUZZER_DURATION_MS);
   Update_Gate_Command_Availability();
   Update_Alarm_Status();
@@ -971,6 +1153,15 @@ void setup() {
 // WIFI
   MQTT_Init();
   if (WIFI_Connection == 1 && WiFi.status() == WL_CONNECTED) {
+    Buzzer_WiFi_Connected_Chime();
+    (void)SignalBeep_Start(
+      kSignalBeepWifiConnectedDur,
+      kSignalBeepWifiConnectedOn,
+      (uint8_t)(sizeof(kSignalBeepWifiConnectedDur) / sizeof(kSignalBeepWifiConnectedDur[0])),
+      0);
+    g_signalMainWifiBeepLastMs = millis();
+    g_signalWifiPrev = true;
+    g_signalWifiPrevInit = true;
     WS_Time_OnWiFiConnected();
   }
 }
@@ -998,6 +1189,7 @@ void loop() {
 // WIFI
   MQTT_Loop();
   Air780E_Loop();
+  SignalTower_Loop();
   Offline_Network_RGB_Loop();
 }
 
