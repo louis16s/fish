@@ -492,10 +492,34 @@ async function main() {
     const body = req.body || {};
     const deviceId = String(body.device_id || '').trim();
     const displayName = String(body.display_name || '').trim();
+    const mqttUsername = String(body.mqtt_username || '').trim();
+    let topicTelemetry = String(body.mqtt_telemetry_topic || '').trim();
+    let topicCommand = String(body.mqtt_command_topic || '').trim();
+    let topicReply = String(body.mqtt_reply_topic || '').trim();
+    let topicLog = String(body.mqtt_log_topic || '').trim();
+
     if (!deviceId || deviceId.length > 128) return res.status(400).json({ ok: false, error: 'bad_device_id' });
-    if (/[\/+#\s]/.test(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (!/^[A-Za-z0-9._-]+$/.test(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
     if (displayName.length > 128) return res.status(400).json({ ok: false, error: 'bad_display_name' });
-    const d = await upsertDevice(pool, deviceId, displayName);
+    if (mqttUsername.length > 128) return res.status(400).json({ ok: false, error: 'bad_mqtt_username' });
+
+    const hasTopicWildcard = (s) => /[+#]/.test(String(s || ''));
+    topicTelemetry = topicTelemetry || `${deviceId}/device/telemetry`;
+    topicCommand = topicCommand || `${deviceId}/device/command`;
+    topicReply = topicReply || `${deviceId}/device/reply`;
+    topicLog = topicLog || `${deviceId}/device/log`;
+    if ([topicTelemetry, topicCommand, topicReply, topicLog].some((t) => !t || t.length > 255 || /\s/.test(t) || hasTopicWildcard(t))) {
+      return res.status(400).json({ ok: false, error: 'bad_mqtt_topic' });
+    }
+
+    const d = await upsertDevice(pool, deviceId, {
+      displayName,
+      mqttUsername,
+      topicTelemetry,
+      topicCommand,
+      topicReply,
+      topicLog
+    });
     res.json({ ok: true, device: d });
   });
 

@@ -218,7 +218,16 @@ curl http://127.0.0.1:8080/healthz
 
 1. `GET /api/admin/settings`
 2. `POST /api/admin/settings`（`retention_days`）
-3. `POST /api/admin/devices`（手动新增 MQTT 设备：`device_id`、`display_name`）
+3. `POST /api/admin/devices`（手动新增 MQTT 设备）
+字段：
+- 必填：`device_id`（设备唯一 ID，topic 前缀）
+- 可选：`display_name`、`mqtt_username`
+- 可选 topic：`mqtt_telemetry_topic`、`mqtt_command_topic`、`mqtt_reply_topic`、`mqtt_log_topic`
+- 若 topic 留空，默认：
+  - `<device_id>/device/telemetry`
+  - `<device_id>/device/command`
+  - `<device_id>/device/reply`
+  - `<device_id>/device/log`
 4. `POST /api/admin/devices/:deviceId/delete`（删除设备，`fish1` 禁止删除）
 5. `GET /api/admin/users`
 6. `POST /api/admin/users`

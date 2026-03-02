@@ -26,10 +26,20 @@ async function initDb(pool) {
     CREATE TABLE IF NOT EXISTS devices (
       device_id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL DEFAULT '',
+      mqtt_username TEXT NOT NULL DEFAULT '',
+      mqtt_telemetry_topic TEXT NOT NULL DEFAULT '',
+      mqtt_command_topic TEXT NOT NULL DEFAULT '',
+      mqtt_reply_topic TEXT NOT NULL DEFAULT '',
+      mqtt_log_topic TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       last_seen_at TIMESTAMPTZ
     );
   `);
+  await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS mqtt_username TEXT NOT NULL DEFAULT '';`);
+  await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS mqtt_telemetry_topic TEXT NOT NULL DEFAULT '';`);
+  await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS mqtt_command_topic TEXT NOT NULL DEFAULT '';`);
+  await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS mqtt_reply_topic TEXT NOT NULL DEFAULT '';`);
+  await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS mqtt_log_topic TEXT NOT NULL DEFAULT '';`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -154,35 +164,65 @@ async function deleteUser(pool, id) {
 
 async function upsertDeviceSeen(pool, deviceId, seenAt) {
   await pool.query(
-    `INSERT INTO devices(device_id,last_seen_at)
-     VALUES($1,$2)
+    `INSERT INTO devices(
+       device_id,last_seen_at,mqtt_telemetry_topic,mqtt_command_topic,mqtt_reply_topic,mqtt_log_topic
+     )
+     VALUES($1,$2,$3,$4,$5,$6)
      ON CONFLICT (device_id) DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at`,
-    [deviceId, seenAt]
+    [
+      deviceId,
+      seenAt,
+      `${deviceId}/device/telemetry`,
+      `${deviceId}/device/command`,
+      `${deviceId}/device/reply`,
+      `${deviceId}/device/log`
+    ]
   );
 }
 
 async function listDevices(pool) {
   const r = await pool.query(
-    `SELECT device_id, display_name, created_at, last_seen_at
+    `SELECT
+       device_id, display_name, mqtt_username,
+       mqtt_telemetry_topic, mqtt_command_topic, mqtt_reply_topic, mqtt_log_topic,
+       created_at, last_seen_at
      FROM devices
      ORDER BY COALESCE(last_seen_at, created_at) DESC`
   );
   return r.rows || [];
 }
 
-async function upsertDevice(pool, deviceId, displayName) {
+async function upsertDevice(pool, deviceId, metadata) {
   const id = String(deviceId || '').trim();
-  const name = String(displayName || '').trim();
+  const m = metadata || {};
+  const name = String(m.displayName || '').trim();
+  const mqttUsername = String(m.mqttUsername || '').trim();
+  const topicTelemetry = String(m.topicTelemetry || `${id}/device/telemetry`).trim();
+  const topicCommand = String(m.topicCommand || `${id}/device/command`).trim();
+  const topicReply = String(m.topicReply || `${id}/device/reply`).trim();
+  const topicLog = String(m.topicLog || `${id}/device/log`).trim();
   const r = await pool.query(
-    `INSERT INTO devices(device_id, display_name, created_at, last_seen_at)
-     VALUES($1, $2, now(), NULL)
+    `INSERT INTO devices(
+       device_id, display_name, mqtt_username,
+       mqtt_telemetry_topic, mqtt_command_topic, mqtt_reply_topic, mqtt_log_topic,
+       created_at, last_seen_at
+     )
+     VALUES($1, $2, $3, $4, $5, $6, $7, now(), NULL)
      ON CONFLICT (device_id) DO UPDATE SET
        display_name = CASE
          WHEN EXCLUDED.display_name <> '' THEN EXCLUDED.display_name
          ELSE devices.display_name
-       END
-     RETURNING device_id, display_name, created_at, last_seen_at`,
-    [id, name]
+       END,
+       mqtt_username = EXCLUDED.mqtt_username,
+       mqtt_telemetry_topic = EXCLUDED.mqtt_telemetry_topic,
+       mqtt_command_topic = EXCLUDED.mqtt_command_topic,
+       mqtt_reply_topic = EXCLUDED.mqtt_reply_topic,
+       mqtt_log_topic = EXCLUDED.mqtt_log_topic
+     RETURNING
+       device_id, display_name, mqtt_username,
+       mqtt_telemetry_topic, mqtt_command_topic, mqtt_reply_topic, mqtt_log_topic,
+       created_at, last_seen_at`,
+    [id, name, mqttUsername, topicTelemetry, topicCommand, topicReply, topicLog]
   );
   return r.rows && r.rows[0] ? r.rows[0] : null;
 }
