@@ -436,7 +436,22 @@
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(2,6,23,.20));
     }
     .histLegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;color:var(--muted2);font-size:12px;font-weight:950}
-    .histLegend .lg{display:flex;align-items:center;gap:8px}
+    .histLegend .lg{
+      display:flex;align-items:center;gap:8px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:999px;
+      padding:6px 10px;
+      background:rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+    }
+    .histLegend .lg:hover{background:rgba(255,255,255,.07)}
+    .histLegend .lg.dim{opacity:.45}
+    .histLegend .lg.active{
+      border-color:rgba(34,211,238,.36);
+      background:rgba(34,211,238,.12);
+      color:var(--text);
+    }
     .histLegend .dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
     .histLegend .dot.outer{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(37,99,235,.95));box-shadow:0 0 0 3px rgba(37,99,235,.10)}
     .histLegend .dot.inner{background:linear-gradient(180deg, rgba(103,232,249,.95), rgba(6,182,212,.95));box-shadow:0 0 0 3px rgba(6,182,212,.10)}
@@ -609,10 +624,15 @@
           </div>
           <div class="panelBody">
             <canvas class="histCanvas" id="histCanvas" height="170"></canvas>
-            <div class="histLegend" aria-hidden="true">
-              <div class="lg"><span class="dot outer" aria-hidden="true"></span>外塘</div>
-              <div class="lg"><span class="dot inner" aria-hidden="true"></span>内塘</div>
+            <div class="histLegend" aria-label="历史图例">
+              <button class="lg" id="histLgOuter" type="button" onclick="histFocusSeries('outer')" title="点击后聚焦外塘曲线30秒">
+                <span class="dot outer" aria-hidden="true"></span>外塘
+              </button>
+              <button class="lg" id="histLgInner" type="button" onclick="histFocusSeries('inner')" title="点击后聚焦内塘曲线30秒">
+                <span class="dot inner" aria-hidden="true"></span>内塘
+              </button>
             </div>
+            <div class="hint" id="histPick">提示：点击图例可聚焦单条曲线 30 秒；点击曲线可查看最近数据点。</div>
           </div>
         </section>
 
@@ -954,6 +974,12 @@
     let g_histLastSec = 0;
     let g_histDrawPending = 0;
     let g_histResizeTimer = 0;
+    const HIST_FOCUS_MS = 30 * 1000;
+    let g_histFocusSeries = ''; // '' | 'outer' | 'inner'
+    let g_histFocusUntilMs = 0;
+    let g_histFocusTimer = 0;
+    const g_histPlotPts = []; // [{x,y,t,mm,s}]
+    let g_histPicked = null; // {x,y,t,mm,s}
 
     // UI-only safety lock: after pressing Open/Close, lock both buttons briefly to prevent spam.
     // Note: manual takeover mode bypasses this lock.
@@ -1144,7 +1170,7 @@
       return {w: cssW, h: cssH};
     }
 
-    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color, yMaxMm){
+    function histStroke(ctx, arr, startIdx, n, x0, windowS, w, h, padL, padR, padT, padB, stride, color, yMaxMm, seriesKey, plotPts){
       const xSpan = w - padL - padR;
       const ySpan = h - padT - padB;
       const yMax = Math.max(1, (yMaxMm | 0) || HIST_MAX_MM);
@@ -1162,6 +1188,9 @@
         }
         const x = padL + ((t - x0) / windowS) * xSpan;
         const y = padT + (1 - (clamp(mm, 0, yMax) / yMax)) * ySpan;
+        if(plotPts){
+          plotPts.push({x, y, t, mm, s: seriesKey});
+        }
         if(!started){
           ctx.moveTo(x, y);
           started = true;
@@ -1194,6 +1223,103 @@
       const d = new Date(sec * 1000);
       const p = (x) => (x < 10 ? ('0' + x) : ('' + x));
       return p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    function histFocusActive(){
+      return !!(g_histFocusSeries && Date.now() < g_histFocusUntilMs);
+    }
+
+    function histFocusRemainS(){
+      return Math.max(0, Math.ceil((g_histFocusUntilMs - Date.now()) / 1000));
+    }
+
+    function histSeriesVisible(series){
+      if(!histFocusActive()) return true;
+      return series === g_histFocusSeries;
+    }
+
+    function histPickClear(msg){
+      const el = $('histPick');
+      if(!el) return;
+      el.textContent = msg || '提示：点击图例可聚焦单条曲线 30 秒；点击曲线可查看最近数据点。';
+      el.className = 'hint';
+    }
+
+    function histUpdateLegendUi(){
+      const out = $('histLgOuter');
+      const inn = $('histLgInner');
+      const focused = histFocusActive();
+      const remain = histFocusRemainS();
+      if(out){
+        out.className = 'lg' + (focused ? ((g_histFocusSeries === 'outer') ? ' active' : ' dim') : '');
+        out.title = focused ? ((g_histFocusSeries === 'outer') ? ('外塘聚焦中，剩余 ' + remain + 's') : '点击聚焦外塘曲线30秒') : '点击后聚焦外塘曲线30秒';
+      }
+      if(inn){
+        inn.className = 'lg' + (focused ? ((g_histFocusSeries === 'inner') ? ' active' : ' dim') : '');
+        inn.title = focused ? ((g_histFocusSeries === 'inner') ? ('内塘聚焦中，剩余 ' + remain + 's') : '点击聚焦内塘曲线30秒') : '点击后聚焦内塘曲线30秒';
+      }
+      if(!focused){
+        return;
+      }
+      const el = $('histPick');
+      if(el){
+        el.textContent = ((g_histFocusSeries === 'outer') ? '外塘' : '内塘') + '聚焦中（' + remain + 's）';
+        el.className = 'hint warn';
+      }
+    }
+
+    function histFocusSeries(series){
+      const s = (series === 'outer' || series === 'inner') ? series : '';
+      if(!s) return;
+      if(g_histFocusTimer){
+        clearTimeout(g_histFocusTimer);
+        g_histFocusTimer = 0;
+      }
+      if(histFocusActive() && g_histFocusSeries === s){
+        g_histFocusSeries = '';
+        g_histFocusUntilMs = 0;
+        histPickClear();
+      }else{
+        g_histFocusSeries = s;
+        g_histFocusUntilMs = Date.now() + HIST_FOCUS_MS;
+        g_histFocusTimer = setTimeout(()=>{
+          g_histFocusTimer = 0;
+          histScheduleDraw();
+        }, HIST_FOCUS_MS + 20);
+      }
+      histUpdateLegendUi();
+      histScheduleDraw();
+    }
+    window.histFocusSeries = histFocusSeries;
+
+    function histPickNearest(clientX, clientY){
+      const c = $('histCanvas');
+      if(!c || !g_histPlotPts.length) return;
+      const rect = c.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      let best = null;
+      let bestScore = 1e18;
+      for(let i=0;i<g_histPlotPts.length;i++){
+        const p = g_histPlotPts[i];
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const score = (dx * dx) + (dy * dy * 0.15);
+        if(score < bestScore){
+          bestScore = score;
+          best = p;
+        }
+      }
+      if(!best) return;
+      g_histPicked = best;
+      const d = new Date((best.t | 0) * 1000);
+      const ts = d.toLocaleString();
+      const el = $('histPick');
+      if(el){
+        el.textContent = ((best.s === 'outer') ? '外塘' : '内塘') + ' 最近点：' + (best.mm | 0) + 'mm @ ' + ts;
+        el.className = 'hint good';
+      }
+      histScheduleDraw();
     }
 
     let g_histLoadBusy = 0;
@@ -1250,6 +1376,7 @@
       if(!w) return;
       g_histWindowKey = k;
       g_histWindowS = w;
+      g_histPicked = null;
       const meta = $('histMeta');
       if(meta) meta.textContent = histRangeLabel(k);
       const map = {'30m':'histRange30', '60m':'histRange60', '24h':'histRange24'};
@@ -1276,6 +1403,13 @@
       const dim = histSetupCanvas(ctx, c);
       const w = dim.w, h = dim.h;
       ctx.clearRect(0, 0, w, h);
+      g_histPlotPts.length = 0;
+
+      if(g_histFocusSeries && !histFocusActive()){
+        g_histFocusSeries = '';
+        g_histFocusUntilMs = 0;
+      }
+      histUpdateLegendUi();
 
       const padL = 44, padR = 12, padT = 12, padB = 28;
       const xSpan = Math.max(1, w - padL - padR);
@@ -1367,17 +1501,22 @@
       // Draw inner (solid) then outer (dashed on top) so both curves remain visible even when levels overlap.
       if(ctx.setLineDash) ctx.setLineDash([]);
       ctx.lineWidth = 1.7;
-      const segIn = histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)', yMaxMm);
-
-      if(ctx.setLineDash) ctx.setLineDash([7, 5]);
-      ctx.lineWidth = 2.0;
-      const segOut = histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)', yMaxMm);
+      let segIn = 0;
+      let segOut = 0;
+      if(histSeriesVisible('inner')){
+        segIn = histStroke(ctx, g_histIn, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(34,211,238,.92)', yMaxMm, 'inner', g_histPlotPts);
+      }
+      if(histSeriesVisible('outer')){
+        if(ctx.setLineDash) ctx.setLineDash([7, 5]);
+        ctx.lineWidth = 2.0;
+        segOut = histStroke(ctx, g_histOut, startIdx, n, x0, g_histWindowS, w, h, padL, padR, padT, padB, stride, 'rgba(96,165,250,.92)', yMaxMm, 'outer', g_histPlotPts);
+      }
 
       if(ctx.setLineDash) ctx.setLineDash([]);
 
       // If a series has no segments (no data), render a deterministic 0m baseline instead of "missing line".
       const yZero = padT + ySpan;
-      if(segIn <= 0){
+      if(histSeriesVisible('inner') && segIn <= 0){
         ctx.lineWidth = 1.4;
         ctx.strokeStyle = 'rgba(34,211,238,.40)';
         ctx.beginPath();
@@ -1385,7 +1524,7 @@
         ctx.lineTo(padL + xSpan, yZero);
         ctx.stroke();
       }
-      if(segOut <= 0){
+      if(histSeriesVisible('outer') && segOut <= 0){
         if(ctx.setLineDash) ctx.setLineDash([7, 5]);
         ctx.lineWidth = 1.6;
         ctx.strokeStyle = 'rgba(96,165,250,.40)';
@@ -1394,6 +1533,32 @@
         ctx.lineTo(padL + xSpan, yZero);
         ctx.stroke();
         if(ctx.setLineDash) ctx.setLineDash([]);
+      }
+
+      if(g_histPicked){
+        // Re-lock picked point to the nearest currently rendered sample.
+        let best = null;
+        let bestDist = 1e18;
+        for(let i=0;i<g_histPlotPts.length;i++){
+          const p = g_histPlotPts[i];
+          if(g_histPicked.s && p.s !== g_histPicked.s) continue;
+          const dt = Math.abs((p.t | 0) - (g_histPicked.t | 0));
+          if(dt < bestDist){
+            bestDist = dt;
+            best = p;
+          }
+        }
+        if(best){
+          g_histPicked = best;
+          ctx.fillStyle = 'rgba(255,255,255,.95)';
+          ctx.beginPath();
+          ctx.arc(best.x, best.y, 4.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = (best.s === 'outer') ? 'rgba(96,165,250,.98)' : 'rgba(34,211,238,.98)';
+          ctx.beginPath();
+          ctx.arc(best.x, best.y, 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
@@ -2571,6 +2736,8 @@
       loadSchematic().then(()=>{
         setGateRatio(0);
         renderNoDataUi(); // apply again after SVG handles are available
+        histPickClear();
+        histUpdateLegendUi();
         cfgLoad();
         histLoadFromServer();
         refreshOnce();
@@ -2610,6 +2777,12 @@
         g_logLive = true;
       }
       logSetTab('error');
+      const histCanvas = $('histCanvas');
+      if(histCanvas){
+        histCanvas.addEventListener('click', (ev)=>{
+          histPickNearest(ev.clientX, ev.clientY);
+        });
+      }
       document.addEventListener('visibilitychange', ()=>{
         if(document.hidden){
           logStopPolling();
