@@ -91,6 +91,18 @@
       border-radius:var(--radius-pill);
       font-size:12px;
     }
+    .btn.small.nowrap{
+      white-space:nowrap;
+      font-size:11px;
+      min-height:34px;
+      padding:6px 9px;
+    }
+    #pkEnableBtn,#pkDisableBtn{
+      border-radius:10px;
+      min-height:36px;
+      padding:7px 10px;
+      font-size:12px;
+    }
     .btn.iconOnly{padding:12px 12px;min-width:56px;min-height:48px}
     .btn.iconOnly svg{width:22px;height:22px;display:block;fill:currentColor}
 
@@ -141,6 +153,7 @@
     .hint.good{color:var(--good)}
     .hint.warn{color:var(--warn)}
     .hint.bad{color:var(--bad)}
+    #statusDiag{white-space:pre-line}
 
     table{width:100%;border-collapse:separate;border-spacing:0}
     th,td{font-size:12px;text-align:left;padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
@@ -458,12 +471,12 @@
         $('statusLine').textContent = serverMqtt + ' | ' + db + ' | ' + devMqtt;
 
         const deviceId = (j && j.device_id) ? j.device_id : '--';
-        const rssi = (j && j.device && Number.isFinite(j.device.rssi_dbm)) ? (j.device.rssi_dbm + ' dBm') : '--';
+        const rssi = (j && j.device && Number.isFinite(j.device.rssi_dbm)) ? String(j.device.rssi_dbm) : '--';
         const ip = (j && j.device && j.device.ip) ? j.device.ip : '--';
         const fw = (j && j.device && j.device.fw) ? j.device.fw : '--';
         const seen = (j && j.telemetry) ? fmtMsEpoch(j.telemetry.last_telemetry_at) : '--';
         $('statusDiag').textContent =
-          '设备 ' + deviceId + ' | RSSI ' + rssi + ' | IP ' + ip + ' | 固件 ' + fw + ' | 最后上报 ' + seen;
+          '设备 ' + deviceId + ' | RSSI ' + rssi + ' dBm | IP ' + ip + '\n固件 ' + fw + ' | 最后上报 ' + seen;
       }catch(e){
         $('statusLine').textContent = '状态获取失败';
         if($('statusDiag')) $('statusDiag').textContent = '--';
@@ -524,15 +537,18 @@
           const btnDis = dis ? '启用' : '禁用';
           const isAdmin = String(u.role || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'admin';
           const delBtn = isAdmin
-            ? '<button class="btn small danger" disabled>不可删除</button>'
+            ? '<button class="btn small nowrap danger" disabled>不可删除</button>'
             : '<button class="btn small danger" onclick="deleteUser(' + u.id + ')">删除</button>';
+          const pwBtn = isAdmin
+            ? '<button class="btn small" onclick="changePw(' + u.id + ',true)">修改密码</button>'
+            : '<button class="btn small" onclick="changePw(' + u.id + ',false)">重置密码</button>';
           return '<tr>' +
             '<td>' + esc(u.id) + '</td>' +
             '<td>' + esc(u.username||'') + '</td>' +
             '<td>' + roleTag(u.role) + '</td>' +
             '<td>' + statusTag(dis) + '</td>' +
             '<td style="font-family:var(--font)">' +
-              '<button class="btn small" onclick="resetPw(' + u.id + ')">重置密码</button> ' +
+              pwBtn + ' ' +
               '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button> ' +
               delBtn +
             '</td>' +
@@ -578,21 +594,25 @@
     }
     window.toggleDis = toggleDis;
 
-    async function resetPw(id){
+    async function changePw(id, isAdmin){
+      const u = g_userById[String(id)] || null;
+      const uname = u && u.username ? String(u.username) : ('#' + id);
       const p = prompt('输入新密码（>=8）');
       if(!p) return;
+      if(!confirm('确认要' + (isAdmin ? '修改' : '重置') + '账号 "' + uname + '" 的密码吗？')) return;
+      if(!confirm('二次确认：将立即生效，确认继续？')) return;
       try{
         await apiJson('/api/admin/users/' + id + '/password', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({password: p})
         });
-        showMsg($('userMsg'), '已重置密码');
+        showMsg($('userMsg'), (isAdmin ? '已修改密码' : '已重置密码'));
       }catch(e){
-        showMsg($('userMsg'), '重置失败：' + e.message);
+        showMsg($('userMsg'), (isAdmin ? '修改失败：' : '重置失败：') + e.message);
       }
     }
-    window.resetPw = resetPw;
+    window.changePw = changePw;
 
     async function deleteUser(id){
       const u = g_userById[String(id)] || null;
@@ -651,7 +671,7 @@
           const did = String(d.device_id || '');
           const noDelete = did.toLowerCase() === 'fish1';
           const delBtn = noDelete
-            ? '<button class="btn small danger" disabled>不可删除</button>'
+            ? '<button class="btn small nowrap danger" disabled>不可删除</button>'
             : '<button class="btn small danger" data-device-id="' + esc(did) + '" onclick="deleteDeviceFromBtn(this)">删除</button>';
           return '<tr><td>' + esc(did) + '</td><td>' + esc(d.display_name||'') + '</td><td>' + esc(d.mqtt_username||'') + '</td><td>' + esc(fmtTs(d.last_seen_at)) + '</td><td style="font-family:var(--font)">' + delBtn + '</td></tr>';
         }).join('');
