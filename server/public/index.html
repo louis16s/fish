@@ -981,6 +981,8 @@
     let g_histFocusTimer = 0;
     const g_histPlotPts = []; // [{x,y,t,mm,s}]
     let g_histPicked = null; // {x,y,t,mm,s}
+    let g_histPickedAtMs = 0;
+    let g_histGeom = null; // {padL,padR,padT,padB,x0,windowS,w,h,yMaxMm,startIdx,n}
 
     // UI-only safety lock: after pressing Open/Close, lock both buttons briefly to prevent spam.
     // Note: manual takeover mode bypasses this lock.
@@ -1264,8 +1266,11 @@
       }
       const el = $('histPick');
       if(el){
-        el.textContent = ((g_histFocusSeries === 'outer') ? '外塘' : '内塘') + '聚焦中（' + remain + 's）';
-        el.className = 'hint warn';
+        const pickedFresh = !!(g_histPicked && (Date.now() - g_histPickedAtMs) < 15_000);
+        if(!pickedFresh){
+          el.textContent = ((g_histFocusSeries === 'outer') ? '外塘' : '内塘') + '聚焦中（' + remain + 's）';
+          el.className = 'hint warn';
+        }
       }
     }
 
@@ -1295,24 +1300,52 @@
 
     function histPickNearest(clientX, clientY){
       const c = $('histCanvas');
-      if(!c || !g_histPlotPts.length) return;
+      if(!c || !g_histGeom || !g_histGeom.n) return;
       const rect = c.getBoundingClientRect();
       const x = clientX - rect.left;
       const y = clientY - rect.top;
+      const padL = g_histGeom.padL, padR = g_histGeom.padR, padT = g_histGeom.padT, padB = g_histGeom.padB;
+      const x0 = g_histGeom.x0, windowS = g_histGeom.windowS;
+      const yMaxMm = Math.max(1, g_histGeom.yMaxMm || HIST_MAX_MM);
+      const xSpan = Math.max(1, g_histGeom.w - padL - padR);
+      const ySpan = Math.max(1, g_histGeom.h - padT - padB);
       let best = null;
       let bestScore = 1e18;
-      for(let i=0;i<g_histPlotPts.length;i++){
-        const p = g_histPlotPts[i];
-        const dx = p.x - x;
-        const dy = p.y - y;
-        const score = (dx * dx) + (dy * dy * 0.15);
-        if(score < bestScore){
-          bestScore = score;
-          best = p;
+      for(let i = 0; i < g_histGeom.n; i++){
+        const idx = (g_histGeom.startIdx + i) % HIST_MAX;
+        const t = g_histT[idx] | 0;
+        if(t <= 0 || t < x0) continue;
+        const px = padL + ((t - x0) / windowS) * xSpan;
+        if(histSeriesVisible('inner')){
+          const mmIn = g_histIn[idx] | 0;
+          if(mmIn >= 0){
+            const pyIn = padT + (1 - (clamp(mmIn, 0, yMaxMm) / yMaxMm)) * ySpan;
+            const dx = px - x;
+            const dy = pyIn - y;
+            const score = (dx * dx) + (dy * dy);
+            if(score < bestScore){
+              bestScore = score;
+              best = {x:px, y:pyIn, t, mm:mmIn, s:'inner'};
+            }
+          }
+        }
+        if(histSeriesVisible('outer')){
+          const mmOut = g_histOut[idx] | 0;
+          if(mmOut >= 0){
+            const pyOut = padT + (1 - (clamp(mmOut, 0, yMaxMm) / yMaxMm)) * ySpan;
+            const dx = px - x;
+            const dy = pyOut - y;
+            const score = (dx * dx) + (dy * dy);
+            if(score < bestScore){
+              bestScore = score;
+              best = {x:px, y:pyOut, t, mm:mmOut, s:'outer'};
+            }
+          }
         }
       }
       if(!best) return;
       g_histPicked = best;
+      g_histPickedAtMs = Date.now();
       const d = new Date((best.t | 0) * 1000);
       const ts = d.toLocaleString();
       const el = $('histPick');
@@ -1405,6 +1438,7 @@
       const w = dim.w, h = dim.h;
       ctx.clearRect(0, 0, w, h);
       g_histPlotPts.length = 0;
+      g_histGeom = null;
 
       if(g_histFocusSeries && !histFocusActive()){
         g_histFocusSeries = '';
@@ -1442,8 +1476,8 @@
           const idx = (startIdx + i) % HIST_MAX;
           const a = g_histIn[idx] | 0;
           const b = g_histOut[idx] | 0;
-          if(a > dataMaxMm) dataMaxMm = a;
-          if(b > dataMaxMm) dataMaxMm = b;
+          if(histSeriesVisible('inner') && a > dataMaxMm) dataMaxMm = a;
+          if(histSeriesVisible('outer') && b > dataMaxMm) dataMaxMm = b;
         }
       }
       let yMaxMm = HIST_MAX_MM;
@@ -1473,6 +1507,7 @@
       }
 
       if(g_histN < 2) return;
+      g_histGeom = {padL, padR, padT, padB, x0, windowS:g_histWindowS, w, h, yMaxMm, startIdx, n};
 
       // Time ticks along X axis.
       {
