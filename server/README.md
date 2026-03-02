@@ -152,7 +152,7 @@ curl http://127.0.0.1:8080/healthz
 1. `GET /healthz`
 2. `GET /login`
 3. `GET /`
-4. `GET /config`
+4. `GET /config`（兼容入口，302 重定向到 `/rules`）
 5. `GET /rules`
 6. `GET /device-config`（302 到 `/rules`）
 7. `GET /replay`
@@ -220,8 +220,13 @@ curl http://127.0.0.1:8080/healthz
 3. `GET /api/admin/users`
 4. `POST /api/admin/users`
 5. `POST /api/admin/users/:id/password`
-6. `POST /api/admin/users/:id/disable`
-7. `POST /api/admin/users/:id/delete`（禁止删除 admin）
+6. `POST /api/admin/users/:id/disable`（`admin` 用户不可禁用）
+7. `POST /api/admin/users/:id/delete`（`admin` 用户不可删除）
+
+约束补充：
+
+- 用户名大小写不敏感唯一（`admin` 与 `Admin` 视为重复）。
+- `ADMIN_USERNAME`（默认 `admin`）在服务端也会被强制保护，不能禁用/删除。
 
 ## 8. 访问控制与安全设计
 

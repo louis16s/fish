@@ -204,9 +204,9 @@ async function main() {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
   });
+  // Removed external management page: keep legacy route for compatibility.
   app.get('/config', requireAuthPage, (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    res.sendFile(path.join(PUBLIC_DIR, 'config.html'));
+    res.redirect(302, '/rules');
   });
   app.get('/rules', requireAuthPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -516,6 +516,13 @@ async function main() {
     const id = clampInt(req.params.id, 1, 1_000_000_000, 0);
     const disabled = !!(req.body && req.body.disabled);
     if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
+    const u = await findUserById(pool, id);
+    if (!u) return res.status(404).json({ ok: false, error: 'not_found' });
+    const isAdminRole = String(u.role || '').toLowerCase() === 'admin';
+    const isAdminName = String(u.username || '').toLowerCase() === String(cfg.ADMIN_USERNAME || 'admin').toLowerCase();
+    if (isAdminRole || isAdminName) {
+      return res.status(400).json({ ok: false, error: 'cannot_disable_admin' });
+    }
     await setUserDisabled(pool, id, disabled);
     res.json({ ok: true });
   });
@@ -525,7 +532,9 @@ async function main() {
     if (!id) return res.status(400).json({ ok: false, error: 'bad_id' });
     const u = await findUserById(pool, id);
     if (!u) return res.status(404).json({ ok: false, error: 'not_found' });
-    if (String(u.role || '').toLowerCase() === 'admin') {
+    const isAdminRole = String(u.role || '').toLowerCase() === 'admin';
+    const isAdminName = String(u.username || '').toLowerCase() === String(cfg.ADMIN_USERNAME || 'admin').toLowerCase();
+    if (isAdminRole || isAdminName) {
       return res.status(400).json({ ok: false, error: 'cannot_delete_admin' });
     }
     const deleted = await deleteUser(pool, id);

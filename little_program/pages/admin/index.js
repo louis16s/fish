@@ -159,8 +159,9 @@ Page({
     const id = Number(e.currentTarget.dataset.id || 0);
     const disabled = !!e.currentTarget.dataset.disabled;
     const role = String(e.currentTarget.dataset.role || '');
+    const username = String(e.currentTarget.dataset.username || '').trim().toLowerCase();
     if (!id) return;
-    if (role === 'admin') {
+    if (role === 'admin' || username === 'admin') {
       this.setData({ userMsg: 'admin 账号不可禁用' });
       return;
     }

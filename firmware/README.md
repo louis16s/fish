@@ -25,6 +25,26 @@
 
 - `CH3-CH6` 由“信号塔自动状态机”主导（非纯手动）。
 - 闸门安全互锁仅作用于 `CH1/CH2`，不会阻塞 `CH3-CH6` 的状态切换。
+- 继电器电平约定：`HIGH=吸合(ON)`，`LOW=断开(OFF)`。
+
+## 2.1 CH1/CH2 闸门继电器控制逻辑
+
+`CH1`/`CH2` 由 `Gate_Open/Gate_Close/Gate_Stop` 与 `Gate_Action_Loop` 控制：
+
+1. 互锁：
+- 任一时刻只允许 `CH1` 或 `CH2` 吸合。
+- 若检测到两路同时为 ON，触发 `Alarm_RelayInterlock` 并立即 `Gate_Stop()`。
+
+2. 动作限制：
+- 非手动接管时，受 `GATE_MIN_ACTION_INTERVAL_S` 冷却时间限制。
+- 单次动作受 `GATE_MAX_CONTINUOUS_RUN_S` 超时保护。
+
+3. 反向动作：
+- 手动接管期间允许“一键反向”，实现为先 `Gate_Stop()` 再执行目标方向。
+
+4. `ALL_ON/ALL_OFF` 保护：
+- `ALL_ON` 只会拉起 `CH3-CH6`，并强制 `CH1/CH2` 保持 OFF。
+- `ALL_OFF` 会关闭全部继电器，并清零 `Relay_Flag`。
 
 ## 3. 信号塔联动规则（CH3-CH6）
 
@@ -40,6 +60,14 @@
 - `SIGNAL_RED_BLINK_MS = 500`（红灯翻转周期 500ms）
 - `SIGNAL_WIFI_BEEP_MIN_GAP_MS = 5000`（联网提示音最小间隔）
 
+控制链路（每个 `loop()` 周期）：
+
+1. `SignalTower_UpdateRed()` 更新 CH3
+2. `SignalTower_UpdateGateLamps()` 更新 CH4/CH5
+3. `SignalTower_UpdateBuzzer()` 更新 CH6
+
+这意味着：`signal_*` 或 `Switch3..6` 的手动操作，可能在下一轮循环被自动逻辑覆盖。
+
 行为真值表：
 
 | 条件 | CH3 红灯 | CH4 黄灯 | CH5 绿灯 | CH6 蜂鸣器 |
@@ -52,6 +80,13 @@
 | 闸门关闭态 | 不变 | 常亮 | 熄灭 | 不触发 |
 | 上电 | 不变 | 不变 | 不变 | 播放提示音 A |
 | Wi-Fi 离线->在线 | 不变 | 不变 | 不变 | 播放提示音 B（与主控联网成功提示音完全同节奏） |
+
+颜色指示建议（外接三色灯）：
+
+- 红色（CH3）：通信/传感器异常提示。
+- 黄色（CH4）：闸门关闭或“谨慎状态”（手动接管时与绿灯同亮）。
+- 绿色（CH5）：闸门打开或“运行状态”（手动接管时与黄灯同亮）。
+- 蜂鸣器（CH6）：仅提示音用途，不参与常态颜色语义。
 
 ## 4. 内网页面（本地面板）更新点
 
@@ -116,11 +151,13 @@
 
 - CH3-CH6 的手动命令和旧路由仍可调用。
 - 但自动状态机每轮 `loop()` 会按规则重写 CH3-CH6，手动状态可能被快速覆盖（设计使然）。
+- 若需要“常亮/常灭”效果，请从自动状态条件入手（网络/传感器/闸门态），不要只依赖手动命令。
 
 ## 8. 关键代码位置
 
 - 命令与状态拼装：`src/WS_MQTT.cpp`
 - 继电器执行逻辑：`src/MAIN_ALL.ino`（`Relay_Analysis` + `SignalTower_Loop`）
+- 闸门动作与互锁：`src/MAIN_ALL.ino`（`Gate_Open/Gate_Close/Gate_Stop/Gate_Action_Loop`）
 - GPIO 定义：`src/WS_GPIO.h`
 - 本地面板：`data/ui/index.html`
 

@@ -188,6 +188,11 @@ const RAW_BASE_URL = '';
 - 禁用/启用：`POST /api/admin/users/:id/disable`
 - 重置密码：`POST /api/admin/users/:id/password`
 
+用户管理约束：
+
+- `admin` 用户不可禁用（页面按钮会置灰，服务端也会拒绝）。
+- 用户名大小写不敏感唯一（如 `Admin` 与 `admin` 不能并存）。
+
 4. 设备信息
 - 先 `GET /api/devices`
 - 再逐个请求 `/api/state` 补充固件版本、RSSI、LAN IP

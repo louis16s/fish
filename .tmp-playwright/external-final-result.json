@@ -1,0 +1,174 @@
+{
+  "target": "external",
+  "base_url": "https://fish.530555.xyz",
+  "login_ok": true,
+  "login_error": null,
+  "pages": [
+    {
+      "key": "home",
+      "path": "/",
+      "ok": true,
+      "url": "https://fish.530555.xyz/",
+      "title": "水闸控制面板",
+      "body_text_length": 627,
+      "visible_checks": [
+        {
+          "selector": ".topbar",
+          "visible": true
+        },
+        {
+          "selector": ".layout",
+          "visible": true
+        },
+        {
+          "selector": "#cfgPanel",
+          "visible": true
+        },
+        {
+          "selector": "#logPanel",
+          "visible": true
+        }
+      ],
+      "error": null,
+      "screenshot": "d:\\users\\code\\fish-github\\.tmp-playwright\\artifacts\\external-home-final.png"
+    },
+    {
+      "key": "rules",
+      "path": "/rules",
+      "ok": true,
+      "url": "https://fish.530555.xyz/rules",
+      "title": "规则 | 外网面板",
+      "body_text_length": 1108,
+      "visible_checks": [
+        {
+          "selector": ".top",
+          "visible": true
+        },
+        {
+          "selector": ".card",
+          "visible": true
+        },
+        {
+          "selector": "#dailyList",
+          "visible": true
+        },
+        {
+          "selector": "#cycleList",
+          "visible": true
+        },
+        {
+          "selector": "#ldList",
+          "visible": true
+        }
+      ],
+      "error": null,
+      "screenshot": "d:\\users\\code\\fish-github\\.tmp-playwright\\artifacts\\external-rules-final.png"
+    },
+    {
+      "key": "config",
+      "path": "/config",
+      "ok": true,
+      "url": "https://fish.530555.xyz/config",
+      "title": "配置 | 外网面板",
+      "body_text_length": 465,
+      "visible_checks": [
+        {
+          "selector": ".top",
+          "visible": true
+        },
+        {
+          "selector": ".card",
+          "visible": true
+        },
+        {
+          "selector": "#statusLine",
+          "visible": true
+        },
+        {
+          "selector": "#userBody",
+          "visible": true
+        },
+        {
+          "selector": "#devBody",
+          "visible": true
+        }
+      ],
+      "error": null,
+      "screenshot": "d:\\users\\code\\fish-github\\.tmp-playwright\\artifacts\\external-config-final.png"
+    },
+    {
+      "key": "replay",
+      "path": "/replay",
+      "ok": true,
+      "url": "https://fish.530555.xyz/replay",
+      "title": "回放 | 外网面板",
+      "body_text_length": 34980,
+      "visible_checks": [
+        {
+          "selector": ".top",
+          "visible": true
+        },
+        {
+          "selector": ".card",
+          "visible": true
+        },
+        {
+          "selector": "#tbody",
+          "visible": true
+        },
+        {
+          "selector": "#chart",
+          "visible": true
+        }
+      ],
+      "error": null,
+      "screenshot": "d:\\users\\code\\fish-github\\.tmp-playwright\\artifacts\\external-replay-final.png"
+    }
+  ],
+  "console_errors": [],
+  "page_errors": [],
+  "request_failures": [
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/challenge-platform/h/g/jsd/oneshot/ea2d291c0fdc/0.424770707731475:1772424468:XkOAlMfHUMymAFb4Fn41hx2TzhlFscbS6Z6tqJFDc4g/9d5dae2d5eb9db92",
+      "method": "POST",
+      "resource_type": "xhr",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/rum?",
+      "method": "POST",
+      "resource_type": "ping",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/api/state",
+      "method": "GET",
+      "resource_type": "fetch",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/rum?",
+      "method": "POST",
+      "resource_type": "ping",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/rum?",
+      "method": "POST",
+      "resource_type": "ping",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/rum?",
+      "method": "POST",
+      "resource_type": "ping",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://fish.530555.xyz/cdn-cgi/rum?",
+      "method": "POST",
+      "resource_type": "ping",
+      "failure": "net::ERR_ABORTED"
+    }
+  ]
+}

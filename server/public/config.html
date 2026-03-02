@@ -436,9 +436,8 @@
         const ip = (j && j.device && j.device.ip) ? j.device.ip : '--';
         const fw = (j && j.device && j.device.fw) ? j.device.fw : '--';
         const seen = (j && j.telemetry) ? fmtMsEpoch(j.telemetry.last_telemetry_at) : '--';
-        const lastErr = (j && j.mqtt && j.mqtt.last_error) ? j.mqtt.last_error : '--';
         $('statusDiag').textContent =
-          '设备 ' + deviceId + ' | RSSI ' + rssi + ' | IP ' + ip + ' | 固件 ' + fw + ' | 最后上报 ' + seen + ' | MQTT错误 ' + lastErr;
+          '设备 ' + deviceId + ' | RSSI ' + rssi + ' | IP ' + ip + ' | 固件 ' + fw + ' | 最后上报 ' + seen;
       }catch(e){
         $('statusLine').textContent = '状态获取失败';
         if($('statusDiag')) $('statusDiag').textContent = '--';
@@ -497,7 +496,7 @@
         body.innerHTML = list.map(u=>{
           const dis = !!u.disabled;
           const btnDis = dis ? '启用' : '禁用';
-          const isAdmin = String(u.role || '').toLowerCase() === 'admin';
+          const isAdmin = String(u.role || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'admin';
           const delBtn = isAdmin
             ? '<button class="btn small danger" disabled>不可删除</button>'
             : '<button class="btn small danger" onclick="deleteUser(' + u.id + ')">删除</button>';
@@ -575,7 +574,7 @@
         showMsg($('userMsg'), '删除失败：用户不存在');
         return;
       }
-      if(String(u.role || '').toLowerCase() === 'admin'){
+      if(String(u.role || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'admin'){
         showMsg($('userMsg'), 'admin 账号不可删除');
         return;
       }

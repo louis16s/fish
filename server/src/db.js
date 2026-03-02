@@ -89,7 +89,7 @@ async function findUserByUsername(pool, username) {
   const r = await pool.query(
     `SELECT id, username, password_hash, role, disabled
      FROM users
-     WHERE username=$1
+     WHERE lower(username)=lower($1)
      LIMIT 1`,
     [username]
   );
@@ -106,6 +106,15 @@ async function listUsers(pool) {
 }
 
 async function createUser(pool, username, passwordHash, role) {
+  const exists = await pool.query(
+    `SELECT id FROM users WHERE lower(username)=lower($1) LIMIT 1`,
+    [username]
+  );
+  if (exists.rows && exists.rows[0]) {
+    const err = new Error('user_exists');
+    err.code = 'user_exists';
+    throw err;
+  }
   const r = await pool.query(
     `INSERT INTO users(username,password_hash,role,disabled,created_at,updated_at)
      VALUES($1,$2,$3,false,now(),now())

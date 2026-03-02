@@ -57,7 +57,7 @@
           <text class="tag {{item.disabled ? 'tag-bad':'tag-good'}}">{{item.disabled ? 'disabled':'active'}}</text>
         </view>
         <view class="row btn-row" style="margin-top:8rpx">
-          <button class="btn" size="mini" data-id="{{item.id}}" data-role="{{item.role}}" data-disabled="{{!item.disabled}}" disabled="{{item.role==='admin'}}" bindtap="toggleDisable">{{item.role==='admin' ? '不可禁用' : (item.disabled ? '启用':'禁用')}}</button>
+          <button class="btn" size="mini" data-id="{{item.id}}" data-role="{{item.role}}" data-username="{{item.username}}" data-disabled="{{!item.disabled}}" disabled="{{item.role==='admin' || item.username==='admin'}}" bindtap="toggleDisable">{{(item.role==='admin' || item.username==='admin') ? '不可禁用' : (item.disabled ? '启用':'禁用')}}</button>
           <button class="btn" size="mini" data-id="{{item.id}}" bindtap="resetPassword">重置密码</button>
         </view>
       </view>
