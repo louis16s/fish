@@ -4,7 +4,7 @@
 
 本仓库是一个完整的端到端项目，包含三部分：
 
-1. 固件（本仓库根目录）
+1. 固件（`firmware/`）
 - 跑在 `ESP32-S3` 上，负责 RS485 采集、闸门控制、本地 Web 面板、MQTT 通信、日志。
 
 2. 云端服务（`server/`）
@@ -16,9 +16,10 @@
 
 ## 1. 仓库结构
 
-- `src/`：ESP32 固件源码
-- `data/ui/`：设备端 Web 面板静态资源（LittleFS + 固件内嵌双兜底）
-- `scripts/`：PlatformIO 构建脚本（自动版本、UI 资源嵌入、合并 BIN）
+- `firmware/`：ESP32 固件工程（PlatformIO）
+- `firmware/src/`：ESP32 固件源码
+- `firmware/data/ui/`：设备端 Web 面板静态资源（LittleFS + 固件内嵌双兜底）
+- `firmware/scripts/`：PlatformIO 构建脚本（自动版本、UI 资源嵌入、合并 BIN）
 - `server/`：云端控制面板服务
 - `little_program/`：微信小程序
 - `openclaw/`：Docker Compose 部署模板（EMQX/Postgres/Server/Caddy）
@@ -59,22 +60,27 @@
 
 ### 3.1 固件（PlatformIO）
 
-1. 准备配置文件
-- 复制 `src/WS_Information.example.h` 为 `src/WS_Information.h`，填入 Wi-Fi、MQTT、阈值等参数。
+1. 进入固件目录
+```bash
+cd firmware
+```
 
-2. 构建与烧录
+2. 准备配置文件
+- 在 `firmware/` 目录内复制 `src/WS_Information.example.h` 为 `src/WS_Information.h`（仓库根目录等价路径为 `firmware/src/...`），填入 Wi-Fi、MQTT、阈值等参数。
+
+3. 构建与烧录
 ```bash
 pio run
 pio run -t upload
 ```
 
-3. 上传文件系统（推荐）
+4. 上传文件系统（推荐）
 ```bash
 pio run -t uploadfs
 ```
 
 说明：
-- 当前 `platformio.ini` 已启用 `scripts/embed_ui_assets.py`，构建时会把 `data/ui/*` 生成到 `src/WS_UI_Assets.*`。
+- 当前 `firmware/platformio.ini` 已启用 `scripts/embed_ui_assets.py`，构建时会把 `data/ui/*` 生成到 `src/WS_UI_Assets.*`。
 - 同时也支持 `uploadfs` 上传 LittleFS 资源。运行时优先读取 LittleFS；LittleFS 缺失时回退到固件内嵌资源。
 
 ### 3.2 云端服务（server）
@@ -116,6 +122,7 @@ npm run start
 - 水位 `mm`、温度 `temp_x10`、有效性 `valid/temp_valid`、在线状态 `online`。
 - 网络状态 `net`（wifi/mqtt/http/ip/rssi/ssid）。
 - 可选 4G 模块状态 `cell`（由 `AIR780E_Enable` 开关控制）。
+- 继电器状态 `relay1..relay6`（其中 `relay3..relay6` 对应三色灯+蜂鸣器）。
 
 ### 4.2 闸门控制
 
@@ -128,6 +135,20 @@ npm run start
 - `auto_off`
 - `auto_latch_off`
 - `manual_end`
+- `signal_red_toggle` / `signal_red_on` / `signal_red_off`
+- `signal_yellow_toggle` / `signal_yellow_on` / `signal_yellow_off`
+- `signal_green_toggle` / `signal_green_on` / `signal_green_off`
+- `signal_buzzer_toggle` / `signal_buzzer_on` / `signal_buzzer_off`
+- `signal_all_off`
+
+通道映射：
+
+- `CH1`：开闸继电器
+- `CH2`：关闸继电器
+- `CH3`：红灯
+- `CH4`：黄灯
+- `CH5`：绿灯
+- `CH6`：蜂鸣器
 
 控制策略（`/ctrl.json`）：
 
@@ -175,6 +196,10 @@ npm run start
 - `GET /AutoGateOn`、`/AutoGateOff`、`/AutoGateLatchOff`、`/ManualEnd`
 - `GET /Switch1..6`、`/AllOn`、`/AllOff`
 
+说明：
+
+- 推荐统一走 `POST /api/cmd`，兼容路由主要用于旧版页面和调试。
+
 ## 6. MQTT 主题建议
 
 设备默认语义：
@@ -196,7 +221,7 @@ ACL 最小权限建议：
 
 ## 7. 关键配置项（固件）
 
-请以 `src/WS_Information.h` 为准，重点关注：
+请以 `firmware/src/WS_Information.h` 为准，重点关注：
 
 1. 网络与服务
 - `STASSID` / `STAPSK`

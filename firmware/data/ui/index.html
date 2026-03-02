@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.15-01" type="image/svg+xml">
+  <link rel="icon" href="/ui/favicon.svg?v=ui-2026.03.02-01" type="image/svg+xml">
   <title>内网控制面板</title>
   <script>
     // Performance: auto "lite" mode on low-end/mobile/reduced-motion to reduce GPU/paint cost.
@@ -55,7 +55,7 @@
       background:
         radial-gradient(1200px 850px at 18% 10%, rgba(34,211,238,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1)),
-        url("/ui/bg_long.svg?v=ui-2026.02.15-01");
+        url("/ui/bg_long.svg?v=ui-2026.03.02-01");
       background-repeat:no-repeat,no-repeat,no-repeat;
       background-position:18% 10%, top, center;
       background-size:auto,auto,cover;
@@ -321,6 +321,7 @@
     .controls{display:grid;grid-template-columns: 1fr 1fr;gap:10px;margin-top:10px}
     /* Force 2-up even on small screens (used by Auto Control). */
     .controls.two{grid-template-columns: 1fr 1fr}
+    .controls.signalGrid{grid-template-columns: 1fr 1fr}
     .span2{grid-column:1 / -1}
     .btn{
       appearance:none;
@@ -397,6 +398,32 @@
     .hint.good{color:var(--good)}
     .hint.warn{color:var(--warn)}
     .hint.bad{color:var(--bad)}
+    .signalState{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+    .sigChip{
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      border-radius:var(--radius-pill);
+      min-height:36px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      font-family:var(--mono);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .sigChip.on{color:var(--text);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.09)}
+    .sigChip.red.on{border-color:rgba(248,113,113,.40);background:rgba(248,113,113,.16)}
+    .sigChip.yellow.on{border-color:rgba(245,158,11,.42);background:rgba(245,158,11,.14)}
+    .sigChip.green.on{border-color:rgba(34,197,94,.40);background:rgba(34,197,94,.14)}
+    .sigChip.buzzer.on{border-color:rgba(56,189,248,.44);background:rgba(56,189,248,.14)}
     a.inlineLink{color:rgba(34,211,238,.95);font-weight:950;text-decoration:underline}
     a.inlineLink:hover{opacity:.9}
 
@@ -637,6 +664,23 @@
                 设备启用了面板密码，请先 <a class="inlineLink" href="/api/state" target="_blank" rel="noopener">点击这里授权</a> 后再操作。
               </div>
             </div>
+
+            <div class="ctlGroup">
+              <div class="ctlTitle">三色灯与蜂鸣器（CH3-CH6）</div>
+              <div class="signalState" aria-label="信号状态">
+                <div class="sigChip red" id="sigRed">红灯 <span id="sigRedState">OFF</span></div>
+                <div class="sigChip yellow" id="sigYellow">黄灯 <span id="sigYellowState">OFF</span></div>
+                <div class="sigChip green" id="sigGreen">绿灯 <span id="sigGreenState">OFF</span></div>
+                <div class="sigChip buzzer" id="sigBuzzer">蜂鸣器 <span id="sigBuzzerState">OFF</span></div>
+              </div>
+              <div class="controls signalGrid" role="group" aria-label="三色灯与蜂鸣器控制">
+                <button class="btn" id="btnSigRed" onclick="signalToggle('red')">切换红灯</button>
+                <button class="btn" id="btnSigYellow" onclick="signalToggle('yellow')">切换黄灯</button>
+                <button class="btn" id="btnSigGreen" onclick="signalToggle('green')">切换绿灯</button>
+                <button class="btn" id="btnSigBuzzer" onclick="signalToggle('buzzer')">切换蜂鸣器</button>
+                <button class="btn danger span2" id="btnSigAllOff" onclick="signalAllOff()">全部关闭</button>
+              </div>
+            </div>
           </div>
         </section>
       </aside>
@@ -749,8 +793,14 @@
     };
     const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
     const fmtM = (mm) => (mm/1000).toFixed(3) + ' m';
-    const UI_VERSION = 'ui-2026.02.15-01';
+    const UI_VERSION = 'ui-2026.03.02-01';
     const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const SIGNAL_META = {
+      red: {cmd:'signal_red_toggle', id:'sigRed', sid:'sigRedState'},
+      yellow: {cmd:'signal_yellow_toggle', id:'sigYellow', sid:'sigYellowState'},
+      green: {cmd:'signal_green_toggle', id:'sigGreen', sid:'sigGreenState'},
+      buzzer: {cmd:'signal_buzzer_toggle', id:'sigBuzzer', sid:'sigBuzzerState'},
+    };
 
     const fmtHHMMSS = (sec) => {
       const s = Math.max(0, Math.round(sec || 0));
@@ -819,8 +869,22 @@
         auto_off:'手动接管',
         auto_latch_off:'锁定关闭自动',
         manual_end:'恢复自动',
+        signal_red_toggle:'切换红灯',
+        signal_yellow_toggle:'切换黄灯',
+        signal_green_toggle:'切换绿灯',
+        signal_buzzer_toggle:'切换蜂鸣器',
+        signal_all_off:'关闭三色灯与蜂鸣器',
       };
       return map[c] || c || '--';
+    }
+
+    function renderSignalState(name, on){
+      const m = SIGNAL_META[name];
+      if(!m) return;
+      const card = $(m.id);
+      const text = $(m.sid);
+      if(card) card.className = 'sigChip ' + name + (on ? ' on' : '');
+      if(text) text.textContent = on ? 'ON' : 'OFF';
     }
 
     function gateStateText(s, ratio){
@@ -950,6 +1014,10 @@
         const geom = setChannelWater(g_chan, g_surfC, 0, false, 0);
         layoutFlowRows(geom);
       }
+      renderSignalState('red', false);
+      renderSignalState('yellow', false);
+      renderSignalState('green', false);
+      renderSignalState('buzzer', false);
       latchRender();
     }
 
@@ -1309,6 +1377,11 @@
       const stop = $('btnStop');
       const manualBtn = $('btnManualToggle');
       const latch = $('btnLatch');
+      const sigRed = $('btnSigRed');
+      const sigYellow = $('btnSigYellow');
+      const sigGreen = $('btnSigGreen');
+      const sigBuzzer = $('btnSigBuzzer');
+      const sigAllOff = $('btnSigAllOff');
 
       if(open){
         open.disabled = !!g_reqBusy || lock;
@@ -1321,6 +1394,11 @@
       if(stop) stop.disabled = false; // highest priority
       if(manualBtn) manualBtn.disabled = !!g_reqBusy;
       if(latch) latch.disabled = !!g_reqBusy;
+      if(sigRed) sigRed.disabled = !!g_reqBusy;
+      if(sigYellow) sigYellow.disabled = !!g_reqBusy;
+      if(sigGreen) sigGreen.disabled = !!g_reqBusy;
+      if(sigBuzzer) sigBuzzer.disabled = !!g_reqBusy;
+      if(sigAllOff) sigAllOff.disabled = !!g_reqBusy;
     }
 
     function mountSchematicFromSvgText(tx){
@@ -1539,6 +1617,10 @@
         autoEl.textContent = '自动 ' + autoText;
         autoEl.className = 'chip' + (t.auto_latched ? ' bad' : (t.auto_gate ? ' good' : ''));
       }
+      renderSignalState('red', !!t.relay3);
+      renderSignalState('yellow', !!t.relay4);
+      renderSignalState('green', !!t.relay5);
+      renderSignalState('buzzer', !!t.relay6);
 
       const reason=(t.ctrl&&t.ctrl.reason)?t.ctrl.reason:'';
       $('interlock').textContent = '互锁：' + (cnInterlockReason(reason) || '正常');
@@ -1667,6 +1749,10 @@
         auto_off:'/AutoGateOff',
         auto_latch_off:'/AutoGateLatchOff',
         manual_end:'/ManualEnd',
+        signal_red_toggle:'/Switch3',
+        signal_yellow_toggle:'/Switch4',
+        signal_green_toggle:'/Switch5',
+        signal_buzzer_toggle:'/Switch6',
       };
 
       let apiRes = null;
@@ -1876,6 +1962,14 @@
       }
       cmd(c, {keepManual:true, keepAutoOff});
     }
+    function signalToggle(name){
+      const m = SIGNAL_META[name];
+      if(!m) return;
+      cmd(m.cmd, {keepManual:true, keepAutoOff:!!g_autoOffWanted});
+    }
+    function signalAllOff(){
+      cmd('signal_all_off', {keepManual:true, keepAutoOff:!!g_autoOffWanted});
+    }
     function manualToggle(){
       const t = g_lastTelemetry;
       if(!t) return;
@@ -1891,6 +1985,8 @@
     }
     window.cmd = cmd;
     window.gateCmd = gateCmd;
+    window.signalToggle = signalToggle;
+    window.signalAllOff = signalAllOff;
     window.confirmLatch = confirmLatch;
     window.manualToggle = manualToggle;
 

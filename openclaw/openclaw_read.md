@@ -21,7 +21,7 @@
 
 ## 1. 主题与数据格式（设备侧）
 
-设备固件配置在 `src/WS_Information.h`（你本地已经有）：
+设备固件配置在 `firmware/src/WS_Information.h`（你本地已经有）：
 
 - 遥测上报主题（设备 -> MQTT）：`MQTT_Pub`，默认 `fish1/device/telemetry`
 - 控制下发主题（MQTT -> 设备）：`MQTT_Sub`，默认 `fish1/device/command`
@@ -184,7 +184,7 @@ docker compose --env-file .env up -d --build
     - allow publish：`+/device/command`
 - [ ] 对齐配置：
   - `openclaw/.env` 的 `MQTT_SERVER_USERNAME/MQTT_SERVER_PASSWORD` 要与 EMQX 里创建的“服务器用户”一致
-  - 设备固件 `src/WS_Information.h` 的 `MQTT_Server/MQTT_Port/MQTT_Username/MQTT_Password/MQTT_Pub/MQTT_Sub` 要与 EMQX 一致
+  - 设备固件 `firmware/src/WS_Information.h` 的 `MQTT_Server/MQTT_Port/MQTT_Username/MQTT_Password/MQTT_Pub/MQTT_Sub` 要与 EMQX 一致
 
 可选增强（建议按时间做）：
 
@@ -225,7 +225,7 @@ docker compose --env-file .env up -d --build
 
 ## 6. 设备固件需要调整的点（可选）
 
-如果你部署了新的 EMQX/域名，设备侧需要把 `src/WS_Information.h` 的：
+如果你部署了新的 EMQX/域名，设备侧需要把 `firmware/src/WS_Information.h` 的：
 
 - `MQTT_Server`
 - `MQTT_Port`

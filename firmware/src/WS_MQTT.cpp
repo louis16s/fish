@@ -166,6 +166,24 @@ static bool ParseCmdFromJsonBody(String& outCmd)
   return outCmd.length() > 0;
 }
 
+static bool SetAuxRelayState(uint8_t relayIndex, bool on)
+{
+  if (relayIndex < 2 || relayIndex > 5) {
+    return false;
+  }
+
+  // Relay_Flag index: 0->CH1, 1->CH2, 2->CH3, 3->CH4, 4->CH5, 5->CH6.
+  const bool cur = Relay_Flag[relayIndex];
+  if (cur == on) {
+    return true;
+  }
+
+  uint8_t data[1] = {'0'};
+  data[0] = (uint8_t)('1' + relayIndex);  // 2->'3', 3->'4', 4->'5', 5->'6'
+  Relay_Analysis(data, WIFI_Mode);
+  return Relay_Flag[relayIndex] == on;
+}
+
 static bool HandleCmdString(const String& cmd)
 {
   String c = cmd;
@@ -177,6 +195,27 @@ static bool HandleCmdString(const String& cmd)
   if (c == "auto_off") { Pause_Auto_By_ManualTakeover(); return true; }
   if (c == "auto_latch_off") { Latch_Auto_Off(); return true; }
   if (c == "manual_end") { End_Manual_Takeover(); return true; }
+  // CH3-CH6 semantic mapping:
+  // CH3=red, CH4=yellow, CH5=green, CH6=buzzer.
+  if (c == "signal_red_toggle") { uint8_t data[1] = {'3'}; Relay_Analysis(data, WIFI_Mode); return true; }
+  if (c == "signal_yellow_toggle") { uint8_t data[1] = {'4'}; Relay_Analysis(data, WIFI_Mode); return true; }
+  if (c == "signal_green_toggle") { uint8_t data[1] = {'5'}; Relay_Analysis(data, WIFI_Mode); return true; }
+  if (c == "signal_buzzer_toggle") { uint8_t data[1] = {'6'}; Relay_Analysis(data, WIFI_Mode); return true; }
+  if (c == "signal_red_on") return SetAuxRelayState(2, true);
+  if (c == "signal_red_off") return SetAuxRelayState(2, false);
+  if (c == "signal_yellow_on") return SetAuxRelayState(3, true);
+  if (c == "signal_yellow_off") return SetAuxRelayState(3, false);
+  if (c == "signal_green_on") return SetAuxRelayState(4, true);
+  if (c == "signal_green_off") return SetAuxRelayState(4, false);
+  if (c == "signal_buzzer_on") return SetAuxRelayState(5, true);
+  if (c == "signal_buzzer_off") return SetAuxRelayState(5, false);
+  if (c == "signal_all_off") {
+    const bool ok3 = SetAuxRelayState(2, false);
+    const bool ok4 = SetAuxRelayState(3, false);
+    const bool ok5 = SetAuxRelayState(4, false);
+    const bool ok6 = SetAuxRelayState(5, false);
+    return ok3 && ok4 && ok5 && ok6;
+  }
   return false;
 }
 
@@ -249,7 +288,7 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
   const int n = snprintf(
     json,
     jsonSize,
-    "{\"sensor1\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"sensor2\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"gate_state\":%u,\"gate_position_open\":%s,\"auto_gate\":%s,\"auto_latched\":%s,\"manual\":{\"active\":%s,\"remain_s\":%lu,\"total_s\":%lu},\"relay1\":%u,\"relay2\":%u,\"net\":{\"wifi\":%s,\"mqtt\":%s,\"http\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ssid\":\"%s\"},\"cell\":{\"enabled\":%s,\"online\":%s,\"sim_ready\":%s,\"attached\":%s,\"csq\":%d,\"rssi_dbm\":%d,\"last_rx_age_s\":%lu},\"ctrl\":{\"open_allowed\":%s,\"close_allowed\":%s,\"cooldown_remain_s\":%lu,\"min_interval_s\":%u,\"action_s\":%u,\"reason\":\"%s\"},\"alarm\":{\"active\":%s,\"severity\":%u,\"text\":\"%s\"},\"fw\":{\"current\":\"%s\",\"latest\":\"%s\",\"last_check\":\"%s\",\"last_result\":\"%s\"}}",
+    "{\"sensor1\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"sensor2\":{\"mm\":%u,\"valid\":%s,\"online\":%s,\"temp_x10\":%d,\"temp_valid\":%s},\"gate_state\":%u,\"gate_position_open\":%s,\"auto_gate\":%s,\"auto_latched\":%s,\"manual\":{\"active\":%s,\"remain_s\":%lu,\"total_s\":%lu},\"relay1\":%u,\"relay2\":%u,\"relay3\":%u,\"relay4\":%u,\"relay5\":%u,\"relay6\":%u,\"net\":{\"wifi\":%s,\"mqtt\":%s,\"http\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ssid\":\"%s\"},\"cell\":{\"enabled\":%s,\"online\":%s,\"sim_ready\":%s,\"attached\":%s,\"csq\":%d,\"rssi_dbm\":%d,\"last_rx_age_s\":%lu},\"ctrl\":{\"open_allowed\":%s,\"close_allowed\":%s,\"cooldown_remain_s\":%lu,\"min_interval_s\":%u,\"action_s\":%u,\"reason\":\"%s\"},\"alarm\":{\"active\":%s,\"severity\":%u,\"text\":\"%s\"},\"fw\":{\"current\":\"%s\",\"latest\":\"%s\",\"last_check\":\"%s\",\"last_result\":\"%s\"}}",
     Sensor_Level_mm_1,
     Sensor_HasValue_1 ? "true" : "false",
     Sensor_Online_1 ? "true" : "false",
@@ -269,6 +308,10 @@ static void MQTT_BuildStateJson(char* json, size_t jsonSize)
     (unsigned long)manualTotalS,
     Relay_Flag[0] ? 1 : 0,
     Relay_Flag[1] ? 1 : 0,
+    Relay_Flag[2] ? 1 : 0,
+    Relay_Flag[3] ? 1 : 0,
+    Relay_Flag[4] ? 1 : 0,
+    Relay_Flag[5] ? 1 : 0,
     wifiStaConnected ? "true" : "false",
     mqttConnected ? "true" : "false",
     g_httpStarted ? "true" : "false",
@@ -1424,7 +1467,6 @@ void MQTT_Loop()
   client.loop();
   MQTT_PublishState(false);
 }
-
 
 
 
