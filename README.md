@@ -142,10 +142,10 @@ npm run start
 - `signal_buzzer_toggle` / `signal_buzzer_on` / `signal_buzzer_off`
 - `signal_all_off`
 
-通道映射：
+继电器通道映射：
 
-- `CH1`：开闸继电器
-- `CH2`：关闸继电器
+- `CH1`：开闸
+- `CH2`：关闸
 - `CH3`：红灯
 - `CH4`：黄灯
 - `CH5`：绿灯
