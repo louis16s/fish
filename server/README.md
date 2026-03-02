@@ -152,7 +152,7 @@ curl http://127.0.0.1:8080/healthz
 1. `GET /healthz`
 2. `GET /login`
 3. `GET /`
-4. `GET /config`（兼容入口，302 重定向到 `/rules`）
+4. `GET /config`
 5. `GET /rules`
 6. `GET /device-config`（302 到 `/rules`）
 7. `GET /replay`

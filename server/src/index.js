@@ -204,9 +204,9 @@ async function main() {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
   });
-  // Removed external management page: keep legacy route for compatibility.
   app.get('/config', requireAuthPage, (req, res) => {
-    res.redirect(302, '/rules');
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(PUBLIC_DIR, 'config.html'));
   });
   app.get('/rules', requireAuthPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
