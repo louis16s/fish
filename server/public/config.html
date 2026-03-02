@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="/ui/favicon.svg?v=ui-2026.02.28-02" type="image/svg+xml">
-  <title>配置 | 外网面板</title>
+  <title>配置 | 水闸控制面板</title>
   <style>
     :root{
       --bg0:#060812;
@@ -182,7 +182,7 @@
     </div>
 
     <div class="card">
-      <div class="sec-title">外网面板配置</div>
+      <div class="sec-title">水闸控制面板配置</div>
       <div class="grid">
         <div class="sec">
           <div class="sec-title">数据保留</div>
@@ -239,12 +239,18 @@
 
         <div class="sec">
           <div class="sec-title">设备列表</div>
-          <div class="hint">设备通过 MQTT 上报后会自动出现在列表中。</div>
+          <div class="row userCreateRow">
+            <input id="newDeviceId" type="text" placeholder="MQTT设备ID（device_id）">
+            <input id="newDeviceName" type="text" placeholder="设备名称（可选）">
+            <button class="btn primary" onclick="createDevice()">添加设备</button>
+          </div>
+          <div class="hint bad" id="devMsg" style="display:none"></div>
+          <div class="hint">设备通过 MQTT 上报后会自动更新最近上报时间；也可在此手动预先添加。</div>
           <div style="margin-top:10px;overflow:auto">
             <table>
               <thead>
                 <tr>
-                  <th>device_id</th><th>last_seen</th>
+                  <th>device_id</th><th>名称</th><th>last_seen</th><th>操作</th>
                 </tr>
               </thead>
               <tbody id="devBody"></tbody>
@@ -612,22 +618,89 @@
 
     async function loadDevices(){
       const body = $('devBody');
-      if(body) body.innerHTML = '<tr><td colspan="2">加载中…</td></tr>';
+      if(body) body.innerHTML = '<tr><td colspan="4">加载中…</td></tr>';
       try{
         const j = await apiJson('/api/devices');
         const list = (j && Array.isArray(j.devices)) ? j.devices : [];
         if(!body) return;
         if(!list.length){
-          body.innerHTML = '<tr><td colspan="2">(空)</td></tr>';
+          body.innerHTML = '<tr><td colspan="4">(空)</td></tr>';
           return;
         }
         body.innerHTML = list.map(d=>{
-          return '<tr><td>' + esc(d.device_id||'') + '</td><td>' + esc(fmtTs(d.last_seen_at)) + '</td></tr>';
+          const did = String(d.device_id || '');
+          const noDelete = did.toLowerCase() === 'fish1';
+          const delBtn = noDelete
+            ? '<button class="btn small danger" disabled>不可删除</button>'
+            : '<button class="btn small danger" data-device-id="' + esc(did) + '" onclick="deleteDeviceFromBtn(this)">删除</button>';
+          return '<tr><td>' + esc(did) + '</td><td>' + esc(d.display_name||'') + '</td><td>' + esc(fmtTs(d.last_seen_at)) + '</td><td style="font-family:var(--font)">' + delBtn + '</td></tr>';
         }).join('');
+        showMsg($('devMsg'), '');
       }catch(e){
-        if(body) body.innerHTML = '<tr><td colspan="2">加载失败</td></tr>';
+        if(body) body.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
       }
     }
+
+    async function createDevice(){
+      const deviceId = ($('newDeviceId').value || '').trim();
+      const displayName = ($('newDeviceName').value || '').trim();
+      if(!deviceId){
+        showMsg($('devMsg'), 'device_id 不能为空');
+        return;
+      }
+      try{
+        const j = await apiJson('/api/admin/devices', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ device_id: deviceId, display_name: displayName })
+        });
+        if(j && j.ok){
+          $('newDeviceId').value = '';
+          $('newDeviceName').value = '';
+          showMsg($('devMsg'), '设备已添加');
+          $('devMsg').className = 'hint good';
+          await loadDevices();
+        }else{
+          $('devMsg').className = 'hint bad';
+          showMsg($('devMsg'), '添加失败');
+        }
+      }catch(e){
+        $('devMsg').className = 'hint bad';
+        showMsg($('devMsg'), '添加失败：' + e.message);
+      }
+    }
+    window.createDevice = createDevice;
+
+    async function deleteDevice(deviceId){
+      const did = String(deviceId || '').trim();
+      if(!did) return;
+      if(did.toLowerCase() === 'fish1'){
+        $('devMsg').className = 'hint bad';
+        showMsg($('devMsg'), 'fish1 不可删除');
+        return;
+      }
+      if(!confirm('确认删除设备 "' + did + '" 吗？')) return;
+      if(!confirm('二次确认：删除后将从设备列表移除，确认继续？')) return;
+      try{
+        await apiJson('/api/admin/devices/' + encodeURIComponent(did) + '/delete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({})
+        });
+        $('devMsg').className = 'hint good';
+        showMsg($('devMsg'), '已删除设备：' + did);
+        await loadDevices();
+      }catch(e){
+        $('devMsg').className = 'hint bad';
+        showMsg($('devMsg'), '删除失败：' + e.message);
+      }
+    }
+    function deleteDeviceFromBtn(btn){
+      const did = btn && btn.getAttribute ? btn.getAttribute('data-device-id') : '';
+      return deleteDevice(did || '');
+    }
+    window.deleteDevice = deleteDevice;
+    window.deleteDeviceFromBtn = deleteDeviceFromBtn;
 
     (function init(){
       loadMe();

@@ -25,6 +25,8 @@ const {
   deleteUser,
   upsertDeviceSeen,
   listDevices,
+  upsertDevice,
+  deleteDevice,
   insertTelemetry,
   getLatestTelemetry,
   cleanupTelemetry,
@@ -484,6 +486,27 @@ async function main() {
   app.get('/api/admin/users', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
     const users = await listUsers(pool);
     res.json({ ok: true, users });
+  });
+
+  app.post('/api/admin/devices', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
+    const body = req.body || {};
+    const deviceId = String(body.device_id || '').trim();
+    const displayName = String(body.display_name || '').trim();
+    if (!deviceId || deviceId.length > 128) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (/[\/+#\s]/.test(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (displayName.length > 128) return res.status(400).json({ ok: false, error: 'bad_display_name' });
+    const d = await upsertDevice(pool, deviceId, displayName);
+    res.json({ ok: true, device: d });
+  });
+
+  app.post('/api/admin/devices/:deviceId/delete', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
+    const deviceId = String(req.params.deviceId || '').trim();
+    if (!deviceId || deviceId.length > 128) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (/[\/+#\s]/.test(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (deviceId.toLowerCase() === 'fish1') return res.status(400).json({ ok: false, error: 'cannot_delete_fish1' });
+    const d = await deleteDevice(pool, deviceId);
+    if (!d) return res.status(404).json({ ok: false, error: 'not_found' });
+    res.json({ ok: true, device: d });
   });
 
   app.post('/api/admin/users', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {

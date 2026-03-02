@@ -186,6 +186,7 @@ curl http://127.0.0.1:8080/healthz
 
 3. `GET /api/devices`
 - 返回设备列表（按最近活跃排序）
+- 设备可通过 MQTT 首次上报自动入库，也可由管理员手动添加
 
 ### 7.5 规则配置（MQTT RPC）
 
@@ -217,11 +218,13 @@ curl http://127.0.0.1:8080/healthz
 
 1. `GET /api/admin/settings`
 2. `POST /api/admin/settings`（`retention_days`）
-3. `GET /api/admin/users`
-4. `POST /api/admin/users`
-5. `POST /api/admin/users/:id/password`
-6. `POST /api/admin/users/:id/disable`（`admin` 用户不可禁用）
-7. `POST /api/admin/users/:id/delete`（`admin` 用户不可删除）
+3. `POST /api/admin/devices`（手动新增 MQTT 设备：`device_id`、`display_name`）
+4. `POST /api/admin/devices/:deviceId/delete`（删除设备，`fish1` 禁止删除）
+5. `GET /api/admin/users`
+6. `POST /api/admin/users`
+7. `POST /api/admin/users/:id/password`
+8. `POST /api/admin/users/:id/disable`（`admin` 用户不可禁用）
+9. `POST /api/admin/users/:id/delete`（`admin` 用户不可删除）
 
 约束补充：
 

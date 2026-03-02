@@ -170,6 +170,34 @@ async function listDevices(pool) {
   return r.rows || [];
 }
 
+async function upsertDevice(pool, deviceId, displayName) {
+  const id = String(deviceId || '').trim();
+  const name = String(displayName || '').trim();
+  const r = await pool.query(
+    `INSERT INTO devices(device_id, display_name, created_at, last_seen_at)
+     VALUES($1, $2, now(), NULL)
+     ON CONFLICT (device_id) DO UPDATE SET
+       display_name = CASE
+         WHEN EXCLUDED.display_name <> '' THEN EXCLUDED.display_name
+         ELSE devices.display_name
+       END
+     RETURNING device_id, display_name, created_at, last_seen_at`,
+    [id, name]
+  );
+  return r.rows && r.rows[0] ? r.rows[0] : null;
+}
+
+async function deleteDevice(pool, deviceId) {
+  const id = String(deviceId || '').trim();
+  const r = await pool.query(
+    `DELETE FROM devices
+     WHERE device_id=$1
+     RETURNING device_id, display_name, created_at, last_seen_at`,
+    [id]
+  );
+  return r.rows && r.rows[0] ? r.rows[0] : null;
+}
+
 async function insertTelemetry(pool, deviceId, receivedAt, payload, mqttTopic) {
   await pool.query(
     `INSERT INTO telemetry(device_id, ts, payload, mqtt_topic)
@@ -244,6 +272,8 @@ module.exports = {
   deleteUser,
   upsertDeviceSeen,
   listDevices,
+  upsertDevice,
+  deleteDevice,
   insertTelemetry,
   getLatestTelemetry,
   cleanupTelemetry,
