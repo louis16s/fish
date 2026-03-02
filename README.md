@@ -1,11 +1,11 @@
 # ESP32-S3 双水位计闸门控制系统
 
-![index.jpeg](https://youke.xn--y7xa690gmna.cn/s1/2026/02/15/6991cc8c6c24c.webp)
+![b1c843a6b780a427d30281fc53bc7bb5.png](https://picui.ogmua.cn/s1/2026/03/02/69a538dbb543a.webp)
 
 本仓库是一个完整的端到端项目，包含三部分：
 
 1. 固件（`firmware/`）
-- 跑在 `ESP32-S3` 上，负责 RS485 采集、闸门控制、本地 Web 面板、MQTT 通信、日志。
+- 跑在 `waveshare-ESP32-S3-Relay-6CH` 上，负责 RS485 采集、闸门控制、本地 Web 面板、MQTT 通信、日志。
 
 2. 云端服务（`server/`）
 - Node.js + PostgreSQL + MQTT。
@@ -32,6 +32,7 @@
 1. 采集
 - 两个 RS485 超声波液位计。
 - `sensor1` 对应内塘，`sensor2` 对应外塘（以 `WS_Information.h` 实际配置为准）。
+- 通过跳线帽开启板载的RS485 120Ω匹配电阻。
 
 2. 控制
 - 闸门开/关由继电器控制。
@@ -289,6 +290,7 @@ ACL 最小权限建议：
 
 ## 10. 相关文档
 
+- 主控：[waveshare](https://www.waveshare.net/wiki/ESP32-S3-Relay-6CH)
 - 服务端：`server/README.md`
 - 小程序：`little_program/README.md`
 - 一键部署参考：`openclaw/openclaw_read.md`
