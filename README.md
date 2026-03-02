@@ -292,4 +292,27 @@ ACL 最小权限建议：
 - 服务端：`server/README.md`
 - 小程序：`little_program/README.md`
 - 一键部署参考：`openclaw/openclaw_read.md`
+- OpenClaw 执行任务单：`openclaw/DEPLOYMENT_TASKS.md`
 - RS485 传感器说明：`doc/rs_485_ultrasonic_level_meter_readme.md`
+
+## 11. 项目验收清单（建议给 Reviewer）
+
+1. 固件侧
+- [ ] 设备本地 `http://<设备IP>/` 可访问，`/api/state` 有实时数据。
+- [ ] `gate_open/gate_close/gate_stop` 可执行，且 CH1/CH2 无互锁冲突报警。
+- [ ] 上传 LittleFS 后页面与 API 正常；不上传时内嵌 UI 兜底可用。
+
+2. 云端侧
+- [ ] `GET /healthz` 返回 `ok=true,mqtt=true,db=true`。
+- [ ] `GET /api/state?device_id=fish1` 可看到最新 telemetry。
+- [ ] `POST /api/cmd` 可下发控制且设备有响应。
+- [ ] `GET /api/history` 与 `/api/telemetry/range` 可查询历史数据。
+
+3. 小程序侧
+- [ ] 登录、设备列表、主控命令、规则编辑、回放导出全流程可用。
+- [ ] 管理员账号能访问管理页，普通账号被正确限制。
+
+4. OpenClaw 部署侧
+- [ ] 按 `openclaw/DEPLOYMENT_TASKS.md` 完成部署并逐项勾选。
+- [ ] 域名 `https://fish.530555.xyz/` 可访问且证书有效。
+- [ ] EMQX 匿名连接关闭，ACL 为最小权限。

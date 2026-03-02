@@ -15,6 +15,7 @@
 - `openclaw/.env.example`
 - `openclaw/caddy/Caddyfile`
 - `openclaw/emqx/acl.conf`（ACL 示例）
+- `openclaw/DEPLOYMENT_TASKS.md`（交付 OpenClaw 的逐项执行清单）
 - 面板代码：`server/`（含 `server/public/*` 前端）
 
 ---
@@ -248,3 +249,16 @@ docker compose --env-file .env up -d --build
    - MQTT 用户密码
    - 面板 admin 密码
    - `SESSION_SECRET`（轮换会让所有用户重新登录）
+
+---
+
+## 8. 给 OpenClaw 的执行要求（简版）
+
+如果你要把本方案交给 OpenClaw 直接实施，请要求其按 `openclaw/DEPLOYMENT_TASKS.md` 逐项打勾并提供证据，至少包括：
+
+- `docker compose ps` 四个服务均为 `Up`
+- `https://fish.530555.xyz/healthz` 返回 `ok=true,mqtt=true,db=true`
+- EMQX 用户与 ACL 配置截图
+- 主控页控制成功截图 + 回放页曲线截图
+
+未提供以上证据时，视为“未完成交付”。

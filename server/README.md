@@ -295,3 +295,31 @@ docker run --rm -p 8080:8080 --env-file server/.env fish-cloud-panel:latest
 - `/healthz` 是否 `mqtt=true`、`db=true`
 - `/api/devices` 是否有设备
 - `/api/state?device_id=...` 是否有实时 telemetry
+
+## 12. 部署验收与回滚
+
+1. 最小验收（生产）
+- [ ] `GET /healthz`：`ok=true,mqtt=true,db=true`
+- [ ] 登录成功后 `GET /api/auth/me` 返回当前用户
+- [ ] `GET /api/state` 有实时 telemetry
+- [ ] `POST /api/cmd` 下发后设备侧有动作/回执
+- [ ] `GET /api/history` 可返回窗口数据
+- [ ] 管理员可进入 `/config` 并读取用户列表
+
+2. 安全验收
+- [ ] `COOKIE_SECURE=1`（HTTPS 下）
+- [ ] 非同源写请求被 `bad_origin` 拦截（预期）
+- [ ] admin 账号不可被禁用/删除（预期）
+
+3. 快速排错命令
+
+```bash
+docker compose logs -f fish-panel
+curl -i https://你的域名/healthz
+curl -i https://你的域名/api/auth/me
+```
+
+4. 回滚建议
+- 回滚镜像：切回上一版 `fish-panel` 镜像并 `docker compose up -d`
+- 数据保留：不要删除 `pgdata` 卷，避免历史数据丢失
+- 若仅配置错误：优先修复 `.env` 并重启容器，不要直接清库

@@ -175,3 +175,35 @@ pio run -t uploadfs
 
 - 若修改了 `data/ui/*`，优先执行 `uploadfs`。
 - 项目启用了 UI 资源内嵌兜底（`scripts/embed_ui_assets.py`），LittleFS 缺失时可回退。
+
+## 10. 烧录后验收（现场快速版）
+
+1. 基础连通
+- [ ] 串口日志看到 Wi-Fi 已连接、IP 已获取
+- [ ] `http://<设备IP>/api/state` 返回 JSON 且 `net.wifi=true`
+
+2. 采集与上报
+- [ ] 两路液位/温度字段更新（或离线状态符合预期）
+- [ ] MQTT 遥测主题有持续数据：`<device_id>/device/telemetry`
+
+3. 控制安全
+- [ ] `gate_open` 与 `gate_close` 不会同时吸合
+- [ ] 超时/冷却限制生效（符合 `GATE_MAX_CONTINUOUS_RUN_S` 与 `GATE_MIN_ACTION_INTERVAL_S`）
+- [ ] 手动接管与 `manual_end` 行为符合预期
+
+4. 联动指示
+- [ ] 离线时 CH3 红灯常亮
+- [ ] 关闸态 CH4 亮、开闸态 CH5 亮
+- [ ] 上电与 Wi-Fi 恢复提示音触发 CH6
+
+## 11. 与 OpenClaw 对接参数清单
+
+把下列字段明确给部署方，避免 topic/账号不一致：
+
+- `MQTT_Server`
+- `MQTT_Port`
+- `MQTT_Username`
+- `MQTT_Password`
+- `MQTT_Pub`（推荐 `<device_id>/device/telemetry`）
+- `MQTT_Sub`（推荐 `<device_id>/device/command`）
+- `MQTT_LOG_PUSH_Enable`（建议 `true`）
