@@ -211,19 +211,15 @@ const CMD_LABELS = {
 Page({
   data: {
     userText: '--',
-    userRole: 'user',
     isAdmin: false,
     deviceOptions: [],
     deviceIndex: 0,
     currentDeviceLabel: '--',
-    mqttText: '--',
-    mqttTagClass: '',
     serverMqttText: '--',
     serverMqttTagClass: '',
     deviceOnlineText: '--',
     deviceOnlineTagClass: '',
     lastTelemetryAt: '--',
-    fwVersion: '--',
     innerText: '--',
     outerText: '--',
     innerStatusText: '--',
@@ -231,8 +227,6 @@ Page({
     deltaText: '--',
     gateText: '--',
     autoText: '--',
-    autoGate: false,
-    autoLatched: false,
     autoToggleText: '关闭自动',
     autoToggleClass: 'ctl-neutral',
     alarmText: '--',
@@ -243,16 +237,8 @@ Page({
     logText: '加载中…',
     logMsg: '',
     schematicMsg: '',
-    gateTagClass: '',
-    deltaTagClass: '',
-    innerMm: null,
-    outerMm: null,
-    deltaMm: null,
-    gateStateNum: 0,
     gateProgress: 0,
     pageStatusClass: 'is-warn',
-    statusHintText: '等待设备状态...',
-    canOperate: false,
     canAdminOperate: false,
     deviceOnline: false
   },
@@ -264,14 +250,13 @@ Page({
   },
 
   syncGateProgress(force) {
-    const gateState = Number(this.data.gateStateNum || 0);
+    const gateState = Number(this._gateStateNum || 0);
     const fallback = gateState === 1 ? 1 : 0;
     const ratio = clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : fallback, 0, 1);
     const gateProgress = Math.round(ratio * 100);
     if (!force && gateProgress === this.data.gateProgress) return;
-    const gateText = gateDisplayText(this.data.deviceOnline, this.data.gateStateNum, gateProgress);
-    const gateTagClass = gateTagClassFor(this.data.deviceOnline, this.data.gateStateNum, gateProgress);
-    const patch = { gateProgress, gateText, gateTagClass };
+    const gateText = gateDisplayText(this.data.deviceOnline, gateState, gateProgress);
+    const patch = { gateProgress, gateText };
     if (this.data.cmdMsg === '已发送：关闸' && gateProgress === 0) patch.cmdMsg = '';
     if (this.data.cmdMsg === '已发送：开闸' && gateProgress === 100) patch.cmdMsg = '';
     this.setData(patch);
@@ -306,7 +291,6 @@ Page({
       const isAdmin = role === 'admin';
       this.setData({
         userText: `用户 ${me.user.username} | ${me.user.role}`,
-        userRole: role,
         isAdmin
       });
     } catch (e) {
@@ -410,18 +394,21 @@ Page({
       const inner = s1.valid ? Number(s1.mm) : null;
       const outer = s2.valid ? Number(s2.mm) : null;
       const delta = (inner != null && outer != null) ? (inner - outer) : null;
-      const fw = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
       const autoGate = !!t.auto_gate;
       const autoLatched = !!t.auto_latched;
+      this._autoLatched = autoLatched;
       const auto = autoLatched ? '锁定关闭' : (autoGate ? '已启用' : '已关闭');
       const gateStateNum = Number(t.gate_state || 0);
+      this._gateStateNum = gateStateNum;
       const gateTarget = gateAnimTargetFromTelemetry(t, gateStateNum);
       const ctrl = t && t.ctrl ? t.ctrl : null;
       const actionS = Number(ctrl && ctrl.action_s);
       this._gateTravelS = (Number.isFinite(actionS) && actionS > 0) ? actionS : 10;
       this._gateRatioTarget = gateTarget;
       if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = gateTarget;
-      const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
+      this._innerMm = inner;
+      this._outerMm = outer;
+      this._deltaMm = delta;
       const now = Date.now();
       const ageMs = lastAt > 0 ? Math.max(0, now - Number(lastAt || 0)) : 9e9;
       const deviceOnline = ageMs <= 15000;
@@ -429,21 +416,14 @@ Page({
       const canOperate = !!(mqttConnected && deviceOnline);
       const canAdminOperate = !!(canOperate && this.data.isAdmin);
       const gateText = gateDisplayText(deviceOnline, gateStateNum, gateProgress);
-      const gateTagClass = gateTagClassFor(deviceOnline, gateStateNum, gateProgress);
-      const statusHintText = !mqttConnected
-        ? '服务器 MQTT 未连接，暂不可控'
-        : (deviceOnline ? '设备在线，可执行控制命令' : '设备离线，控制命令可能超时');
 
       this.setData({
-        mqttText: mqttConnected ? '已连接' : '未连接',
-        mqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
         serverMqttText: mqttConnected ? '服务器 已连接' : '服务器 未连接',
         serverMqttTagClass: mqttConnected ? 'tag-good' : 'tag-bad',
         deviceOnlineText: deviceOnline ? '设备状态 在线' : '设备状态 离线',
         deviceOnlineTagClass: deviceOnline ? 'tag-good' : 'tag-bad',
         deviceOnline,
         lastTelemetryAt: fmt.fmtDateTime(lastAt || 0),
-        fwVersion: fw || '--',
         innerText: inner == null ? '--' : `${inner} mm`,
         outerText: outer == null ? '--' : `${outer} mm`,
         innerStatusText: inner == null ? '--' : `${(inner / 1000).toFixed(3)} m`,
@@ -451,44 +431,33 @@ Page({
         deltaText: delta == null ? '--' : `${delta} mm`,
         gateText,
         autoText: auto,
-        autoGate,
-        autoLatched,
         autoToggleText: autoLatched ? '开启自动' : '关闭自动',
         autoToggleClass: autoLatched ? 'ctl-primary' : 'ctl-neutral',
         alarmText: fmt.alarmText(t.alarm),
-        gateTagClass,
-        deltaTagClass,
-        innerMm: inner,
-        outerMm: outer,
-        deltaMm: delta,
-        gateStateNum,
         gateProgress,
-        canOperate,
         canAdminOperate,
-        statusHintText,
         pageStatusClass: canOperate ? 'is-good' : 'is-warn'
       });
       this.syncGateProgress(true);
       this.drawSchematic();
     } catch (e) {
       this.setData({
-        mqttText: '异常',
-        mqttTagClass: 'tag-bad',
         serverMqttText: '服务器 状态未知',
         serverMqttTagClass: 'tag-bad',
         deviceOnlineText: '设备状态 未知',
         deviceOnlineTagClass: 'tag-bad',
         deviceOnline: false,
-        autoGate: false,
-        autoLatched: false,
         autoToggleText: '关闭自动',
         autoToggleClass: 'ctl-neutral',
         gateProgress: 0,
-        canOperate: false,
         canAdminOperate: false,
-        statusHintText: '状态获取失败，请检查网络后重试',
         pageStatusClass: 'is-warn'
       });
+      this._autoLatched = false;
+      this._innerMm = null;
+      this._outerMm = null;
+      this._deltaMm = null;
+      this._gateStateNum = 0;
     }
   },
 
@@ -531,14 +500,14 @@ Page({
     }
   },
 
-  cmdGateOpen() { this.sendCmd('gate_open', { keepAutoOff: !!this.data.autoLatched }); },
-  cmdGateClose() { this.sendCmd('gate_close', { keepAutoOff: !!this.data.autoLatched }); },
-  cmdGateStop() { this.sendCmd('gate_stop', { keepAutoOff: !!this.data.autoLatched }); },
+  cmdGateOpen() { this.sendCmd('gate_open', { keepAutoOff: !!this._autoLatched }); },
+  cmdGateClose() { this.sendCmd('gate_close', { keepAutoOff: !!this._autoLatched }); },
+  cmdGateStop() { this.sendCmd('gate_stop', { keepAutoOff: !!this._autoLatched }); },
   cmdAutoOn() { this.sendCmd('auto_on'); },
   cmdAutoOff() { this.sendCmd('auto_off'); },
   cmdAutoLatchOff() { this.sendCmd('auto_latch_off'); },
   cmdAutoToggle() {
-    if (this.data.autoLatched) {
+    if (this._autoLatched) {
       this.sendCmd('auto_on');
       return;
     }
@@ -724,10 +693,10 @@ Page({
     const H = this._schemH;
     if (!ctx || !W || !H) return;
 
-    const inner = this.data.innerMm;
-    const outer = this.data.outerMm;
-    const delta = this.data.deltaMm;
-    const gateState = Number(this.data.gateStateNum || 0);
+    const inner = this._innerMm;
+    const outer = this._outerMm;
+    const delta = this._deltaMm;
+    const gateState = Number(this._gateStateNum || 0);
     const deviceOnline = !!this.data.deviceOnline;
     const gateRatio = clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : (gateState === 1 ? 1 : 0), 0, 1);
     const wavePhase = (Number.isFinite(this._flowPhase) ? this._flowPhase : 0) * Math.PI * 2;

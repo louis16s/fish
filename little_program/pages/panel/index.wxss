@@ -486,6 +486,8 @@
 }
 
 .logbox {
+  width: 100%;
+  box-sizing: border-box;
   max-height: 420rpx;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12rpx;

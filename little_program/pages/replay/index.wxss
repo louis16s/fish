@@ -93,6 +93,12 @@
 }
 .list { max-height: 640rpx; }
 .row-item { padding: 10rpx 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.list-more {
+  padding: 14rpx 0 10rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: rgba(165,180,207,.84);
+}
 .row-line {
   display: grid;
   grid-template-columns: 48rpx 170rpx 1fr 1.3fr;

@@ -74,6 +74,8 @@ function calcYRange(points) {
   };
 }
 
+const RANGE_ROWS_BATCH = 120;
+
 Page({
   data: {
     isAdmin: false,
@@ -86,13 +88,14 @@ Page({
     loading: false,
     meta: '--',
     historyMeta: '',
-    historyPointText: '',
     historyPointTs: '',
     historyPointDetail: '',
     rangeHint: '每条记录代表一次设备遥测快照（telemetry payload）。单位：mm。',
     msg: '',
     rows: [],
-    rawRows: [],
+    rowsLoaded: 0,
+    rowsTotal: 0,
+    hasMoreRows: false,
     exporting: false
   },
 
@@ -152,6 +155,35 @@ Page({
     this.loadHistoryWindow(3600);
   },
 
+  resetRangeRows(list) {
+    this._rangeRowsAll = Array.isArray(list) ? list : [];
+    const first = this._rangeRowsAll.slice(0, RANGE_ROWS_BATCH);
+    this.setData({
+      rows: first,
+      rowsLoaded: first.length,
+      rowsTotal: this._rangeRowsAll.length,
+      hasMoreRows: this._rangeRowsAll.length > first.length
+    });
+  },
+
+  appendRangeRows() {
+    if (this._appendRowsBusy) return;
+    const all = Array.isArray(this._rangeRowsAll) ? this._rangeRowsAll : [];
+    const loaded = Number(this.data.rowsLoaded || 0);
+    if (loaded >= all.length) return;
+    this._appendRowsBusy = true;
+    const nextLoaded = Math.min(all.length, loaded + RANGE_ROWS_BATCH);
+    const nextRows = all.slice(0, nextLoaded);
+    this.setData({
+      rows: nextRows,
+      rowsLoaded: nextLoaded,
+      rowsTotal: all.length,
+      hasMoreRows: nextLoaded < all.length
+    }, () => {
+      this._appendRowsBusy = false;
+    });
+  },
+
   async loadData() {
     const from = toIso(this.data.from);
     const to = toIso(this.data.to);
@@ -190,13 +222,14 @@ Page({
         };
       });
       list.forEach((x, i) => { x.idx = i + 1; });
+      this._rawRows = rows;
       this.setData({
-        rows: list,
-        rawRows: rows,
         meta: `返回 ${rows.length} 条，范围 ${fmt.fmtDateTime(from)} ~ ${fmt.fmtDateTime(to)}`,
         msg: ''
       });
+      this.resetRangeRows(list);
     } catch (e) {
+      this._rangeRowsAll = [];
       this.setData({ msg: `查询失败：${e.message}` });
     } finally {
       this.setData({ loading: false });
@@ -213,7 +246,7 @@ Page({
       const qs = api.buildQuery({ device_id: pickDeviceId(), window_s: windowS, max_points: 700 });
       const j = await api.requestJSON(`/api/history${qs}`);
       const pts = Array.isArray(j.points) ? j.points : [];
-      this.setData({ historyPointText: '', historyPointTs: '', historyPointDetail: '' });
+      this.setData({ historyPointTs: '', historyPointDetail: '' });
       this.drawHistory(pts);
     } catch (e) {
       this.setData({ msg: `历史加载失败：${e.message}` });
@@ -339,7 +372,7 @@ Page({
   },
 
   buildCsvText() {
-    const rows = this.data.rawRows || [];
+    const rows = this._rawRows || [];
     const head = ['ts', 'inner_mm', 'outer_mm', 'delta_mm', 'gate_state', 'auto_gate', 'auto_latched', 'alarm_active', 'alarm_severity', 'alarm_text'];
     const lines = [head.join(',')];
     rows.forEach((r) => {
@@ -400,7 +433,7 @@ Page({
       this.setData({ msg: '权限不足：仅 admin 可导出历史水位数据' });
       return;
     }
-    const rows = this.data.rawRows || [];
+    const rows = this._rawRows || [];
     if (!rows.length) {
       this.setData({ msg: '暂无可导出的范围结果，请先查询' });
       return;
@@ -480,10 +513,13 @@ Page({
     const outer = best.outer == null ? '--' : `${Math.round(best.outer)}mm`;
     const delta = (best.inner != null && best.outer != null) ? `${Math.round(best.inner - best.outer)}mm` : '--';
     this.setData({
-      historyPointText: `${tsText} | 内塘 ${inner} | 外塘 ${outer} | Δ ${delta}`,
       historyPointTs: tsText,
       historyPointDetail: `内塘 ${inner} | 外塘 ${outer} | Δ ${delta}`
     });
+  },
+
+  onRangeScrollToLower() {
+    this.appendRangeRows();
   },
 
   backPanel() {

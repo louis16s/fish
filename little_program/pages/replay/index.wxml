@@ -54,14 +54,15 @@
 
   <view class="card">
     <view class="title2">范围结果（/api/telemetry/range）</view>
+    <view wx:if="{{rowsTotal}}" class="muted">当前显示 {{rowsLoaded}} / {{rowsTotal}} 条</view>
     <view class="table-head">
       <text class="th idx">#</text>
       <text class="th ts">时间</text>
       <text class="th val">内/外/Δ</text>
       <text class="th st">闸门/自动/告警</text>
     </view>
-    <scroll-view scroll-y="true" class="list">
-      <view wx:for="{{rows}}" wx:key="index" class="row-item">
+    <scroll-view scroll-y="true" class="list" lower-threshold="80" bindscrolltolower="onRangeScrollToLower">
+      <view wx:for="{{rows}}" wx:key="idx" class="row-item">
         <view class="row-line">
           <view class="cell idx">{{item.idx}}</view>
           <view class="cell ts">
@@ -76,6 +77,7 @@
           </view>
         </view>
       </view>
+      <view wx:if="{{hasMoreRows}}" class="list-more">上拉继续加载</view>
     </scroll-view>
   </view>
 </view>
