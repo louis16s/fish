@@ -1775,6 +1775,12 @@
       return (t && t.gate_position_open) ? 1 : 0;
     }
 
+    function deriveGateAnimTarget(t){
+      if(t && t.gate_state === 1) return 1;
+      if(t && t.gate_state === 2) return 0;
+      return deriveGateTarget(t);
+    }
+
     function renderTelemetry(t){
       if(!t) return;
       g_lastTelemetry = t;
@@ -1802,8 +1808,10 @@
       $('chipDelta').className = 'chip' + (deltaOk ? (Math.abs(deltaMm) > 80 ? ' warn' : ' good') : '');
 
       // UI animation duration is fixed to keep open/close feel consistent.
-      g_gateTravelS = GATE_ANIM_TRAVEL_S;
-      g_gateTarget = deriveGateTarget(t);
+      const ctrl = t && t.ctrl ? t.ctrl : null;
+      const actionS = ctrl && typeof ctrl.action_s === 'number' && isFinite(ctrl.action_s) ? ctrl.action_s : NaN;
+      g_gateTravelS = (isFinite(actionS) && actionS > 0) ? actionS : GATE_ANIM_TRAVEL_S;
+      g_gateTarget = deriveGateAnimTarget(t);
 
       setWaterRect(g_waterL, g_surfL, outerMm, outerOk);
       setWaterRect(g_waterR, g_surfR, innerMm, innerOk);
