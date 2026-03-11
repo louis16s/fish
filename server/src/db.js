@@ -192,6 +192,29 @@ async function listDevices(pool) {
   return r.rows || [];
 }
 
+async function listDevicesOverview(pool) {
+  const r = await pool.query(
+    `SELECT
+       d.device_id,
+       d.display_name,
+       d.mqtt_username,
+       d.created_at,
+       d.last_seen_at,
+       lt.ts AS telemetry_ts,
+       lt.payload AS telemetry_payload
+     FROM devices d
+     LEFT JOIN LATERAL (
+       SELECT ts, payload
+       FROM telemetry t
+       WHERE t.device_id = d.device_id
+       ORDER BY ts DESC
+       LIMIT 1
+     ) lt ON true
+     ORDER BY COALESCE(d.last_seen_at, d.created_at) DESC`
+  );
+  return r.rows || [];
+}
+
 async function upsertDevice(pool, deviceId, metadata) {
   const id = String(deviceId || '').trim();
   const m = metadata || {};
@@ -312,6 +335,7 @@ module.exports = {
   deleteUser,
   upsertDeviceSeen,
   listDevices,
+  listDevicesOverview,
   upsertDevice,
   deleteDevice,
   insertTelemetry,

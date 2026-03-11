@@ -26,11 +26,12 @@
 
     <view class="row btn-row action-row">
       <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading || exporting}}" bindtap="loadData">查询</button>
-      <button class="btn" loading="{{exporting}}" disabled="{{loading || exporting}}" bindtap="exportData">导出</button>
+      <button class="btn" loading="{{exporting}}" disabled="{{loading || exporting || !isAdmin}}" bindtap="exportData">导出</button>
     </view>
 
     <view class="muted">{{meta}}</view>
     <view class="muted">{{rangeHint}}</view>
+    <view wx:if="{{!isAdmin}}" class="muted">当前账号为只读 user：不可导出历史数据</view>
     <view wx:if="{{msg}}" class="muted">{{msg}}</view>
   </view>
 

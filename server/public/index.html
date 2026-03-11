@@ -847,10 +847,33 @@
     }
 
     let g_needAuth = false;
+    let g_userRole = 'user';
+    let g_isAdmin = false;
     function setNeedAuth(v){
       g_needAuth = !!v;
       const el = $('authHint');
       if(el) el.style.display = g_needAuth ? '' : 'none';
+    }
+
+    function updateRoleUi(){
+      g_isAdmin = (String(g_userRole || '').toLowerCase() === 'admin');
+      applyControlDisabledState();
+      logBusySet(false);
+      if(!g_isAdmin){
+        showCmdMsg('当前账号为只读用户：不可开关水闸。', 'warn', true);
+        const lm = $('logMsg');
+        if(lm) lm.textContent = '当前账号为只读用户：不可导出/清空日志。';
+      }
+    }
+
+    async function loadMeRole(){
+      try{
+        const r = await fetch('/api/auth/me', {cache:'no-store'});
+        if(!r.ok) return;
+        const j = await r.json();
+        g_userRole = (j && j.user && j.user.role) ? String(j.user.role) : 'user';
+      }catch(e){}
+      updateRoleUi();
     }
 
     let g_cmdMsgTimer = 0;
@@ -1619,6 +1642,7 @@
       const t = g_lastTelemetry;
       const manual = t && t.manual ? t.manual : null;
       const manualActive = !!(manual && manual.active);
+      const canControl = !!g_isAdmin;
 
       const lock = (!manualActive) && (gateBtnLockRemainS() > 0.05);
       const remain = lock ? Math.ceil(gateBtnLockRemainS()) : 0;
@@ -1630,16 +1654,16 @@
       const latch = $('btnLatch');
 
       if(open){
-        open.disabled = !!g_reqBusy || lock;
+        open.disabled = (!canControl) || !!g_reqBusy || lock;
         open.title = lock ? ('冷却中：' + remain + 's') : '';
       }
       if(close){
-        close.disabled = !!g_reqBusy || lock;
+        close.disabled = (!canControl) || !!g_reqBusy || lock;
         close.title = lock ? ('冷却中：' + remain + 's') : '';
       }
-      if(stop) stop.disabled = false; // highest priority
-      if(manualBtn) manualBtn.disabled = !!g_reqBusy;
-      if(latch) latch.disabled = !!g_reqBusy;
+      if(stop) stop.disabled = !canControl; // highest priority
+      if(manualBtn) manualBtn.disabled = (!canControl) || !!g_reqBusy;
+      if(latch) latch.disabled = (!canControl) || !!g_reqBusy;
     }
 
     function mountSchematicFromSvgText(tx){
@@ -2108,6 +2132,10 @@
     }
 
     async function cmd(c, opts){
+      if(!g_isAdmin){
+        showCmdMsg('权限不足：仅 admin 可执行闸门控制。', 'warn');
+        return false;
+      }
       const isStop = (c === 'gate_stop');
       if(g_reqBusy && !isStop){
         showCmdMsg('忙：上一条命令处理中…', 'warn');
@@ -2538,8 +2566,8 @@
       const be = $('logExportBtn');
       const bc = $('logClearBtn');
       if(br) br.disabled = busy;
-      if(be) be.disabled = busy;
-      if(bc) bc.disabled = busy;
+      if(be) be.disabled = busy || !g_isAdmin;
+      if(bc) bc.disabled = busy || !g_isAdmin;
     }
 
     function logStopPolling(){
@@ -2664,6 +2692,11 @@
     }
 
     async function logClearCur(){
+      if(!g_isAdmin){
+        const msg = $('logMsg');
+        if(msg) msg.textContent = '权限不足：仅 admin 可清空日志。';
+        return;
+      }
       if(!confirm('确认清空当前日志？')) return;
       const msg = $('logMsg');
       try{
@@ -2683,6 +2716,11 @@
     window.logClearCur = logClearCur;
 
     function logExportCur(){
+      if(!g_isAdmin){
+        const msg = $('logMsg');
+        if(msg) msg.textContent = '权限不足：仅 admin 可导出日志。';
+        return;
+      }
       const name = g_logTab || 'error';
       const url = '/api/log/download?name=' + encodeURIComponent(name) + '&t=' + Date.now();
       const a = document.createElement('a');
@@ -2774,7 +2812,7 @@
     // Boot: show deterministic "0" values before the first telemetry arrives.
     renderNoDataUi();
 
-      loadSchematic().then(()=>{
+      Promise.resolve(loadMeRole()).then(()=>loadSchematic()).then(()=>{
         setGateRatio(0);
         renderNoDataUi(); // apply again after SVG handles are available
         histPickClear();

@@ -25,6 +25,7 @@ const {
   deleteUser,
   upsertDeviceSeen,
   listDevices,
+  listDevicesOverview,
   upsertDevice,
   deleteDevice,
   insertTelemetry,
@@ -384,7 +385,7 @@ async function main() {
     legacyHeaders: false
   });
 
-  app.post('/api/cmd', requireAuthApi, requireSameOrigin, cmdLimiter, async (req, res) => {
+  app.post('/api/cmd', requireAuthApi, requireAdmin, requireSameOrigin, cmdLimiter, async (req, res) => {
     let cmd = '';
     try {
       const body = cmdSchema.parse(req.body || {});
@@ -486,6 +487,30 @@ async function main() {
   app.get('/api/admin/users', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
     const users = await listUsers(pool);
     res.json({ ok: true, users });
+  });
+
+  app.get('/api/admin/devices/overview', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
+    const list = await listDevicesOverview(pool);
+    const devices = list.map((row) => {
+      const payload = row && row.telemetry_payload && typeof row.telemetry_payload === 'object'
+        ? row.telemetry_payload
+        : {};
+      const net = payload && payload.net && typeof payload.net === 'object' ? payload.net : {};
+      const fw = payload && payload.fw && typeof payload.fw === 'object' ? payload.fw : {};
+      return {
+        device_id: row.device_id || '',
+        display_name: row.display_name || '',
+        mqtt_username: row.mqtt_username || '',
+        created_at: row.created_at || null,
+        last_seen_at: row.last_seen_at || null,
+        telemetry_ts: row.telemetry_ts || null,
+        fw_version: fw.current || payload.fw_version || payload.fw || '--',
+        wifi_rssi: Number.isFinite(Number(net.rssi)) ? Number(net.rssi) : null,
+        lan_ip: net.ip || ''
+      };
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, devices });
   });
 
   app.post('/api/admin/devices', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
@@ -634,7 +659,7 @@ async function main() {
     }
   });
 
-  app.post('/api/config', requireAuthApi, requireSameOrigin, async (req, res) => {
+  app.post('/api/config', requireAuthApi, requireAdmin, requireSameOrigin, async (req, res) => {
     const deviceId = pickDeviceId(req);
     let raw = '';
     try {
@@ -697,7 +722,7 @@ async function main() {
     }
   });
 
-  app.post('/api/log/clear', requireAuthApi, requireSameOrigin, async (req, res) => {
+  app.post('/api/log/clear', requireAuthApi, requireAdmin, requireSameOrigin, async (req, res) => {
     const deviceId = pickDeviceId(req);
     const name = String((req.body && req.body.name) || 'error').toLowerCase();
     try {
@@ -712,7 +737,7 @@ async function main() {
     }
   });
 
-  app.get('/api/log/download', requireAuthApi, async (req, res) => {
+  app.get('/api/log/download', requireAuthApi, requireAdmin, async (req, res) => {
     const deviceId = pickDeviceId(req);
     const name = String((req.query && req.query.name) || 'error').toLowerCase();
     const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);

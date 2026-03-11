@@ -57,7 +57,7 @@
           <text class="tag {{item.disabled ? 'tag-bad':'tag-good'}}">{{item.disabled ? 'disabled':'active'}}</text>
         </view>
         <view class="row btn-row" style="margin-top:8rpx">
-          <button class="btn" size="mini" data-id="{{item.id}}" data-role="{{item.role}}" data-username="{{item.username}}" data-disabled="{{!item.disabled}}" disabled="{{item.role==='admin' || item.username==='admin'}}" bindtap="toggleDisable">{{(item.role==='admin' || item.username==='admin') ? '不可禁用' : (item.disabled ? '启用':'禁用')}}</button>
+          <button class="btn" size="mini" data-id="{{item.id}}" data-role="{{item.role}}" data-username="{{item.username}}" data-target-disabled="{{!item.disabled}}" disabled="{{item.role==='admin' || item.username==='admin'}}" bindtap="toggleDisable">{{(item.role==='admin' || item.username==='admin') ? '不可禁用' : (item.disabled ? '启用':'禁用')}}</button>
           <button class="btn" size="mini" data-id="{{item.id}}" bindtap="resetPassword">重置密码</button>
         </view>
       </view>
@@ -68,6 +68,7 @@
   <view class="card">
     <view class="title2">设备列表</view>
     <view class="muted">添加设备请到网页操作</view>
+    <view wx:if="{{deviceMsg}}" class="muted">{{deviceMsg}}</view>
     <block wx:if="{{devices.length}}">
       <view wx:for="{{devices}}" wx:key="device_id" class="drow">
         <view>{{item.device_id}}</view>

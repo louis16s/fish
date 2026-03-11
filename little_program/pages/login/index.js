@@ -12,6 +12,13 @@ Page({
   },
 
   onLoad() {
+    this.bootstrap();
+  },
+
+  async bootstrap() {
+    const hasSession = await this.tryResumeSession();
+    if (hasSession) return;
+
     try {
       const remember = wx.getStorageSync('remember_password') !== false;
       const username = wx.getStorageSync('remember_username') || '';
@@ -22,9 +29,21 @@ Page({
         password: String(password)
       });
       if (remember && username && password) {
-        this.onLogin(true);
+        await this.onLogin(true);
       }
     } catch (e) {}
+  },
+
+  async tryResumeSession() {
+    try {
+      const me = await api.requestJSON('/api/auth/me');
+      const app = getApp();
+      app.globalData.user = me.user || null;
+      wx.reLaunch({ url: '/pages/panel/index' });
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
 
   onUserInput(e) {
@@ -47,6 +66,8 @@ Page({
 
   async onLogin(silent) {
     if (silent && typeof silent === 'object') silent = false;
+    if (this.data.loading) return;
+
     const username = (this.data.username || '').trim();
     const password = this.data.password || '';
     if (!username || !password) {
@@ -78,7 +99,8 @@ Page({
 
       wx.reLaunch({ url: '/pages/panel/index' });
     } catch (e) {
-      if (!silent) this.setData({ msg: `登录失败：${e.message || '网络错误'}` });
+      api.setCookieRaw('');
+      this.setData({ msg: silent ? '自动登录失败，请重新输入密码' : `登录失败：${e.message || '网络错误'}` });
     } finally {
       this.setData({ loading: false });
     }

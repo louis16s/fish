@@ -172,6 +172,7 @@ curl http://127.0.0.1:8080/healthz
 
 4. `POST /api/cmd`
 - body: `{ "cmd": "gate_open|gate_close|gate_stop|auto_on|auto_off|auto_latch_off|manual_end" }`
+- 权限：仅 `admin`
 - 错误：`400 bad_cmd`、`500 mqtt_publish_failed`
 
 ### 7.4 历史与回放
@@ -197,6 +198,7 @@ curl http://127.0.0.1:8080/healthz
 
 2. `POST /api/config`
 - body: JSON（服务端会序列化后发给设备）
+- 权限：仅 `admin`
 - 错误：`400 invalid_json`、`504 timeout`、`502 mqtt_not_connected`
 
 ### 7.6 日志（推送缓存优先，RPC 兜底）
@@ -207,9 +209,11 @@ curl http://127.0.0.1:8080/healthz
 
 2. `POST /api/log/clear`
 - body: `{ "name": "error|measure|action" }`
+- 权限：仅 `admin`
 
 3. `GET /api/log/download`
 - 与 `/api/log` 参数一致
+- 权限：仅 `admin`
 - 强制下载文本文件
 
 ### 7.7 管理员 API

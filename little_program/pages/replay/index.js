@@ -76,6 +76,7 @@ function calcYRange(points) {
 
 Page({
   data: {
+    isAdmin: false,
     deviceOptions: [],
     deviceIndex: 0,
     currentDeviceLabel: '--',
@@ -101,7 +102,9 @@ Page({
 
   async bootstrap() {
     try {
-      await api.requestJSON('/api/auth/me');
+      const me = await api.requestJSON('/api/auth/me');
+      const role = String((me.user && me.user.role) || 'user').toLowerCase();
+      this.setData({ isAdmin: role === 'admin' });
     } catch (e) {
       wx.reLaunch({ url: '/pages/login/index' });
       return;
@@ -393,6 +396,10 @@ Page({
   },
 
   async exportData() {
+    if (!this.data.isAdmin) {
+      this.setData({ msg: '权限不足：仅 admin 可导出历史水位数据' });
+      return;
+    }
     const rows = this.data.rawRows || [];
     if (!rows.length) {
       this.setData({ msg: '暂无可导出的范围结果，请先查询' });

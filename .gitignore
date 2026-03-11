@@ -7,7 +7,10 @@ firmware/.pio/
 .vscode/ipch
 .vscode/settings.json
 .vscode/extensions.json
-
+tools
+tools/fish1_mqtt_sim.py
+tools/fish1_mqtt_sim.bat
+tools/fish1_mqtt_sim.ps1
 # Firmware build outputs
 firmware/dist/
 firmware/src/auto_fw_version.h

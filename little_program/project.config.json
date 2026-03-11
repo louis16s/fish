@@ -3,7 +3,7 @@
     "es6": true,
     "postcss": true,
     "minified": true,
-    "uglifyFileName": false,
+    "uglifyFileName": true,
     "enhance": true,
     "packNpmRelationList": [],
     "babelSetting": {
@@ -20,6 +20,6 @@
     "ignore": [],
     "include": []
   },
-  "appid": "wxe6f9463ae4289b63",
+  "appid": "wx36b1be8c3e24b689",
   "editorSetting": {}
 }

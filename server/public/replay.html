@@ -225,8 +225,8 @@
             <input id="limit" type="number" min="50" max="20000" step="50" value="2000">
           </label>
           <button class="btn primary" id="btnLoad" onclick="loadData()">查询</button>
-          <button class="btn exportBtn" onclick="exportJson()">导出 JSON</button>
-          <button class="btn exportBtn" onclick="exportCsv()">导出 CSV</button>
+          <button class="btn exportBtn" id="btnExportJson" onclick="exportJson()">导出 JSON</button>
+          <button class="btn exportBtn" id="btnExportCsv" onclick="exportCsv()">导出 CSV</button>
         </div>
         <div class="hint" id="meta">--</div>
         <div class="hint bad" id="msg" style="display:none"></div>
@@ -304,6 +304,7 @@
     let g_chartData = [];
     let g_chartRange = null;
     let g_hoverIdx = -1;
+    let g_isAdmin = false;
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
@@ -336,7 +337,14 @@
     async function loadMe(){
       try{
         const j = await apiJson('/api/auth/me');
+        const role = j && j.user ? String(j.user.role || 'user').toLowerCase() : 'user';
+        g_isAdmin = role === 'admin';
         $('who').textContent = j && j.user ? ('用户 ' + j.user.username + ' | ' + j.user.role) : '--';
+        const bj = $('btnExportJson');
+        const bc = $('btnExportCsv');
+        if(bj) bj.disabled = !g_isAdmin;
+        if(bc) bc.disabled = !g_isAdmin;
+        if(!g_isAdmin) showMsg('当前账号为只读用户：仅可查看，不能导出历史数据。');
       }catch(e){
         location.href = '/login';
       }
@@ -860,6 +868,10 @@
     }
 
     function exportJson(){
+      if(!g_isAdmin){
+        showMsg('权限不足：仅 admin 可导出历史数据。');
+        return;
+      }
       const dev = $('devSel').value || 'device';
       const stamp = Date.now();
       downloadText('telemetry_' + dev + '_' + stamp + '.json', JSON.stringify(g_last || [], null, 2));
@@ -873,6 +885,10 @@
     }
 
     function exportCsv(){
+      if(!g_isAdmin){
+        showMsg('权限不足：仅 admin 可导出历史数据。');
+        return;
+      }
       const dev = $('devSel').value || 'device';
       const stamp = Date.now();
       const rows = Array.isArray(g_last) ? g_last : [];

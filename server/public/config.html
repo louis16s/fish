@@ -536,6 +536,9 @@
           const dis = !!u.disabled;
           const btnDis = dis ? '启用' : '禁用';
           const isAdmin = String(u.role || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'admin';
+          const disableBtn = isAdmin
+            ? '<button class="btn small danger" disabled>不可禁用</button>'
+            : '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button>';
           const delBtn = isAdmin
             ? '<button class="btn small nowrap danger" disabled>不可删除</button>'
             : '<button class="btn small danger" onclick="deleteUser(' + u.id + ')">删除</button>';
@@ -549,7 +552,7 @@
             '<td>' + statusTag(dis) + '</td>' +
             '<td style="font-family:var(--font)">' +
               pwBtn + ' ' +
-              '<button class="btn small danger" onclick="toggleDis(' + u.id + ',' + (dis? 'false':'true') + ')">' + btnDis + '</button> ' +
+              disableBtn + ' ' +
               delBtn +
             '</td>' +
           '</tr>';
@@ -581,12 +584,26 @@
     window.createUser = createUser;
 
     async function toggleDis(id, disabled){
+      const u = g_userById[String(id)] || null;
+      if(!u){
+        showMsg($('userMsg'), '操作失败：用户不存在');
+        return;
+      }
+      if(String(u.role || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'admin'){
+        showMsg($('userMsg'), 'admin 账号不可禁用');
+        return;
+      }
+      const uname = String(u.username || ('#' + id));
+      const actionText = disabled ? '禁用' : '启用';
+      if(!confirm('确认' + actionText + '账号 "' + uname + '" 吗？')) return;
+      if(!confirm('二次确认：' + actionText + '后将立即生效，确认继续？')) return;
       try{
         await apiJson('/api/admin/users/' + id + '/disable', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({disabled: !!disabled})
         });
+        showMsg($('userMsg'), '已' + actionText + '：' + uname);
         await loadUsers();
       }catch(e){
         showMsg($('userMsg'), '操作失败：' + e.message);

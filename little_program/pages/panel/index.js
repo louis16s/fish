@@ -168,7 +168,27 @@ function gateTargetFromTelemetry(t, gateStateNum) {
   }
   if (Number(gateStateNum) === 1) return 1;
   if (Number(gateStateNum) === 2) return 0;
-  return null;
+  if (t && typeof t.gate_position_open === 'boolean') {
+    return t.gate_position_open ? 1 : 0;
+  }
+  return 0;
+}
+
+function gateDisplayText(deviceOnline, gateStateNum, gateProgress) {
+  if (!deviceOnline) return '离线';
+  const state = Number(gateStateNum || 0);
+  const progress = clamp(Number(gateProgress || 0), 0, 100);
+  if (state === 1 && progress < 100) return '开闸中';
+  if (state === 2 && progress > 0) return '关闸中';
+  return progress >= 50 ? '已开' : '已关';
+}
+
+function gateTagClassFor(deviceOnline, gateStateNum, gateProgress) {
+  if (!deviceOnline) return 'tag-bad';
+  const state = Number(gateStateNum || 0);
+  const progress = clamp(Number(gateProgress || 0), 0, 100);
+  if ((state === 1 && progress < 100) || (state === 2 && progress > 0)) return 'tag-warn';
+  return progress >= 50 ? 'tag-good' : 'tag-bad';
 }
 
 const CMD_LABELS = {
@@ -184,6 +204,8 @@ const CMD_LABELS = {
 Page({
   data: {
     userText: '--',
+    userRole: 'user',
+    isAdmin: false,
     deviceOptions: [],
     deviceIndex: 0,
     currentDeviceLabel: '--',
@@ -224,6 +246,7 @@ Page({
     pageStatusClass: 'is-warn',
     statusHintText: '等待设备状态...',
     canOperate: false,
+    canAdminOperate: false,
     deviceOnline: false
   },
 
@@ -231,6 +254,20 @@ Page({
     this.initSchematicCanvas();
     this.initLogObserver();
     this.startSchematicAnim();
+  },
+
+  syncGateProgress(force) {
+    const gateState = Number(this.data.gateStateNum || 0);
+    const fallback = gateState === 1 ? 1 : 0;
+    const ratio = clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : fallback, 0, 1);
+    const gateProgress = Math.round(ratio * 100);
+    if (!force && gateProgress === this.data.gateProgress) return;
+    const gateText = gateDisplayText(this.data.deviceOnline, this.data.gateStateNum, gateProgress);
+    const gateTagClass = gateTagClassFor(this.data.deviceOnline, this.data.gateStateNum, gateProgress);
+    const patch = { gateProgress, gateText, gateTagClass };
+    if (this.data.cmdMsg === '已发送：关闸' && gateProgress === 0) patch.cmdMsg = '';
+    if (this.data.cmdMsg === '已发送：开闸' && gateProgress === 100) patch.cmdMsg = '';
+    this.setData(patch);
   },
 
   onShow() {
@@ -258,7 +295,13 @@ Page({
       const me = await api.requestJSON('/api/auth/me');
       const app = getApp();
       app.globalData.user = me.user || null;
-      this.setData({ userText: `用户 ${me.user.username} | ${me.user.role}` });
+      const role = String((me.user && me.user.role) || 'user').toLowerCase();
+      const isAdmin = role === 'admin';
+      this.setData({
+        userText: `用户 ${me.user.username} | ${me.user.role}`,
+        userRole: role,
+        isAdmin
+      });
     } catch (e) {
       wx.reLaunch({ url: '/pages/login/index' });
       return;
@@ -366,20 +409,17 @@ Page({
       const auto = autoLatched ? '锁定关闭' : (autoGate ? '已启用' : '已关闭');
       const gateStateNum = Number(t.gate_state || 0);
       const gateTarget = gateTargetFromTelemetry(t, gateStateNum);
-      if (gateTarget != null) {
-        this._gateRatioTarget = gateTarget;
-        if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = gateTarget;
-      }
+      this._gateRatioTarget = gateTarget;
+      if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = gateTarget;
       const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
       const now = Date.now();
       const ageMs = lastAt > 0 ? Math.max(0, now - Number(lastAt || 0)) : 9e9;
       const deviceOnline = ageMs <= 15000;
-      const gateProgress = Math.round(100 * (Number.isFinite(this._gateRatioTarget) ? this._gateRatioTarget : (gateStateNum === 1 ? 1 : (gateStateNum === 2 ? 0 : 0.5))));
+      const gateProgress = Math.round(100 * clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : gateTarget, 0, 1));
       const canOperate = !!(mqttConnected && deviceOnline);
-      const gateText = deviceOnline ? fmt.gateStateText(t.gate_state) : '离线';
-      const gateTagClass = deviceOnline
-        ? (gateStateNum === 1 ? 'tag-good' : (gateStateNum === 2 ? 'tag-bad' : 'tag-warn'))
-        : 'tag-bad';
+      const canAdminOperate = !!(canOperate && this.data.isAdmin);
+      const gateText = gateDisplayText(deviceOnline, gateStateNum, gateProgress);
+      const gateTagClass = gateTagClassFor(deviceOnline, gateStateNum, gateProgress);
       const statusHintText = !mqttConnected
         ? '服务器 MQTT 未连接，暂不可控'
         : (deviceOnline ? '设备在线，可执行控制命令' : '设备离线，控制命令可能超时');
@@ -414,9 +454,11 @@ Page({
         gateStateNum,
         gateProgress,
         canOperate,
+        canAdminOperate,
         statusHintText,
         pageStatusClass: canOperate ? 'is-good' : 'is-warn'
       });
+      this.syncGateProgress(true);
       this.drawSchematic();
     } catch (e) {
       this.setData({
@@ -433,6 +475,7 @@ Page({
         autoToggleClass: 'ctl-neutral',
         gateProgress: 0,
         canOperate: false,
+        canAdminOperate: false,
         statusHintText: '状态获取失败，请检查网络后重试',
         pageStatusClass: 'is-warn'
       });
@@ -440,6 +483,10 @@ Page({
   },
 
   async sendCmd(cmd, opts) {
+    if (!this.data.isAdmin) {
+      this.setData({ cmdMsg: '权限不足：仅 admin 可执行闸门控制' });
+      return;
+    }
     const o = opts || {};
     const silent = !!o.silent;
     const keepAutoOff = !!o.keepAutoOff;
@@ -555,6 +602,10 @@ Page({
   },
 
   async clearLog() {
+    if (!this.data.isAdmin) {
+      this.setData({ logMsg: '权限不足：仅 admin 可清空日志' });
+      return;
+    }
     try {
       await api.requestJSON(withDev('/api/log/clear'), {
         method: 'POST',
@@ -639,6 +690,7 @@ Page({
       this._gateRatioCurrent = clamp(cur + (target - cur) * follow, 0, 1);
 
       this._flowPhase = (this._flowPhase + dt * 0.45) % 1;
+      this.syncGateProgress(false);
       this.drawSchematic();
     }, 20);
   },
@@ -830,6 +882,10 @@ Page({
   },
 
   goAdmin() {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '仅 admin 可进入管理页', icon: 'none' });
+      return;
+    }
     wx.navigateTo({ url: '/pages/admin/index' });
   },
 

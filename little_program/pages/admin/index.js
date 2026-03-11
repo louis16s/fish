@@ -12,6 +12,7 @@ Page({
     retentionMsg: '',
     users: [],
     devices: [],
+    deviceMsg: '',
     userMsg: '',
     createUserCollapsed: true,
     newUser: '',
@@ -99,30 +100,27 @@ Page({
 
   async loadDevices() {
     try {
-      const j = await api.requestJSON('/api/devices');
-      const list = Array.isArray(j.devices) ? j.devices : [];
-      const mapped = await Promise.all(list.map(async (d) => {
-        const out = {
-          device_id: d.device_id || '',
-          last_seen_at: fmt.fmtDateTime(d.last_seen_at),
-          fw_version: '--',
-          wifi_rssi: '--',
-          lan_ip: '--'
-        };
-        try {
-          const q = api.buildQuery({ device_id: d.device_id || '' });
-          const st = await api.requestJSON(`/api/state${q}`);
-          const t = st.telemetry || {};
-          const net = t.net || {};
-          out.fw_version = (t.fw && t.fw.current) ? t.fw.current : (t.fw_version || t.fw || '--');
-          out.wifi_rssi = Number.isFinite(Number(net.rssi)) ? `${Number(net.rssi)} dBm` : '--';
-          out.lan_ip = net.ip || '--';
-        } catch (e) {}
-        return out;
+      let list = [];
+      let deviceMsg = '';
+      try {
+        const j = await api.requestJSON('/api/admin/devices/overview');
+        list = Array.isArray(j.devices) ? j.devices : [];
+      } catch (e) {
+        const fallback = await api.requestJSON('/api/devices');
+        list = Array.isArray(fallback.devices) ? fallback.devices : [];
+        deviceMsg = `设备概览接口不可用，已回退基础列表：${e.message}`;
+      }
+
+      const mapped = list.map((d) => ({
+        device_id: d.device_id || '',
+        last_seen_at: fmt.fmtDateTime(d.last_seen_at),
+        fw_version: d.fw_version || '--',
+        wifi_rssi: Number.isFinite(Number(d.wifi_rssi)) ? `${Number(d.wifi_rssi)} dBm` : '--',
+        lan_ip: d.lan_ip || '--'
       }));
-      this.setData({ devices: mapped });
+      this.setData({ devices: mapped, deviceMsg });
     } catch (e) {
-      this.setData({ devices: [] });
+      this.setData({ devices: [], deviceMsg: `设备列表加载失败：${e.message}` });
     }
   },
 
@@ -157,7 +155,7 @@ Page({
 
   async toggleDisable(e) {
     const id = Number(e.currentTarget.dataset.id || 0);
-    const disabled = !!e.currentTarget.dataset.disabled;
+    const targetDisabled = !!e.currentTarget.dataset.targetDisabled;
     const role = String(e.currentTarget.dataset.role || '');
     const username = String(e.currentTarget.dataset.username || '').trim().toLowerCase();
     if (!id) return;
@@ -165,17 +163,19 @@ Page({
       this.setData({ userMsg: 'admin 账号不可禁用' });
       return;
     }
+    const actionText = targetDisabled ? '禁用' : '启用';
     wx.showModal({
-      title: '二次确认',
-      content: disabled ? '确认启用该账号？' : '确认禁用该账号？',
+      title: `${actionText}账号`,
+      content: `确认${actionText}该账号？`,
       success: async (ret) => {
         if (!ret.confirm) return;
         try {
           await api.requestJSON(`/api/admin/users/${id}/disable`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            data: { disabled }
+            data: { disabled: targetDisabled }
           });
+          this.setData({ userMsg: `已${actionText}` });
           await this.loadUsers();
         } catch (err) {
           this.setData({ userMsg: `操作失败：${err.message}` });
