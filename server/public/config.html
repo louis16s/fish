@@ -180,7 +180,7 @@
     <div class="top">
       <div class="row">
         <a class="btn" href="/">返回面板</a>
-        <a class="btn" href="/rules">规则</a>
+        <a class="btn" href="/rules" onclick="return guardRulesAccess(event)">规则</a>
         <a class="btn" href="/replay">回放</a>
       </div>
       <div class="row whoRow">
@@ -318,12 +318,21 @@
     let g_currentUser = '';
     let g_userRole = 'user';
     let g_isAdmin = false;
+    let g_roleReady = false;
     let g_userById = {};
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
       location.href = '/login';
     }
+
+    function guardRulesAccess(ev){
+      if(!g_roleReady || g_isAdmin) return true;
+      if(ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      alert('禁止访问');
+      return false;
+    }
+    window.guardRulesAccess = guardRulesAccess;
 
     function showMsg(el, text){
       if(!el) return;
@@ -510,6 +519,7 @@
         g_currentUser = u && u.username ? String(u.username) : '';
         g_userRole = u && u.role ? String(u.role).toLowerCase() : 'user';
         g_isAdmin = g_userRole === 'admin';
+        g_roleReady = true;
         $('who').textContent = u ? ('用户 ' + u.username + ' | ' + u.role) : '--';
         migrateLegacyPasskeyAndRemember(g_currentUser);
         applyRoleUi();
@@ -532,10 +542,6 @@
       setHidden('retentionSec', adminOnly);
       setHidden('adminGrid', adminOnly);
       setHidden('userOnlyTip', !adminOnly);
-      const statusTitle = $('statusSec');
-      if(statusTitle){
-        statusTitle.classList.toggle('hidden', adminOnly);
-      }
       const pkDisableBtn = $('pkDisableBtn');
       if(pkDisableBtn){
         pkDisableBtn.disabled = !g_currentUser;

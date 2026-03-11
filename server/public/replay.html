@@ -195,7 +195,7 @@
     <div class="top">
       <div class="row">
         <a class="btn" href="/">返回面板</a>
-        <a class="btn" href="/rules">规则</a>
+        <a class="btn" href="/rules" onclick="return guardRulesAccess(event)">规则</a>
         <a class="btn" href="/config">管理</a>
       </div>
       <div class="row topRight">
@@ -305,11 +305,20 @@
     let g_chartRange = null;
     let g_hoverIdx = -1;
     let g_isAdmin = false;
+    let g_roleReady = false;
 
     async function logout(){
       try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
       location.href = '/login';
     }
+
+    function guardRulesAccess(ev){
+      if(!g_roleReady || g_isAdmin) return true;
+      if(ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      alert('禁止访问');
+      return false;
+    }
+    window.guardRulesAccess = guardRulesAccess;
 
     function showMsg(text){
       const el = $('msg');
@@ -339,6 +348,7 @@
         const j = await apiJson('/api/auth/me');
         const role = j && j.user ? String(j.user.role || 'user').toLowerCase() : 'user';
         g_isAdmin = role === 'admin';
+        g_roleReady = true;
         $('who').textContent = j && j.user ? ('用户 ' + j.user.username + ' | ' + j.user.role) : '--';
         const bj = $('btnExportJson');
         const bc = $('btnExportCsv');
