@@ -1,6 +1,13 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
 
+function denyAndBack(message) {
+  wx.showToast({ title: message, icon: 'none' });
+  setTimeout(() => {
+    wx.reLaunch({ url: '/pages/panel/index' });
+  }, 500);
+}
+
 Page({
   data: {
     who: '--',
@@ -30,8 +37,9 @@ Page({
       const me = await api.requestJSON('/api/auth/me');
       const user = me.user || {};
       this.setData({ who: `用户 ${user.username || '--'} | ${user.role || '--'}` });
-      if (user.role !== 'admin') {
-        this.setData({ userMsg: '当前账号不是 admin，部分功能会返回 403。' });
+      if (String(user.role || '').toLowerCase() !== 'admin') {
+        denyAndBack('仅 admin 可进入管理页');
+        return;
       }
     } catch (e) {
       wx.reLaunch({ url: '/pages/login/index' });

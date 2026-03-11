@@ -859,6 +859,10 @@ Page({
   },
 
   goDeviceConfig() {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '仅 admin 可进入规则页', icon: 'none' });
+      return;
+    }
     wx.navigateTo({ url: '/pages/device-config/index' });
   },
 

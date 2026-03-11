@@ -52,6 +52,13 @@ function withDev(path) {
   return `${path}${q}`;
 }
 
+function denyAndBack(message) {
+  wx.showToast({ title: message, icon: 'none' });
+  setTimeout(() => {
+    wx.reLaunch({ url: '/pages/panel/index' });
+  }, 500);
+}
+
 function migrate(raw) {
   const out = Object.assign({ tz_offset_ms: 28800000, mode: 'mixed', daily: [], cycle: [], leveldiff: [] }, raw || {});
   if (!Number.isFinite(num(out.tz_offset_ms, NaN))) out.tz_offset_ms = 28800000;
@@ -179,7 +186,12 @@ Page({
 
   async bootstrap() {
     try {
-      await api.requestJSON('/api/auth/me');
+      const me = await api.requestJSON('/api/auth/me');
+      const role = String((me.user && me.user.role) || 'user').toLowerCase();
+      if (role !== 'admin') {
+        denyAndBack('仅 admin 可进入规则页');
+        return;
+      }
     } catch (e) {
       wx.reLaunch({ url: '/pages/login/index' });
       return;

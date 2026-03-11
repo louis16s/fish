@@ -19,7 +19,7 @@
     <view class="quick-grid">
       <button class="btn quick-btn" size="mini" bindtap="goDeviceConfig">规则</button>
       <button class="btn quick-btn" size="mini" bindtap="goReplay">回放</button>
-      <button wx:if="{{isAdmin}}" class="btn quick-btn" size="mini" bindtap="goAdmin">管理</button>
+      <button class="btn quick-btn" size="mini" bindtap="goAdmin">管理</button>
     </view>
   </view>
 
