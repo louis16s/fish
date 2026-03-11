@@ -7,6 +7,7 @@ firmware/.pio/
 .vscode/ipch
 .vscode/settings.json
 .vscode/extensions.json
+.tmp-playwright
 tools
 tools/fish1_mqtt_sim.py
 tools/fish1_mqtt_sim.bat
