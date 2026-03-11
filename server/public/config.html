@@ -231,6 +231,19 @@
             <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
           </div>
           <div class="hint" id="pkStatus">--</div>
+          <div id="selfPwBlock" class="hidden">
+            <div style="height:12px"></div>
+            <div class="sec-title">修改我的密码</div>
+            <div class="hint">使用当前密码校验身份后更新新密码，修改会立即生效。</div>
+            <div style="height:10px"></div>
+            <div class="selfPwRow">
+              <input id="selfPwCurrent" type="password" placeholder="当前密码">
+              <input id="selfPwNew" type="password" placeholder="新密码（>=8）">
+              <input id="selfPwConfirm" type="password" placeholder="确认新密码">
+              <button class="btn small primary" onclick="changeMyPassword()">修改密码</button>
+            </div>
+            <div class="hint" id="selfPwMsg">--</div>
+          </div>
         </div>
       </div>
 
@@ -465,6 +478,44 @@
     window.enablePasskey = enablePasskey;
     window.disablePasskey = disablePasskey;
 
+    async function changeMyPassword(){
+      const currentPassword = ($('selfPwCurrent').value || '').trim();
+      const newPassword = $('selfPwNew').value || '';
+      const confirmPassword = $('selfPwConfirm').value || '';
+      const msgEl = $('selfPwMsg');
+
+      if(!currentPassword){
+        if(msgEl) msgEl.textContent = '请输入当前密码';
+        return;
+      }
+      if(newPassword.length < 8){
+        if(msgEl) msgEl.textContent = '新密码至少 8 位';
+        return;
+      }
+      if(newPassword !== confirmPassword){
+        if(msgEl) msgEl.textContent = '两次输入的新密码不一致';
+        return;
+      }
+
+      try{
+        await apiJson('/api/auth/password', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+          })
+        });
+        $('selfPwCurrent').value = '';
+        $('selfPwNew').value = '';
+        $('selfPwConfirm').value = '';
+        if(msgEl) msgEl.textContent = '密码已修改';
+      }catch(e){
+        if(msgEl) msgEl.textContent = (e.message === 'bad_credentials') ? '当前密码错误' : ('修改失败：' + e.message);
+      }
+    }
+    window.changeMyPassword = changeMyPassword;
+
     async function apiJson(url, opts){
       const r = await fetch(url, Object.assign({cache:'no-store'}, opts||{}));
       const tx = await r.text();
@@ -504,6 +555,7 @@
       setHidden('adminGrid', adminOnly);
       setHidden('userOnlyTip', true);
       setHidden('statusInfoBlock', adminOnly);
+      setHidden('selfPwBlock', !adminOnly);
       const statusSec = $('statusSec');
       if(statusSec){
         statusSec.classList.toggle('userPasskeyOnly', adminOnly);
