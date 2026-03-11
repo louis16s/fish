@@ -174,6 +174,13 @@ function gateTargetFromTelemetry(t, gateStateNum) {
   return 0;
 }
 
+function gateAnimTargetFromTelemetry(t, gateStateNum) {
+  const state = Number(gateStateNum || 0);
+  if (state === 1) return 1;
+  if (state === 2) return 0;
+  return gateTargetFromTelemetry(t, gateStateNum);
+}
+
 function gateDisplayText(deviceOnline, gateStateNum, gateProgress) {
   if (!deviceOnline) return '离线';
   const state = Number(gateStateNum || 0);
@@ -408,7 +415,10 @@ Page({
       const autoLatched = !!t.auto_latched;
       const auto = autoLatched ? '锁定关闭' : (autoGate ? '已启用' : '已关闭');
       const gateStateNum = Number(t.gate_state || 0);
-      const gateTarget = gateTargetFromTelemetry(t, gateStateNum);
+      const gateTarget = gateAnimTargetFromTelemetry(t, gateStateNum);
+      const ctrl = t && t.ctrl ? t.ctrl : null;
+      const actionS = Number(ctrl && ctrl.action_s);
+      this._gateTravelS = (Number.isFinite(actionS) && actionS > 0) ? actionS : 10;
       this._gateRatioTarget = gateTarget;
       if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = gateTarget;
       const deltaTagClass = delta == null ? '' : (Math.abs(delta) > 80 ? 'tag-warn' : 'tag-good');
@@ -675,6 +685,7 @@ Page({
     if (this._schemAnimTimer) return;
     this._lastAnimTs = 0;
     this._flowPhase = Number.isFinite(this._flowPhase) ? this._flowPhase : 0;
+    this._gateTravelS = (Number.isFinite(this._gateTravelS) && this._gateTravelS > 0) ? this._gateTravelS : 10;
     if (!Number.isFinite(this._gateRatioCurrent)) this._gateRatioCurrent = 0;
     if (!Number.isFinite(this._gateRatioTarget)) this._gateRatioTarget = 0;
     this._schemAnimTimer = setInterval(() => {
@@ -685,9 +696,14 @@ Page({
 
       const cur = Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : 0;
       const target = Number.isFinite(this._gateRatioTarget) ? this._gateRatioTarget : cur;
-      // Exponential follow gives smoother start/stop than fixed-step movement.
-      const follow = 1 - Math.pow(0.02, dt / 1.5);
-      this._gateRatioCurrent = clamp(cur + (target - cur) * follow, 0, 1);
+      const travel = Math.max(1, Number.isFinite(this._gateTravelS) ? this._gateTravelS : 10);
+      const step = dt / travel;
+      const delta = target - cur;
+      if (Math.abs(delta) > 0.0005 && dt > 0) {
+        this._gateRatioCurrent = clamp(cur + Math.sign(delta) * Math.min(Math.abs(delta), step), 0, 1);
+      } else {
+        this._gateRatioCurrent = clamp(target, 0, 1);
+      }
 
       this._flowPhase = (this._flowPhase + dt * 0.45) % 1;
       this.syncGateProgress(false);
