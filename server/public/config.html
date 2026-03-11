@@ -245,11 +245,7 @@
       background:rgba(245,158,11,.08);
       color:#ffd59a;
     }
-    body.user-mode .card{
-      max-width:860px;
-      margin:0 auto;
-      padding:18px;
-    }
+    body.user-mode .card{padding:18px}
     body.user-mode .pageLead{
       max-width:56ch;
       margin-bottom:16px;
@@ -260,6 +256,12 @@
     body.user-mode #statusSec{
       padding:16px;
       background:linear-gradient(135deg, rgba(13,39,64,.78), rgba(7,16,42,.90));
+    }
+    body.user-mode .statusMetaTop{
+      display:none;
+    }
+    body.user-mode .statusMeta{
+      margin-bottom:12px;
     }
     body.user-mode #statusDiag{
       font-size:12px;
@@ -692,14 +694,6 @@
         pageLead.textContent = adminOnly
           ? '这里是你的账号安全中心。可以维护 Passkey 和登录密码，其它系统级管理能力对 user 隐藏。'
           : '查看系统配置、设备状态与账号安全设置。';
-      }
-      const title = $('statusSecTitle');
-      if(title){
-        title.textContent = adminOnly ? '账号安全中心' : '服务器/设备信息';
-      }
-      const badge = $('accountBadge');
-      if(badge){
-        badge.textContent = adminOnly ? '当前账号安全' : '账号安全';
       }
       const copy = $('statusCopy');
       if(copy){
