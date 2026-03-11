@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const SKIP_AUTO_LOGIN_ONCE_KEY = 'skip_auto_login_once';
 
 Page({
   data: {
@@ -20,6 +21,8 @@ Page({
     if (hasSession) return;
 
     try {
+      const skipAutoLogin = !!wx.getStorageSync(SKIP_AUTO_LOGIN_ONCE_KEY);
+      if (skipAutoLogin) wx.removeStorageSync(SKIP_AUTO_LOGIN_ONCE_KEY);
       const remember = wx.getStorageSync('remember_password') !== false;
       const username = wx.getStorageSync('remember_username') || '';
       const password = remember ? (wx.getStorageSync('remember_password_value') || '') : '';
@@ -28,7 +31,7 @@ Page({
         username: String(username),
         password: String(password)
       });
-      if (remember && username && password) {
+      if (!skipAutoLogin && remember && username && password) {
         await this.onLogin(true);
       }
     } catch (e) {}
@@ -88,6 +91,7 @@ Page({
       app.globalData.user = me.user || null;
 
       try {
+        wx.removeStorageSync(SKIP_AUTO_LOGIN_ONCE_KEY);
         wx.setStorageSync('remember_password', !!this.data.rememberPassword);
         wx.setStorageSync('remember_username', username);
         if (this.data.rememberPassword) {

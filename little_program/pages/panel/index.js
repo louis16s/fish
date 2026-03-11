@@ -878,6 +878,7 @@ Page({
     try { await api.requestJSON('/api/auth/logout', { method: 'POST' }); } catch (e) {}
     api.setCookieRaw('');
     getApp().globalData.user = null;
+    try { wx.setStorageSync('skip_auto_login_once', true); } catch (e) {}
     wx.reLaunch({ url: '/pages/login/index' });
   }
 });
