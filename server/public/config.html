@@ -159,123 +159,7 @@
     .hint.bad{color:var(--bad)}
     .hidden{display:none !important}
     #statusDiag{white-space:pre-line}
-    .statusMeta{
-      display:grid;
-      gap:10px;
-      margin-bottom:14px;
-      padding:12px;
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:var(--radius-card);
-      background:linear-gradient(180deg, rgba(34,211,238,.06), rgba(2,6,23,.18));
-    }
-    .statusMetaTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .statusBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 11px;
-      border-radius:999px;
-      border:1px solid rgba(34,211,238,.22);
-      background:rgba(34,211,238,.10);
-      color:var(--text);
-      font-family:var(--mono);
-      font-size:12px;
-      font-weight:950;
-    }
-    .statusBadge::before{
-      content:"";
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:var(--cyan);
-      box-shadow:0 0 0 5px rgba(34,211,238,.12);
-    }
-    .statusCopy{color:var(--muted);font-size:13px;line-height:1.7;max-width:60ch}
-    .securityGrid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:12px;
-    }
-    .securityCard{
-      display:grid;
-      gap:12px;
-      padding:14px;
-      border:1px solid rgba(255,255,255,.07);
-      border-radius:var(--radius-card);
-      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(2,6,23,.24));
-      min-height:100%;
-    }
-    .securityHead{display:grid;gap:4px}
-    .securityTitle{font-size:14px;font-weight:950;letter-spacing:.2px}
-    .securitySub{color:var(--muted2);font-size:12px;line-height:1.6}
-    .securityActions{display:flex;gap:10px;flex-wrap:wrap}
-    .securityMsg{
-      min-height:20px;
-      color:var(--muted2);
-      font-size:12px;
-      line-height:1.6;
-    }
-    .securityMsg.good{color:var(--good)}
-    .securityMsg.bad{color:var(--bad)}
-    .securityMsg.warn{color:var(--warn)}
-    .selfPwGrid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:10px;
-    }
-    .selfPwGrid .wide{grid-column:1 / -1}
-    .fieldCol{display:grid;gap:6px;min-width:0}
-    .fieldCol label{font-size:12px;color:var(--muted2);font-weight:950;letter-spacing:.2px}
-    .fieldCol input{width:100% !important}
-    .selfPwSubmit{
-      justify-self:start;
-      min-width:124px;
-    }
-    .userOnlyTipInline{
-      margin-top:0;
-      padding:12px 14px;
-      border:1px solid rgba(245,158,11,.22);
-      border-radius:14px;
-      background:rgba(245,158,11,.08);
-      color:#ffd59a;
-    }
-    body.user-mode .card{padding:18px}
-    body.user-mode .pageLead{
-      max-width:56ch;
-      margin-bottom:16px;
-    }
-    body.user-mode .grid{
-      grid-template-columns:1fr;
-    }
-    body.user-mode #statusSec{
-      padding:16px;
-      background:linear-gradient(135deg, rgba(13,39,64,.78), rgba(7,16,42,.90));
-    }
-    body.user-mode .statusMetaTop{
-      display:none;
-    }
-    body.user-mode .statusMeta{
-      margin-bottom:12px;
-    }
-    body.user-mode #statusDiag{
-      font-size:12px;
-      line-height:1.7;
-      color:var(--muted);
-    }
-    @media (max-width:900px){
-      .securityGrid{grid-template-columns:1fr}
-    }
-    @media (max-width:720px){
-      .selfPwGrid{grid-template-columns:1fr}
-      .selfPwSubmit{width:100%;justify-self:stretch}
-      .securityActions > .btn{flex:1 1 160px}
-    }
+    .userPasskeyOnly{max-width:560px}
 
     table{width:100%;border-collapse:separate;border-spacing:0}
     th,td{font-size:12px;text-align:left;padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
@@ -318,7 +202,7 @@
 
     <div class="card">
       <div class="pageTitle">水闸控制面板配置</div>
-      <div class="pageLead" id="pageLead">查看系统配置与账号安全设置。</div>
+      <div class="pageLead hidden" id="pageLead"></div>
       <div class="grid">
         <div class="sec" id="retentionSec">
           <div class="sec-title">数据保留</div>
@@ -332,58 +216,27 @@
         </div>
 
         <div class="sec" id="statusSec">
-          <div class="statusMeta">
-            <div class="statusMetaTop">
-              <div class="sec-title" id="statusSecTitle">服务器/设备信息</div>
-              <span class="statusBadge" id="accountBadge">账号安全</span>
-            </div>
-            <div class="statusCopy" id="statusCopy">面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发仍由服务器完成。user 账号在这里主要维护自己的登录方式。</div>
+          <div id="statusInfoBlock">
+            <div class="sec-title">服务器/设备信息</div>
             <div class="hint" id="statusLine">加载中…</div>
             <div class="hint" id="statusDiag">--</div>
+            <div class="hint">说明：面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发仍由服务器完成。</div>
+            <div style="height:10px"></div>
           </div>
-
-          <div class="securityGrid">
-            <div class="securityCard">
-              <div class="securityHead">
-                <div class="securityTitle">Passkey</div>
-                <div class="securitySub">为当前账号绑定设备级登录凭证，后续可更快完成认证。</div>
-              </div>
-              <div class="securityActions">
-                <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()">开启Passkey</button>
-                <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
-              </div>
-              <div class="securityMsg" id="pkStatus">--</div>
-            </div>
-
-            <div class="securityCard">
-              <div class="securityHead">
-                <div class="securityTitle">修改我的密码</div>
-                <div class="securitySub">使用当前密码校验身份后更新新密码，修改会立即生效。</div>
-              </div>
-              <div class="selfPwGrid">
-                <div class="fieldCol">
-                  <label for="selfPwCurrent">当前密码</label>
-                  <input id="selfPwCurrent" type="password" placeholder="请输入当前密码">
-                </div>
-                <div class="fieldCol">
-                  <label for="selfPwNew">新密码</label>
-                  <input id="selfPwNew" type="password" placeholder="至少 8 位">
-                </div>
-                <div class="fieldCol wide">
-                  <label for="selfPwConfirm">确认新密码</label>
-                  <input id="selfPwConfirm" type="password" placeholder="再次输入新密码">
-                </div>
-                <button class="btn small primary selfPwSubmit" onclick="changeMyPassword()">修改密码</button>
-              </div>
-              <div class="securityMsg" id="selfPwMsg">--</div>
-            </div>
+          <div class="sec-title">Passkey</div>
+          <div class="hint">为当前账号绑定设备级登录凭证，后续可更快完成认证。</div>
+          <div style="height:10px"></div>
+          <div class="row">
+            <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()">开启Passkey</button>
+            <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
           </div>
+          <div class="hint" id="pkStatus">--</div>
         </div>
       </div>
 
       <div style="height:12px"></div>
 
-      <div class="hint warn hidden userOnlyTipInline" id="userOnlyTip">当前账号为 user。这里只保留账号安全相关操作，其它管理能力已隐藏。</div>
+      <div class="hint warn hidden" id="userOnlyTip"></div>
 
       <div class="grid userGrid" id="adminGrid">
         <div class="sec" id="userManageSec">
@@ -612,44 +465,6 @@
     window.enablePasskey = enablePasskey;
     window.disablePasskey = disablePasskey;
 
-    async function changeMyPassword(){
-      const currentPassword = ($('selfPwCurrent').value || '').trim();
-      const newPassword = $('selfPwNew').value || '';
-      const confirmPassword = $('selfPwConfirm').value || '';
-      const msgEl = $('selfPwMsg');
-
-      if(!currentPassword){
-        if(msgEl) msgEl.textContent = '请输入当前密码';
-        return;
-      }
-      if(newPassword.length < 8){
-        if(msgEl) msgEl.textContent = '新密码至少 8 位';
-        return;
-      }
-      if(newPassword !== confirmPassword){
-        if(msgEl) msgEl.textContent = '两次输入的新密码不一致';
-        return;
-      }
-
-      try{
-        await apiJson('/api/auth/password', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword
-          })
-        });
-        $('selfPwCurrent').value = '';
-        $('selfPwNew').value = '';
-        $('selfPwConfirm').value = '';
-        if(msgEl) msgEl.textContent = '密码已修改';
-      }catch(e){
-        if(msgEl) msgEl.textContent = (e.message === 'bad_credentials') ? '当前密码错误' : ('修改失败：' + e.message);
-      }
-    }
-    window.changeMyPassword = changeMyPassword;
-
     async function apiJson(url, opts){
       const r = await fetch(url, Object.assign({cache:'no-store'}, opts||{}));
       const tx = await r.text();
@@ -685,21 +500,17 @@
 
     function applyRoleUi(){
       const adminOnly = !g_isAdmin;
-      document.body.classList.toggle('user-mode', adminOnly);
       setHidden('retentionSec', adminOnly);
       setHidden('adminGrid', adminOnly);
-      setHidden('userOnlyTip', !adminOnly);
+      setHidden('userOnlyTip', true);
+      setHidden('statusInfoBlock', adminOnly);
+      const statusSec = $('statusSec');
+      if(statusSec){
+        statusSec.classList.toggle('userPasskeyOnly', adminOnly);
+      }
       const pageLead = $('pageLead');
       if(pageLead){
-        pageLead.textContent = adminOnly
-          ? '这里是你的账号安全中心。可以维护 Passkey 和登录密码，其它系统级管理能力对 user 隐藏。'
-          : '查看系统配置、设备状态与账号安全设置。';
-      }
-      const copy = $('statusCopy');
-      if(copy){
-        copy.textContent = adminOnly
-          ? '你当前使用的是只读 user 账号。推荐先开启 Passkey，再更新一个强密码，后续登录会更稳定。'
-          : '面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发仍由服务器完成。';
+        pageLead.textContent = '';
       }
       const pkDisableBtn = $('pkDisableBtn');
       if(pkDisableBtn){
