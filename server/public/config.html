@@ -127,9 +127,14 @@
     .userCreateRow select{min-width:96px}
     .selfPwRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .selfPwRow input[type="password"]{width:220px}
+    .userSecurityGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .userSecurityCol{min-width:0}
     @media (max-width:1100px){
       .userCreateRow{flex-wrap:wrap}
       .userCreateRow input[type="text"], .userCreateRow input[type="password"]{width:220px}
+    }
+    @media (max-width:900px){
+      .userSecurityGrid{grid-template-columns:1fr}
     }
 
     .card{
@@ -223,26 +228,30 @@
             <div class="hint">说明：面板不会把 MQTT 密码暴露给浏览器，所有订阅/下发仍由服务器完成。</div>
             <div style="height:10px"></div>
           </div>
-          <div class="sec-title">Passkey</div>
-          <div class="hint">为当前账号绑定设备级登录凭证，后续可更快完成认证。</div>
-          <div style="height:10px"></div>
-          <div class="row">
-            <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()">开启Passkey</button>
-            <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
-          </div>
-          <div class="hint" id="pkStatus">--</div>
-          <div id="selfPwBlock" class="hidden">
-            <div style="height:12px"></div>
-            <div class="sec-title">修改我的密码</div>
-            <div class="hint">使用当前密码校验身份后更新新密码，修改会立即生效。</div>
-            <div style="height:10px"></div>
-            <div class="selfPwRow">
-              <input id="selfPwCurrent" type="password" placeholder="当前密码">
-              <input id="selfPwNew" type="password" placeholder="新密码（>=8）">
-              <input id="selfPwConfirm" type="password" placeholder="确认新密码">
-              <button class="btn small primary" onclick="changeMyPassword()">修改密码</button>
+          <div class="userSecurityGrid">
+            <div class="userSecurityCol">
+              <div class="sec-title">Passkey</div>
+              <div class="hint">为当前账号绑定设备级登录凭证，后续可更快完成认证。</div>
+              <div style="height:10px"></div>
+              <div class="row">
+                <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()">开启Passkey</button>
+                <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
+              </div>
+              <div class="hint" id="pkStatus">--</div>
             </div>
-            <div class="hint" id="selfPwMsg">--</div>
+
+            <div id="selfPwBlock" class="userSecurityCol hidden">
+              <div class="sec-title">修改我的密码</div>
+              <div class="hint">使用当前密码校验身份后更新新密码，修改会立即生效。</div>
+              <div style="height:10px"></div>
+              <div class="selfPwRow">
+                <input id="selfPwCurrent" type="password" placeholder="当前密码">
+                <input id="selfPwNew" type="password" placeholder="新密码（>=8）">
+                <input id="selfPwConfirm" type="password" placeholder="确认新密码">
+                <button class="btn small primary" onclick="changeMyPassword()">修改密码</button>
+              </div>
+              <div class="hint" id="selfPwMsg">--</div>
+            </div>
           </div>
         </div>
       </div>
