@@ -164,6 +164,7 @@
     .hint.bad{color:var(--bad)}
     .hidden{display:none !important}
     #statusDiag{white-space:pre-line}
+    body.user-mode .grid{grid-template-columns:1fr}
     .userPasskeyOnly{width:100%}
 
     table{width:100%;border-collapse:separate;border-spacing:0}
@@ -560,6 +561,7 @@
 
     function applyRoleUi(){
       const adminOnly = !g_isAdmin;
+      document.body.classList.toggle('user-mode', adminOnly);
       setHidden('retentionSec', adminOnly);
       setHidden('adminGrid', adminOnly);
       setHidden('userOnlyTip', true);
