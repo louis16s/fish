@@ -42,7 +42,8 @@ const {
   sessionUser,
   requireAuthApi,
   requireAuthPage,
-  requireAdmin
+  requireAdmin,
+  requireAdminPage
 } = require('./auth');
 
 const cfg = loadConfig(process.env);
@@ -211,12 +212,12 @@ async function main() {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'config.html'));
   });
-  app.get('/rules', requireAuthPage, (req, res) => {
+  app.get('/rules', requireAuthPage, requireAdminPage, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, 'device_config.html'));
   });
   // Backward compatibility for old links.
-  app.get('/device-config', requireAuthPage, (req, res) => {
+  app.get('/device-config', requireAuthPage, requireAdminPage, (req, res) => {
     res.redirect(302, '/rules');
   });
   app.get('/replay', requireAuthPage, (req, res) => {
@@ -271,6 +272,26 @@ async function main() {
 
   app.get('/api/auth/me', requireAuthApi, (req, res) => {
     res.json({ ok: true, user: sessionUser(req) });
+  });
+
+  app.post('/api/auth/password', requireAuthApi, requireSameOrigin, async (req, res) => {
+    const su = sessionUser(req);
+    if (!su || !su.username) return res.status(401).json({ ok: false, error: 'unauthorized' });
+
+    const currentPassword = String((req.body && req.body.current_password) || '');
+    const newPassword = String((req.body && req.body.new_password) || '');
+    if (!currentPassword) return res.status(400).json({ ok: false, error: 'missing_current_password' });
+    if (!newPassword || newPassword.length < 8) return res.status(400).json({ ok: false, error: 'bad_password' });
+
+    const u = await findUserByUsername(pool, su.username);
+    if (!u || u.disabled) return res.status(401).json({ ok: false, error: 'bad_credentials' });
+
+    const ok = await verifyPassword(currentPassword, u.password_hash);
+    if (!ok) return res.status(401).json({ ok: false, error: 'bad_credentials' });
+
+    const hash = await hashPassword(newPassword);
+    await setUserPassword(pool, u.id, hash);
+    res.json({ ok: true });
   });
 
   // --- Device APIs (compat with ESP32 UI) ---

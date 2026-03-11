@@ -125,6 +125,8 @@
     .userCreateRow input[type="text"]{width:180px}
     .userCreateRow input[type="password"]{width:190px}
     .userCreateRow select{min-width:96px}
+    .selfPwRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .selfPwRow input[type="password"]{width:220px}
     @media (max-width:1100px){
       .userCreateRow{flex-wrap:wrap}
       .userCreateRow input[type="text"], .userCreateRow input[type="password"]{width:220px}
@@ -153,6 +155,7 @@
     .hint.good{color:var(--good)}
     .hint.warn{color:var(--warn)}
     .hint.bad{color:var(--bad)}
+    .hidden{display:none !important}
     #statusDiag{white-space:pre-line}
 
     table{width:100%;border-collapse:separate;border-spacing:0}
@@ -197,7 +200,7 @@
     <div class="card">
       <div class="sec-title">水闸控制面板配置</div>
       <div class="grid">
-        <div class="sec">
+        <div class="sec" id="retentionSec">
           <div class="sec-title">数据保留</div>
           <div class="row">
             <label class="mini">保留天数</label>
@@ -208,7 +211,7 @@
           <div class="hint bad" id="retMsg" style="display:none"></div>
         </div>
 
-        <div class="sec">
+        <div class="sec" id="statusSec">
           <div class="sec-title">服务器/设备信息</div>
           <div class="hint" id="statusLine">加载中…</div>
           <div class="hint" id="statusDiag">--</div>
@@ -220,13 +223,24 @@
             <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
           </div>
           <div class="hint" id="pkStatus">--</div>
+          <div style="height:10px"></div>
+          <div class="sec-title">修改我的密码</div>
+          <div class="selfPwRow">
+            <input id="selfPwCurrent" type="password" placeholder="当前密码">
+            <input id="selfPwNew" type="password" placeholder="新密码（>=8）">
+            <input id="selfPwConfirm" type="password" placeholder="确认新密码">
+            <button class="btn small primary" onclick="changeMyPassword()">修改密码</button>
+          </div>
+          <div class="hint" id="selfPwMsg">--</div>
         </div>
       </div>
 
       <div style="height:12px"></div>
 
-      <div class="grid userGrid">
-        <div class="sec">
+      <div class="hint warn hidden" id="userOnlyTip">当前账号为 user。管理页仅保留 Passkey 功能，其它管理能力已隐藏。</div>
+
+      <div class="grid userGrid" id="adminGrid">
+        <div class="sec" id="userManageSec">
           <div class="sec-title">用户管理（管理员）</div>
           <div class="row userCreateRow">
             <input id="newUser" type="text" placeholder="用户名">
@@ -250,7 +264,7 @@
           </div>
         </div>
 
-        <div class="sec">
+        <div class="sec" id="deviceManageSec">
           <div class="sec-title">设备列表</div>
           <details id="devAddFold">
             <summary class="mini" style="cursor:pointer">添加设备选项（默认折叠，点击展开）</summary>
@@ -302,6 +316,8 @@
     const LS_REM_LEGACY = 'fish_login_remember_v1';
     const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
     let g_currentUser = '';
+    let g_userRole = 'user';
+    let g_isAdmin = false;
     let g_userById = {};
 
     async function logout(){
@@ -441,6 +457,44 @@
     window.enablePasskey = enablePasskey;
     window.disablePasskey = disablePasskey;
 
+    async function changeMyPassword(){
+      const currentPassword = ($('selfPwCurrent').value || '').trim();
+      const newPassword = $('selfPwNew').value || '';
+      const confirmPassword = $('selfPwConfirm').value || '';
+      const msgEl = $('selfPwMsg');
+
+      if(!currentPassword){
+        if(msgEl) msgEl.textContent = '请输入当前密码';
+        return;
+      }
+      if(newPassword.length < 8){
+        if(msgEl) msgEl.textContent = '新密码至少 8 位';
+        return;
+      }
+      if(newPassword !== confirmPassword){
+        if(msgEl) msgEl.textContent = '两次输入的新密码不一致';
+        return;
+      }
+
+      try{
+        await apiJson('/api/auth/password', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+          })
+        });
+        $('selfPwCurrent').value = '';
+        $('selfPwNew').value = '';
+        $('selfPwConfirm').value = '';
+        if(msgEl) msgEl.textContent = '密码已修改';
+      }catch(e){
+        if(msgEl) msgEl.textContent = (e.message === 'bad_credentials') ? '当前密码错误' : ('修改失败：' + e.message);
+      }
+    }
+    window.changeMyPassword = changeMyPassword;
+
     async function apiJson(url, opts){
       const r = await fetch(url, Object.assign({cache:'no-store'}, opts||{}));
       const tx = await r.text();
@@ -454,11 +508,37 @@
         const j = await apiJson('/api/auth/me');
         const u = j && j.user ? j.user : null;
         g_currentUser = u && u.username ? String(u.username) : '';
+        g_userRole = u && u.role ? String(u.role).toLowerCase() : 'user';
+        g_isAdmin = g_userRole === 'admin';
         $('who').textContent = u ? ('用户 ' + u.username + ' | ' + u.role) : '--';
         migrateLegacyPasskeyAndRemember(g_currentUser);
+        applyRoleUi();
         updatePasskeyStatus();
+        return u;
       }catch(e){
         location.href = '/login';
+        return null;
+      }
+    }
+
+    function setHidden(id, hidden){
+      const el = $(id);
+      if(!el) return;
+      el.classList.toggle('hidden', !!hidden);
+    }
+
+    function applyRoleUi(){
+      const adminOnly = !g_isAdmin;
+      setHidden('retentionSec', adminOnly);
+      setHidden('adminGrid', adminOnly);
+      setHidden('userOnlyTip', !adminOnly);
+      const statusTitle = $('statusSec');
+      if(statusTitle){
+        statusTitle.classList.toggle('hidden', adminOnly);
+      }
+      const pkDisableBtn = $('pkDisableBtn');
+      if(pkDisableBtn){
+        pkDisableBtn.disabled = !g_currentUser;
       }
     }
 
@@ -484,6 +564,7 @@
     }
 
     async function loadRetention(){
+      if(!g_isAdmin) return;
       try{
         const j = await apiJson('/api/admin/settings');
         if(j && typeof j.retention_days === 'number') $('retDays').value = '' + j.retention_days;
@@ -494,6 +575,11 @@
     }
 
     async function saveRetention(){
+      if(!g_isAdmin){
+        $('retMsg').className = 'hint bad';
+        showMsg($('retMsg'), '权限不足：仅 admin 可修改保留天数');
+        return;
+      }
       const v = parseInt($('retDays').value, 10);
       try{
         const j = await apiJson('/api/admin/settings', {
@@ -520,6 +606,7 @@
     }
 
     async function loadUsers(){
+      if(!g_isAdmin) return;
       const body = $('userBody');
       if(body) body.innerHTML = '<tr><td colspan="5">加载中…</td></tr>';
       try{
@@ -565,6 +652,10 @@
     }
 
     async function createUser(){
+      if(!g_isAdmin){
+        showMsg($('userMsg'), '权限不足：仅 admin 可创建用户');
+        return;
+      }
       const u = ($('newUser').value || '').trim();
       const p = $('newPass').value || '';
       const role = $('newRole').value || 'user';
@@ -584,6 +675,10 @@
     window.createUser = createUser;
 
     async function toggleDis(id, disabled){
+      if(!g_isAdmin){
+        showMsg($('userMsg'), '权限不足：仅 admin 可禁用用户');
+        return;
+      }
       const u = g_userById[String(id)] || null;
       if(!u){
         showMsg($('userMsg'), '操作失败：用户不存在');
@@ -612,6 +707,10 @@
     window.toggleDis = toggleDis;
 
     async function changePw(id, isAdmin){
+      if(!g_isAdmin){
+        showMsg($('userMsg'), '权限不足：仅 admin 可修改用户密码');
+        return;
+      }
       const u = g_userById[String(id)] || null;
       const uname = u && u.username ? String(u.username) : ('#' + id);
       const p = prompt('输入新密码（>=8）');
@@ -632,6 +731,10 @@
     window.changePw = changePw;
 
     async function deleteUser(id){
+      if(!g_isAdmin){
+        showMsg($('userMsg'), '权限不足：仅 admin 可删除用户');
+        return;
+      }
       const u = g_userById[String(id)] || null;
       if(!u){
         showMsg($('userMsg'), '删除失败：用户不存在');
@@ -674,6 +777,7 @@
     }
 
     async function loadDevices(){
+      if(!g_isAdmin) return;
       const body = $('devBody');
       if(body) body.innerHTML = '<tr><td colspan="5">加载中…</td></tr>';
       try{
@@ -709,6 +813,11 @@
     }
 
     async function createDevice(){
+      if(!g_isAdmin){
+        $('devMsg').className = 'hint bad';
+        showMsg($('devMsg'), '权限不足：仅 admin 可添加设备');
+        return;
+      }
       const deviceId = ($('newDeviceId').value || '').trim();
       const displayName = ($('newDeviceName').value || '').trim();
       const mqttUsername = ($('newMqttUser').value || '').trim();
@@ -757,6 +866,11 @@
     window.createDevice = createDevice;
 
     async function deleteDevice(deviceId){
+      if(!g_isAdmin){
+        $('devMsg').className = 'hint bad';
+        showMsg($('devMsg'), '权限不足：仅 admin 可删除设备');
+        return;
+      }
       const did = String(deviceId || '').trim();
       if(!did) return;
       if(did.toLowerCase() === 'fish1'){
@@ -788,11 +902,14 @@
     window.deleteDeviceFromBtn = deleteDeviceFromBtn;
 
     (function init(){
-      loadMe();
-      loadStatus();
-      loadRetention();
-      loadUsers();
-      loadDevices();
+      loadMe().then(()=>{
+        if(g_isAdmin){
+          loadStatus();
+          loadRetention();
+          loadUsers();
+          loadDevices();
+        }
+      });
       const idInput = $('newDeviceId');
       if(idInput){
         idInput.addEventListener('input', function(){
@@ -808,8 +925,12 @@
           if(t4 && !t4.value) t4.value = def.log;
         });
       }
-      setInterval(loadStatus, 5000);
-      setInterval(loadDevices, 15000);
+      setInterval(()=>{
+        if(g_isAdmin) loadStatus();
+      }, 5000);
+      setInterval(()=>{
+        if(g_isAdmin) loadDevices();
+      }, 15000);
     })();
   </script>
 </body>

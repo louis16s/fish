@@ -36,12 +36,18 @@ function requireAdmin(req, res, next) {
   res.status(403).json({ ok: false, error: 'forbidden' });
 }
 
+function requireAdminPage(req, res, next) {
+  const u = sessionUser(req);
+  if (u && u.role === 'admin') return next();
+  res.redirect('/');
+}
+
 module.exports = {
   hashPassword,
   verifyPassword,
   sessionUser,
   requireAuthApi,
   requireAuthPage,
-  requireAdmin
+  requireAdmin,
+  requireAdminPage
 };
-
