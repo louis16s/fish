@@ -1,0 +1,15 @@
+.card {
+  margin-top: 160rpx;
+  text-align: center;
+}
+
+.title {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.sub {
+  margin-top: 14rpx;
+  color: rgba(165, 180, 207, .9);
+  font-size: 26rpx;
+}

@@ -239,7 +239,7 @@ Page({
     schematicMsg: '',
     gateProgress: 0,
     pageStatusClass: 'is-warn',
-    canAdminOperate: false,
+    canOperate: false,
     deviceOnline: false
   },
 
@@ -414,7 +414,6 @@ Page({
       const deviceOnline = ageMs <= 15000;
       const gateProgress = Math.round(100 * clamp(Number.isFinite(this._gateRatioCurrent) ? this._gateRatioCurrent : gateTarget, 0, 1));
       const canOperate = !!(mqttConnected && deviceOnline);
-      const canAdminOperate = !!(canOperate && this.data.isAdmin);
       const gateText = gateDisplayText(deviceOnline, gateStateNum, gateProgress);
 
       this.setData({
@@ -435,7 +434,7 @@ Page({
         autoToggleClass: autoLatched ? 'ctl-primary' : 'ctl-neutral',
         alarmText: fmt.alarmText(t.alarm),
         gateProgress,
-        canAdminOperate,
+        canOperate,
         pageStatusClass: canOperate ? 'is-good' : 'is-warn'
       });
       this.syncGateProgress(true);
@@ -450,7 +449,7 @@ Page({
         autoToggleText: '关闭自动',
         autoToggleClass: 'ctl-neutral',
         gateProgress: 0,
-        canAdminOperate: false,
+        canOperate: false,
         pageStatusClass: 'is-warn'
       });
       this._autoLatched = false;
@@ -462,8 +461,8 @@ Page({
   },
 
   async sendCmd(cmd, opts) {
-    if (!this.data.isAdmin) {
-      this.setData({ cmdMsg: '权限不足：仅 admin 可执行闸门控制' });
+    if (!this.data.canOperate) {
+      this.setData({ cmdMsg: '当前设备离线或 MQTT 未连接，暂不可控制' });
       return;
     }
     const o = opts || {};

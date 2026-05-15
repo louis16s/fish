@@ -1,0 +1,6 @@
+<view class="container">
+  <view class="card">
+    <view class="title">水闸控制器</view>
+    <view class="sub">正在进入...</view>
+  </view>
+</view>

@@ -60,11 +60,16 @@ Page({
   async loadStatus() {
     try {
       const j = await api.requestJSON('/healthz');
+      const mqttOk = !!((j.checks && j.checks.mqtt && j.checks.mqtt.ok) || j.mqtt);
+      const dbOk = !!((j.checks && j.checks.db && j.checks.db.ok) || j.db);
+      const dbLatency = j.checks && j.checks.db && Number.isFinite(Number(j.checks.db.latency_ms))
+        ? ` ${Number(j.checks.db.latency_ms)}ms`
+        : '';
       this.setData({
-        mqttText: j.mqtt ? '已连接' : '未连接',
-        mqttTagClass: j.mqtt ? 'tag-good' : 'tag-bad',
-        dbText: j.db ? 'OK' : 'ERR',
-        dbTagClass: j.db ? 'tag-good' : 'tag-bad'
+        mqttText: mqttOk ? '已连接' : '未连接',
+        mqttTagClass: mqttOk ? 'tag-good' : 'tag-bad',
+        dbText: dbOk ? `OK${dbLatency}` : 'ERR',
+        dbTagClass: dbOk ? 'tag-good' : 'tag-bad'
       });
     } catch (e) {
       this.setData({ mqttText: '失败', mqttTagClass: 'tag-bad', dbText: '失败', dbTagClass: 'tag-bad' });

@@ -81,12 +81,12 @@
 
   <view class="card control-card">
     <view class="title2">阀门控制</view>
-    <view class="control-hint">{{isAdmin ? '离线或 MQTT 断开时将自动禁用控制按钮' : '当前账号为只读 user：不可开关水闸'}}</view>
+    <view class="control-hint">登录用户均可控制；离线或 MQTT 断开时将自动禁用控制按钮</view>
     <view class="ctl-grid gate-control-grid">
-      <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canAdminOperate}}" bindtap="cmdGateOpen">开闸</button>
-      <button class="btn ctl-btn ctl-neutral" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canAdminOperate}}" bindtap="cmdGateClose">关闸</button>
-      <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canAdminOperate}}" bindtap="cmdGateStop">停止</button>
-      <button class="btn ctl-btn {{autoToggleClass}}" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canAdminOperate}}" bindtap="cmdAutoToggle">{{autoToggleText}}</button>
+      <button class="btn ctl-btn ctl-open" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateOpen">开闸</button>
+      <button class="btn ctl-btn ctl-neutral" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateClose">关闸</button>
+      <button class="btn ctl-btn ctl-stop" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdGateStop">停止</button>
+      <button class="btn ctl-btn {{autoToggleClass}}" loading="{{cmdLoading}}" disabled="{{cmdLoading || !canOperate}}" bindtap="cmdAutoToggle">{{autoToggleText}}</button>
     </view>
     <view wx:if="{{cmdMsg}}" class="muted cmd-msg">{{cmdMsg}}</view>
   </view>

@@ -100,15 +100,17 @@ function normalizeLogName(v) {
 function sameOriginOk(req) {
   // CSRF mitigation: browsers send Origin on cross-site POST/fetch. For same-origin, Origin may
   // be present or absent depending on UA; we only enforce when it exists to keep CLI/curl usable.
-  const fetchSite = String(req.get('sec-fetch-site') || '').toLowerCase();
-  if (['cross-site', 'same-site'].includes(fetchSite)) return false;
-
   const origin = req.get('origin');
   const host = req.get('host') || '';
   const source = origin || req.get('referer') || '';
   if (!source) return true;
   try {
     const u = new URL(source);
+    if (isAllowedWechatMiniProgramSource(req, u)) return true;
+
+    const fetchSite = String(req.get('sec-fetch-site') || '').toLowerCase();
+    if (['cross-site', 'same-site'].includes(fetchSite)) return false;
+
     if (!host) return true;
     if (u.host !== host) return false;
     if (cfg.cookieSecure && u.protocol !== 'https:') return false;
@@ -116,6 +118,17 @@ function sameOriginOk(req) {
   } catch (e) {
     return false;
   }
+}
+
+function isAllowedWechatMiniProgramSource(req, sourceUrl) {
+  const appid = String(cfg.WECHAT_APPID || '').trim();
+  if (!appid) return false;
+  const host = String(sourceUrl && sourceUrl.host ? sourceUrl.host : '').toLowerCase();
+  if (host !== 'servicewechat.com') return false;
+
+  const firstPathPart = String(sourceUrl.pathname || '').split('/').filter(Boolean)[0] || '';
+  if (firstPathPart !== appid) return false;
+  return true;
 }
 
 function requireSameOrigin(req, res, next) {

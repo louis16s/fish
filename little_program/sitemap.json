@@ -1,5 +1,6 @@
 {
   "desc": "Fish gate mini program",
+  
   "rules": [
     {
       "action": "allow",

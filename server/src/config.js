@@ -14,6 +14,7 @@ const schema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(1),
   SESSION_SECRET: z.string().min(16),
   COOKIE_SECURE: z.string().optional(),
+  WECHAT_APPID: z.string().optional().default('wx36b1be8c3e24b689'),
 
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8),
