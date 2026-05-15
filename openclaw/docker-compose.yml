@@ -10,7 +10,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   emqx:
-    image: emqx/emqx:5
+    image: emqx:5.8.3
     restart: unless-stopped
     # If you only have ONE device and want the simplest path (no TLS on MQTT yet),
     # exposing 1883 is enough for the current firmware.
@@ -41,6 +41,7 @@ services:
       TRUST_PROXY: 1
       COOKIE_SECURE: 1
       SESSION_SECRET: ${SESSION_SECRET}
+      WECHAT_APPID: ${WECHAT_APPID:-wx36b1be8c3e24b689}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql://fish:${POSTGRES_PASSWORD}@postgres:5432/fish
