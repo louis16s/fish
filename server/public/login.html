@@ -155,7 +155,7 @@
         </div>
         <label class="chk">
           <input id="remember" type="checkbox">
-          记住账号和密码（本机）
+          记住账号（本机）
         </label>
         <div class="btnRow">
           <button class="btn" id="btn" type="submit">登 录</button>
@@ -179,7 +179,16 @@
 
   <script>
     function qs(k){ try{ return new URLSearchParams(location.search).get(k) || '' }catch(e){ return '' } }
-    const nextUrl = qs('next') || '/';
+    function safeNextPath(v){
+      const s = String(v || '').trim();
+      if(!s || s[0] !== '/' || s.indexOf('//') === 0 || /[\r\n]/.test(s)) return '/';
+      try{
+        const u = new URL(s, location.origin);
+        if(u.origin !== location.origin) return '/';
+        return u.pathname + u.search + u.hash;
+      }catch(e){ return '/'; }
+    }
+    const nextUrl = safeNextPath(qs('next'));
     const form = document.getElementById('form');
     const msg = document.getElementById('msg');
     const btn = document.getElementById('btn');
@@ -194,6 +203,7 @@
     const LS_PK_LEGACY = 'fish_login_passkey_id_v1';
     const LS_FIRST_LOGIN_DONE = 'fish_login_done_v1';
     const LS_PK_FOLD_OPEN = 'fish_login_pk_fold_open_v1';
+    const LS_LAST_USER = 'fish_login_last_user_v1';
     let g_msgTimer = 0;
 
     // Show current host without hard-coding.
@@ -260,8 +270,11 @@
         if(!raw) return null;
         const j = JSON.parse(raw) || {};
         const un = String(u || '').trim();
-        if(!un || !j[un] || !j[un].p) return null;
-        return {u: un, p: String(j[un].p)};
+        if(j && j[un] && j[un].p){
+          delete j[un].p;
+          localStorage.setItem(LS_REM, JSON.stringify(j));
+        }
+        return null;
       }catch(e){ return null; }
     }
     function saveRemembered(u, p){
@@ -270,8 +283,9 @@
         if(!un) return;
         const raw = localStorage.getItem(LS_REM);
         const j = raw ? (JSON.parse(raw) || {}) : {};
-        j[un] = { p: String(p || ''), ts: Date.now() };
+        j[un] = { ts: Date.now() };
         localStorage.setItem(LS_REM, JSON.stringify(j));
+        localStorage.setItem(LS_LAST_USER, un);
       }catch(e){}
     }
     function clearRemembered(u){
@@ -283,6 +297,7 @@
         const j = JSON.parse(raw) || {};
         delete j[un];
         localStorage.setItem(LS_REM, JSON.stringify(j));
+        if(localStorage.getItem(LS_LAST_USER) === un) localStorage.removeItem(LS_LAST_USER);
       }catch(e){}
     }
     function loadMap(key){
@@ -296,6 +311,21 @@
     function saveMap(key, map){
       try{ localStorage.setItem(key, JSON.stringify(map || {})); }catch(e){}
     }
+    function scrubStoredPasswords(){
+      try{
+        const raw = localStorage.getItem(LS_REM);
+        if(!raw) return;
+        const map = JSON.parse(raw) || {};
+        let changed = false;
+        Object.keys(map).forEach((k)=>{
+          if(map[k] && map[k].p){
+            delete map[k].p;
+            changed = true;
+          }
+        });
+        if(changed) localStorage.setItem(LS_REM, JSON.stringify(map));
+      }catch(e){}
+    }
     function migrateLegacyForUser(uname){
       const u = String(uname || '').trim();
       if(!u) return;
@@ -303,24 +333,20 @@
         const oldRaw = localStorage.getItem(LS_REM_LEGACY);
         if(oldRaw){
           const old = JSON.parse(oldRaw);
-          if(old && old.u && old.p){
+          if(old && old.u){
             const map = loadMap(LS_REM);
-            if(!map[old.u]) map[old.u] = { p: String(old.p), ts: old.ts || Date.now() };
+            if(!map[old.u]) map[old.u] = { ts: old.ts || Date.now() };
             saveMap(LS_REM, map);
+            try{ localStorage.setItem(LS_LAST_USER, String(old.u)); }catch(e2){}
           }
           localStorage.removeItem(LS_REM_LEGACY);
         }
       }catch(e){}
       try{
-        const oldPk = localStorage.getItem(LS_PK_LEGACY);
-        if(oldPk){
-          const map = loadMap(LS_PK);
-          if(!map[u]) map[u] = String(oldPk);
-          saveMap(LS_PK, map);
-          localStorage.removeItem(LS_PK_LEGACY);
-        }
+        localStorage.removeItem(LS_PK_LEGACY);
       }catch(e){}
     }
+    scrubStoredPasswords();
 
     async function doLogin(u, p){
       setMsg('');
@@ -351,49 +377,7 @@
     }
 
     async function loginByPasskey(){
-      if(!(window.PublicKeyCredential && window.isSecureContext)){
-        setMsg('当前环境不支持 Passkey（需要 HTTPS）');
-        return;
-      }
-      const uname = (document.getElementById('u').value || '').trim();
-      if(!uname){
-        setMsg('请先输入用户名');
-        return;
-      }
-      migrateLegacyForUser(uname);
-      let pkId = '';
-      try{
-        const map = loadMap(LS_PK);
-        pkId = map[uname] ? String(map[uname]) : '';
-      }catch(e){}
-      if(!pkId){
-        setMsg('该账号未开启 Passkey，请登录后到配置页开启');
-        return;
-      }
-      const rem = loadRememberedForUser(uname);
-      if(!rem){
-        setMsg('该账号未记住密码，请先勾选“记住账号和密码”登录一次');
-        return;
-      }
-      try{
-        btnPasskeyLogin.disabled = true;
-        await navigator.credentials.get({
-          publicKey: {
-            challenge: randBuf(32),
-            allowCredentials: [{ type: 'public-key', id: bufFromB64u(pkId) }],
-            timeout: 60000,
-            userVerification: 'preferred'
-          }
-        });
-        document.getElementById('u').value = uname;
-        document.getElementById('p').value = rem.p;
-        if(rememberEl) rememberEl.checked = true;
-        await doLogin(uname, rem.p);
-      }catch(e){
-        setMsg('Passkey 验证失败或已取消');
-      }finally{
-        btnPasskeyLogin.disabled = false;
-      }
+      setMsg('Passkey 登录已停用：当前版本不会在浏览器本机保存密码。');
     }
 
     form.addEventListener('submit', async (e)=>{
@@ -425,14 +409,17 @@
     // Fill password when username matches remembered account.
     const uel = document.getElementById('u');
     const pel = document.getElementById('p');
+    try{
+      const lastUser = localStorage.getItem(LS_LAST_USER);
+      if(lastUser && uel && !uel.value){
+        uel.value = lastUser;
+        if(rememberEl) rememberEl.checked = true;
+      }
+    }catch(e){}
     function refillByUser(){
       const uname = (uel && uel.value) ? uel.value.trim() : '';
       if(!uname || !pel) return;
-      const rem = loadRememberedForUser(uname);
-      if(rem && rem.p){
-        pel.value = rem.p;
-        if(rememberEl) rememberEl.checked = true;
-      }
+      loadRememberedForUser(uname);
     }
     if(uel){
       uel.addEventListener('input', ()=>{

@@ -231,12 +231,12 @@
           </div>
           <div class="userSecurityGrid">
             <div class="userSecurityCol">
-              <div class="sec-title">Passkey</div>
-              <div class="hint">为当前账号绑定设备级登录凭证，后续可更快完成认证。</div>
+              <div class="sec-title">登录安全</div>
+              <div class="hint">已停用旧版本机 Passkey 快捷登录，面板不会再把账号密码保存到浏览器本地存储。</div>
               <div style="height:10px"></div>
               <div class="row">
-                <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()">开启Passkey</button>
-                <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">关闭Passkey</button>
+                <button class="btn small" id="pkEnableBtn" onclick="enablePasskey()" disabled>开启Passkey</button>
+                <button class="btn small danger" id="pkDisableBtn" onclick="disablePasskey()">清除本机旧凭据</button>
               </div>
               <div class="hint" id="pkStatus">--</div>
             </div>
@@ -382,6 +382,21 @@
     function saveMap(key, map){
       try{ localStorage.setItem(key, JSON.stringify(map || {})); }catch(e){}
     }
+    function scrubStoredPasswords(){
+      try{
+        const raw = localStorage.getItem(LS_REM);
+        if(!raw) return;
+        const map = JSON.parse(raw) || {};
+        let changed = false;
+        Object.keys(map).forEach((k)=>{
+          if(map[k] && map[k].p){
+            delete map[k].p;
+            changed = true;
+          }
+        });
+        if(changed) localStorage.setItem(LS_REM, JSON.stringify(map));
+      }catch(e){}
+    }
     function migrateLegacyPasskeyAndRemember(username){
       const uname = String(username || '').trim();
       if(!uname) return;
@@ -389,24 +404,19 @@
         const oldRaw = localStorage.getItem(LS_REM_LEGACY);
         if(oldRaw){
           const old = JSON.parse(oldRaw);
-          if(old && old.u && old.p){
+          if(old && old.u){
             const map = loadMap(LS_REM);
-            if(!map[old.u]) map[old.u] = { p: String(old.p), ts: old.ts || Date.now() };
+            if(!map[old.u]) map[old.u] = { ts: old.ts || Date.now() };
             saveMap(LS_REM, map);
           }
           localStorage.removeItem(LS_REM_LEGACY);
         }
       }catch(e){}
       try{
-        const oldPk = localStorage.getItem(LS_PK_LEGACY);
-        if(oldPk){
-          const map = loadMap(LS_PK);
-          if(!map[uname]) map[uname] = String(oldPk);
-          saveMap(LS_PK, map);
-          localStorage.removeItem(LS_PK_LEGACY);
-        }
+        localStorage.removeItem(LS_PK_LEGACY);
       }catch(e){}
     }
+    scrubStoredPasswords();
 
     function b64uFromBuf(buf){
       const arr = new Uint8Array(buf);
@@ -429,43 +439,16 @@
       }
       const pkMap = loadMap(LS_PK);
       const remMap = loadMap(LS_REM);
+      if(remMap[uname] && remMap[uname].p){
+        delete remMap[uname].p;
+        saveMap(LS_REM, remMap);
+      }
       const hasPk = !!pkMap[uname];
-      const hasRem = !!(remMap[uname] && remMap[uname].p);
-      if(hasPk && hasRem) st.textContent = '状态：已开启（账号已绑定）';
-      else if(hasPk) st.textContent = '状态：已开启（账号已绑定；未记住密码）';
-      else st.textContent = '状态：未开启（当前账号）';
+      st.textContent = hasPk ? '状态：发现旧本机凭据，建议清除' : '状态：未保存本机密码';
     }
     async function enablePasskey(){
       const st = $('pkStatus');
-      if(!(window.PublicKeyCredential && window.isSecureContext)){
-        if(st) st.textContent = '开启失败：当前环境不支持 Passkey（需 HTTPS）';
-        return;
-      }
-      try{
-        const uname = g_currentUser;
-        if(!uname){
-          if(st) st.textContent = '开启失败：未登录';
-          return;
-        }
-        const cred = await navigator.credentials.create({
-          publicKey: {
-            challenge: randBuf(32),
-            rp: { name: '鱼塘控制面板' },
-            user: { id: randBuf(16), name: uname, displayName: uname },
-            pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-            timeout: 60000,
-            attestation: 'none',
-            authenticatorSelection: { userVerification: 'preferred', residentKey: 'preferred' }
-          }
-        });
-        if(!cred || !cred.rawId) throw new Error('create_failed');
-        const map = loadMap(LS_PK);
-        map[uname] = b64uFromBuf(cred.rawId);
-        saveMap(LS_PK, map);
-        if(st) st.textContent = '已开启 Passkey';
-      }catch(e){
-        if(st) st.textContent = '开启失败：已取消或浏览器不支持';
-      }
+      if(st) st.textContent = 'Passkey 已停用：需要服务端 WebAuthn 校验后才能安全启用。';
       updatePasskeyStatus();
     }
     async function disablePasskey(){
@@ -479,7 +462,10 @@
         const map = loadMap(LS_PK);
         delete map[uname];
         saveMap(LS_PK, map);
-        if(st) st.textContent = '已关闭 Passkey（当前账号）';
+        const remMap = loadMap(LS_REM);
+        if(remMap[uname] && remMap[uname].p) delete remMap[uname].p;
+        saveMap(LS_REM, remMap);
+        if(st) st.textContent = '已清除当前账号的旧本机凭据';
       }catch(e){
         if(st) st.textContent = '关闭失败';
       }

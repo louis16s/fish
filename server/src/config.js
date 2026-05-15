@@ -37,6 +37,15 @@ const schema = z.object({
 
 function loadConfig(processEnv) {
   const cfg = schema.parse(processEnv);
+  if (String(cfg.NODE_ENV || '').toLowerCase() === 'production') {
+    const badSecret = /change_me|changeme|default|password/i;
+    if (badSecret.test(cfg.SESSION_SECRET)) {
+      throw new Error('SESSION_SECRET must be a unique production secret');
+    }
+    if (badSecret.test(cfg.ADMIN_PASSWORD)) {
+      throw new Error('ADMIN_PASSWORD must be changed before production bootstrap');
+    }
+  }
   return {
     ...cfg,
     cookieSecure: envBool(cfg.COOKIE_SECURE, true)

@@ -72,14 +72,37 @@ function pickDeviceId(req, fallback) {
   return fallback || cfg.DEFAULT_DEVICE_ID;
 }
 
+function isSafeDeviceId(v) {
+  const s = String(v || '').trim();
+  return !!(s && s.length <= 128 && /^[A-Za-z0-9._-]+$/.test(s));
+}
+
+function getDeviceIdOrReject(req, res) {
+  const deviceId = pickDeviceId(req);
+  if (!isSafeDeviceId(deviceId)) {
+    res.status(400).json({ ok: false, error: 'bad_device_id' });
+    return '';
+  }
+  return deviceId;
+}
+
+function normalizeLogName(v) {
+  const name = String(v || 'error').trim().toLowerCase();
+  return ['error', 'measure', 'action'].includes(name) ? name : '';
+}
+
 function sameOriginOk(req) {
   // CSRF mitigation: browsers send Origin on cross-site POST/fetch. For same-origin, Origin may
   // be present or absent depending on UA; we only enforce when it exists to keep CLI/curl usable.
+  const fetchSite = String(req.get('sec-fetch-site') || '').toLowerCase();
+  if (['cross-site', 'same-site'].includes(fetchSite)) return false;
+
   const origin = req.get('origin');
-  if (!origin) return true;
   const host = req.get('host') || '';
+  const source = origin || req.get('referer') || '';
+  if (!source) return true;
   try {
-    const u = new URL(origin);
+    const u = new URL(source);
     if (!host) return true;
     if (u.host !== host) return false;
     if (cfg.cookieSecure && u.protocol !== 'https:') return false;
@@ -160,8 +183,32 @@ async function main() {
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.TRUST_PROXY);
 
-  // Security headers. (We keep CSP off because UI uses inline <script>/<style>.)
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Security headers. Inline UI scripts are still present, so CSP keeps a constrained allowlist
+  // without pretending to fully block inline script execution.
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'"],
+        formAction: ["'self'"],
+        objectSrc: ["'none'"],
+        imgSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'", 'data:'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'"],
+        upgradeInsecureRequests: []
+      }
+    }
+  }));
+
+  app.use(rateLimit({
+    windowMs: 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false
+  }));
 
   app.use(express.json({ limit: '1mb' }));
 
@@ -233,7 +280,7 @@ async function main() {
     legacyHeaders: false
   });
 
-  app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  app.post('/api/auth/login', requireSameOrigin, loginLimiter, async (req, res) => {
     const body = (req && req.body) ? req.body : {};
     const username = (body.username || '').toString().trim();
     const password = (body.password || '').toString();
@@ -258,7 +305,7 @@ async function main() {
     }
   });
 
-  app.post('/api/auth/logout', (req, res) => {
+  app.post('/api/auth/logout', requireSameOrigin, (req, res) => {
     try {
       req.session.destroy(() => {
         res.clearCookie('fish_sid');
@@ -309,7 +356,8 @@ async function main() {
 
   // Quick diagnostics endpoint for troubleshooting (no secrets).
   app.get('/get', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const now = Date.now();
     const DEVICE_ONLINE_TIMEOUT_MS = 15_000;
     let dbOk = true;
@@ -370,7 +418,8 @@ async function main() {
   });
 
   app.get('/api/state', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const st = await readLatestState(deviceId);
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -382,7 +431,8 @@ async function main() {
   });
 
   app.get('/getData', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const st = await readLatestState(deviceId);
     res.setHeader('Cache-Control', 'no-store');
     res.json(st.tele || {});
@@ -417,7 +467,8 @@ async function main() {
     cmd = String(cmd || '').trim();
     if (!allowedCmd.has(cmd)) return res.status(400).json({ ok: false, error: 'bad_cmd' });
 
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     try {
       await mqtt.publishCommand(deviceId, cmd);
       res.json({ ok: true });
@@ -428,7 +479,8 @@ async function main() {
 
   // --- History / Replay ---
   app.get('/api/history', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const windowS = clampInt(req.query.window_s, 60, 30 * 24 * 3600, 60 * 60);
     const end = new Date();
     const from = new Date(end.getTime() - windowS * 1000);
@@ -456,7 +508,8 @@ async function main() {
   });
 
   app.get('/api/telemetry/range', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const from = parseDateInput(req.query.from);
     const to = parseDateInput(req.query.to);
     const limit = clampInt(req.query.limit, 50, 20000, 2000);
@@ -571,8 +624,7 @@ async function main() {
 
   app.post('/api/admin/devices/:deviceId/delete', requireAuthApi, requireAdmin, requireSameOrigin, adminLimiter, async (req, res) => {
     const deviceId = String(req.params.deviceId || '').trim();
-    if (!deviceId || deviceId.length > 128) return res.status(400).json({ ok: false, error: 'bad_device_id' });
-    if (/[\/+#\s]/.test(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
+    if (!isSafeDeviceId(deviceId)) return res.status(400).json({ ok: false, error: 'bad_device_id' });
     if (deviceId.toLowerCase() === 'fish1') return res.status(400).json({ ok: false, error: 'cannot_delete_fish1' });
     const d = await deleteDevice(pool, deviceId);
     if (!d) return res.status(404).json({ ok: false, error: 'not_found' });
@@ -637,7 +689,8 @@ async function main() {
 
   // --- Device config/logs via MQTT RPC (keeps browser isolated from MQTT creds) ---
   app.get('/api/config', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     const source = String((req.query && req.query.source) || '').toLowerCase(); // '', 'cache', 'rpc'
     try {
       if (source !== 'rpc') {
@@ -681,7 +734,8 @@ async function main() {
   });
 
   app.post('/api/config', requireAuthApi, requireAdmin, requireSameOrigin, async (req, res) => {
-    const deviceId = pickDeviceId(req);
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
     let raw = '';
     try {
       raw = JSON.stringify(req.body || {}, null, 2);
@@ -702,8 +756,10 @@ async function main() {
   });
 
   app.get('/api/log', requireAuthApi, async (req, res) => {
-    const deviceId = pickDeviceId(req);
-    const name = String((req.query && req.query.name) || 'error').toLowerCase();
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
+    const name = normalizeLogName(req.query && req.query.name);
+    if (!name) return res.status(400).json({ ok: false, error: 'bad_log_name' });
     const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
     const bak = !!(req.query && (String(req.query.bak || '') === '1'));
     const source = String((req.query && req.query.source) || '').toLowerCase(); // '', 'cache', 'rpc'
@@ -744,8 +800,10 @@ async function main() {
   });
 
   app.post('/api/log/clear', requireAuthApi, requireAdmin, requireSameOrigin, async (req, res) => {
-    const deviceId = pickDeviceId(req);
-    const name = String((req.body && req.body.name) || 'error').toLowerCase();
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
+    const name = normalizeLogName(req.body && req.body.name);
+    if (!name) return res.status(400).json({ ok: false, error: 'bad_log_name' });
     try {
       try { logCache.clear(deviceId, name); } catch (e2) {}
       await mqtt.rpc(deviceId, { cmd: 'clear_log', name }, { timeoutMs: 10_000 });
@@ -759,8 +817,10 @@ async function main() {
   });
 
   app.get('/api/log/download', requireAuthApi, requireAdmin, async (req, res) => {
-    const deviceId = pickDeviceId(req);
-    const name = String((req.query && req.query.name) || 'error').toLowerCase();
+    const deviceId = getDeviceIdOrReject(req, res);
+    if (!deviceId) return;
+    const name = normalizeLogName(req.query && req.query.name);
+    if (!name) return res.status(400).json({ ok: false, error: 'bad_log_name' });
     const tail = clampInt(req.query && req.query.tail, 0, 32768, 16384);
     const bak = !!(req.query && (String(req.query.bak || '') === '1'));
     const source = String((req.query && req.query.source) || '').toLowerCase();
