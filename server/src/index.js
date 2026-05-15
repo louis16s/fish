@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
 const { z } = require('zod');
+const pkg = require('../package.json');
 
 const { loadConfig } = require('./config');
 const {
@@ -23,6 +24,8 @@ const {
   setUserDisabled,
   findUserById,
   deleteUser,
+  insertLoginRecord,
+  listLoginRecords,
   upsertDeviceSeen,
   listDevices,
   listDevicesOverview,
@@ -48,6 +51,9 @@ const {
 
 const cfg = loadConfig(process.env);
 const UI_VERSION = 'ui-2026.02.28-02';
+const SERVICE_NAME = 'fish-cloud-panel';
+const STARTED_AT = Date.now();
+const SESSION_COOKIE_NAME = cfg.cookieSecure ? '__Host-fish_sid' : 'fish_sid';
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const UI_DIR = path.join(PUBLIC_DIR, 'ui');
@@ -115,6 +121,38 @@ function sameOriginOk(req) {
 function requireSameOrigin(req, res, next) {
   if (sameOriginOk(req)) return next();
   res.status(403).json({ ok: false, error: 'bad_origin' });
+}
+
+function requireJsonContent(req, res, next) {
+  if (!['POST', 'PUT', 'PATCH'].includes(req.method)) return next();
+  if (req.path === '/auth/logout') return next();
+  if (req.is('application/json')) return next();
+  res.status(415).json({ ok: false, error: 'unsupported_media_type' });
+}
+
+function jsonBodyErrorHandler(err, req, res, next) {
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({ ok: false, error: 'invalid_json' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ ok: false, error: 'payload_too_large' });
+  }
+  return next(err);
+}
+
+function msSince(ts) {
+  return ts > 0 ? Math.max(0, Date.now() - ts) : null;
+}
+
+function clientIp(req) {
+  const cfIp = String(req.get('cf-connecting-ip') || '').trim();
+  const realIp = String(req.get('x-real-ip') || '').trim();
+  const ip = cfIp || realIp || req.ip || (req.socket && req.socket.remoteAddress) || '';
+  return String(ip || '').replace(/^::ffff:/, '').slice(0, 128);
+}
+
+function userAgent(req) {
+  return String(req.get('user-agent') || '').trim();
 }
 
 async function main() {
@@ -187,6 +225,7 @@ async function main() {
   // without pretending to fully block inline script execution.
   app.use(helmet({
     contentSecurityPolicy: {
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
@@ -197,11 +236,24 @@ async function main() {
         fontSrc: ["'self'", 'data:'],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
         connectSrc: ["'self'"],
         upgradeInsecureRequests: []
       }
-    }
+    },
+    crossOriginEmbedderPolicy: false,
+    hsts: cfg.cookieSecure ? { maxAge: 15552000, includeSubDomains: true } : false,
+    referrerPolicy: { policy: 'no-referrer' }
   }));
+
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Permissions-Policy',
+      'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), xr-spatial-tracking=()'
+    );
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
 
   app.use(rateLimit({
     windowMs: 60 * 1000,
@@ -210,7 +262,9 @@ async function main() {
     legacyHeaders: false
   }));
 
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '1mb', strict: true }));
+  app.use(jsonBodyErrorHandler);
+  app.use('/api', requireJsonContent);
 
   app.use(
     session({
@@ -219,7 +273,7 @@ async function main() {
         tableName: 'user_sessions',
         createTableIfMissing: true
       }),
-      name: 'fish_sid',
+      name: SESSION_COOKIE_NAME,
       secret: cfg.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
@@ -227,6 +281,8 @@ async function main() {
         httpOnly: true,
         secure: !!cfg.cookieSecure,
         sameSite: 'lax',
+        path: '/',
+        priority: 'high',
         maxAge: 7 * 24 * 3600 * 1000
       }
     })
@@ -234,12 +290,71 @@ async function main() {
 
   // --- Health ---
   app.get('/healthz', async (req, res) => {
+    const checkedAt = Date.now();
+    const checks = {
+      http: {
+        ok: true,
+        status: 'ok'
+      },
+      db: {
+        ok: false,
+        status: 'fail',
+        latency_ms: null
+      },
+      mqtt: {
+        ok: !!mqtt.state.connected,
+        status: mqtt.state.connected ? 'ok' : 'fail',
+        connected: !!mqtt.state.connected,
+        last_connect_age_ms: msSince(mqtt.state.lastConnectAt)
+      }
+    };
+
+    const dbStart = Date.now();
     try {
       await pool.query('SELECT 1');
-      res.json({ ok: true, mqtt: !!mqtt.state.connected, db: true });
+      checks.db.ok = true;
+      checks.db.status = 'ok';
     } catch (e) {
-      res.status(500).json({ ok: false, mqtt: !!mqtt.state.connected, db: false });
+      checks.db.status = 'fail';
     }
+    checks.db.latency_ms = Date.now() - dbStart;
+
+    const ok = checks.db.ok && checks.mqtt.ok;
+    res.status(ok ? 200 : 503);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ok,
+      status: ok ? 'ok' : 'degraded',
+      service: SERVICE_NAME,
+      version: pkg.version || '0.0.0',
+      ui_version: UI_VERSION,
+      environment: cfg.NODE_ENV,
+      time: new Date(checkedAt).toISOString(),
+      uptime_s: Math.floor((checkedAt - STARTED_AT) / 1000),
+      checks
+    });
+  });
+
+  app.get('/livez', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ok: true,
+      status: 'alive',
+      service: SERVICE_NAME,
+      time: new Date().toISOString(),
+      uptime_s: Math.floor((Date.now() - STARTED_AT) / 1000)
+    });
+  });
+
+  app.get('/.well-known/security.txt', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.type('text/plain; charset=utf-8').send([
+      'Contact: https://fish.530555.xyz/',
+      'Preferred-Languages: zh-CN, en',
+      'Policy: Please report security issues privately to the site owner.',
+      'Expires: 2027-05-16T00:00:00Z',
+      ''
+    ].join('\n'));
   });
 
   // --- Static Assets ---
@@ -280,17 +395,68 @@ async function main() {
     legacyHeaders: false
   });
 
+  async function recordLoginAttempt(req, data) {
+    try {
+      const d = data || {};
+      await insertLoginRecord(pool, {
+        username: d.username || '',
+        userId: d.userId || null,
+        role: d.role || '',
+        success: !!d.success,
+        reason: d.reason || '',
+        ip: clientIp(req),
+        userAgent: userAgent(req)
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[auth] login audit failed:', e && e.message ? e.message : e);
+    }
+  }
+
   app.post('/api/auth/login', requireSameOrigin, loginLimiter, async (req, res) => {
     const body = (req && req.body) ? req.body : {};
     const username = (body.username || '').toString().trim();
     const password = (body.password || '').toString();
-    if (!username || !password) return res.status(400).json({ ok: false, error: 'missing_credentials' });
+    if (!username || !password) {
+      await recordLoginAttempt(req, { username, success: false, reason: 'missing_credentials' });
+      return res.status(400).json({ ok: false, error: 'missing_credentials' });
+    }
 
     const u = await findUserByUsername(pool, username);
-    if (!u || u.disabled) return res.status(401).json({ ok: false, error: 'bad_credentials' });
+    if (!u) {
+      await recordLoginAttempt(req, { username, success: false, reason: 'bad_credentials' });
+      return res.status(401).json({ ok: false, error: 'bad_credentials' });
+    }
+    if (u.disabled) {
+      await recordLoginAttempt(req, {
+        username,
+        userId: u.id,
+        role: u.role,
+        success: false,
+        reason: 'disabled_user'
+      });
+      return res.status(401).json({ ok: false, error: 'bad_credentials' });
+    }
 
     const ok = await verifyPassword(password, u.password_hash);
-    if (!ok) return res.status(401).json({ ok: false, error: 'bad_credentials' });
+    if (!ok) {
+      await recordLoginAttempt(req, {
+        username,
+        userId: u.id,
+        role: u.role,
+        success: false,
+        reason: 'bad_credentials'
+      });
+      return res.status(401).json({ ok: false, error: 'bad_credentials' });
+    }
+
+    await recordLoginAttempt(req, {
+      username: u.username,
+      userId: u.id,
+      role: u.role,
+      success: true,
+      reason: 'ok'
+    });
 
     // Avoid session fixation: rotate session id on login.
     try {
@@ -308,11 +474,13 @@ async function main() {
   app.post('/api/auth/logout', requireSameOrigin, (req, res) => {
     try {
       req.session.destroy(() => {
-        res.clearCookie('fish_sid');
+        res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+        res.clearCookie('fish_sid', { path: '/' });
         res.json({ ok: true });
       });
     } catch (e) {
-      res.clearCookie('fish_sid');
+      res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+      res.clearCookie('fish_sid', { path: '/' });
       res.json({ ok: true });
     }
   });
@@ -456,7 +624,7 @@ async function main() {
     legacyHeaders: false
   });
 
-  app.post('/api/cmd', requireAuthApi, requireAdmin, requireSameOrigin, cmdLimiter, async (req, res) => {
+  app.post('/api/cmd', requireAuthApi, requireSameOrigin, cmdLimiter, async (req, res) => {
     let cmd = '';
     try {
       const body = cmdSchema.parse(req.body || {});
@@ -561,6 +729,13 @@ async function main() {
   app.get('/api/admin/users', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
     const users = await listUsers(pool);
     res.json({ ok: true, users });
+  });
+
+  app.get('/api/admin/login-records', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
+    const limit = clampInt(req.query.limit, 20, 500, 100);
+    const records = await listLoginRecords(pool, limit);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, records });
   });
 
   app.get('/api/admin/devices/overview', requireAuthApi, requireAdmin, adminLimiter, async (req, res) => {
@@ -851,6 +1026,21 @@ async function main() {
       const code = (msg === 'timeout') ? 504 : ((msg === 'mqtt_not_connected') ? 502 : 500);
       res.status(code).type('text/plain').send(msg);
     }
+  });
+
+  app.use('/api', (req, res) => {
+    res.status(404).json({ ok: false, error: 'not_found' });
+  });
+
+  app.use((req, res) => {
+    res.status(404).type('text/plain; charset=utf-8').send('not_found');
+  });
+
+  app.use((err, req, res, next) => {
+    // eslint-disable-next-line no-console
+    console.error('[http] unhandled error:', err && err.message ? err.message : err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
   });
 
   // --- Start ---

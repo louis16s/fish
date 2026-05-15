@@ -869,7 +869,7 @@
       applyControlDisabledState();
       logBusySet(false);
       if(!g_isAdmin){
-        showCmdMsg('当前账号为只读用户：不可开关水闸。', 'warn', true);
+        showCmdMsg('', '', false);
         const lm = $('logMsg');
         if(lm) lm.textContent = '当前账号为只读用户：不可导出/清空日志。';
       }
@@ -1652,7 +1652,7 @@
       const t = g_lastTelemetry;
       const manual = t && t.manual ? t.manual : null;
       const manualActive = !!(manual && manual.active);
-      const canControl = !!g_isAdmin;
+      const canControl = !!g_roleReady;
 
       const lock = (!manualActive) && (gateBtnLockRemainS() > 0.05);
       const remain = lock ? Math.ceil(gateBtnLockRemainS()) : 0;
@@ -2149,8 +2149,8 @@
     }
 
     async function cmd(c, opts){
-      if(!g_isAdmin){
-        showCmdMsg('权限不足：仅 admin 可执行闸门控制。', 'warn');
+      if(!g_roleReady){
+        showCmdMsg('未授权：需要登录后才能执行闸门控制。', 'warn');
         return false;
       }
       const isStop = (c === 'gate_stop');

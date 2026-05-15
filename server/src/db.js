@@ -61,6 +61,22 @@ async function initDb(pool) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS login_records (
+      id BIGSERIAL PRIMARY KEY,
+      username TEXT NOT NULL DEFAULT '',
+      user_id INTEGER,
+      role TEXT NOT NULL DEFAULT '',
+      success BOOLEAN NOT NULL DEFAULT false,
+      reason TEXT NOT NULL DEFAULT '',
+      ip TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS login_records_created_idx ON login_records(created_at DESC);`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS login_records_username_idx ON login_records(username, created_at DESC);`);
 }
 
 async function getSetting(pool, key) {
@@ -160,6 +176,35 @@ async function deleteUser(pool, id) {
     [id]
   );
   return r.rows && r.rows[0] ? r.rows[0] : null;
+}
+
+async function insertLoginRecord(pool, record) {
+  const r = record || {};
+  await pool.query(
+    `INSERT INTO login_records(username,user_id,role,success,reason,ip,user_agent,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,now())`,
+    [
+      String(r.username || '').slice(0, 128),
+      r.userId || null,
+      String(r.role || '').slice(0, 32),
+      !!r.success,
+      String(r.reason || '').slice(0, 64),
+      String(r.ip || '').slice(0, 128),
+      String(r.userAgent || '').slice(0, 512)
+    ]
+  );
+}
+
+async function listLoginRecords(pool, limit) {
+  const n = Math.min(500, Math.max(1, (limit | 0) || 100));
+  const r = await pool.query(
+    `SELECT id, username, user_id, role, success, reason, ip, user_agent, created_at
+     FROM login_records
+     ORDER BY created_at DESC
+     LIMIT $1`,
+    [n]
+  );
+  return r.rows || [];
 }
 
 async function upsertDeviceSeen(pool, deviceId, seenAt) {
@@ -333,6 +378,8 @@ module.exports = {
   setUserDisabled,
   findUserById,
   deleteUser,
+  insertLoginRecord,
+  listLoginRecords,
   upsertDeviceSeen,
   listDevices,
   listDevicesOverview,

@@ -326,6 +326,22 @@
             </table>
           </div>
         </div>
+
+        <div class="sec" id="loginAuditSec">
+          <div class="sec-title">登录记录（管理员）</div>
+          <div class="hint">显示最近登录成功和失败记录，包含账号、IP、时间和浏览器信息。</div>
+          <div class="hint bad" id="loginAuditMsg" style="display:none"></div>
+          <div style="margin-top:10px;overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th><th>账号</th><th>结果</th><th>原因</th><th>IP</th><th>浏览器</th>
+                </tr>
+              </thead>
+              <tbody id="loginAuditBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -629,6 +645,24 @@
     function statusTag(disabled){
       return disabled ? '<span class="tag bad">disabled</span>' : '<span class="tag good">active</span>';
     }
+    function loginResultTag(ok){
+      return ok ? '<span class="tag good">成功</span>' : '<span class="tag bad">失败</span>';
+    }
+    function loginReasonText(reason){
+      const r = String(reason || '');
+      const map = {
+        ok: '正常',
+        bad_credentials: '账号或密码错误',
+        missing_credentials: '缺少账号或密码',
+        disabled_user: '账号已禁用'
+      };
+      return map[r] || r || '--';
+    }
+    function shortUa(v){
+      const s = String(v || '').trim();
+      if(!s) return '--';
+      return s.length > 96 ? (s.slice(0, 96) + '...') : s;
+    }
 
     async function loadUsers(){
       if(!g_isAdmin) return;
@@ -673,6 +707,35 @@
       }catch(e){
         if(body) body.innerHTML = '<tr><td colspan="5">无权限或加载失败</td></tr>';
         showMsg($('userMsg'), '提示：只有 admin 才能管理用户。');
+      }
+    }
+
+    async function loadLoginRecords(){
+      if(!g_isAdmin) return;
+      const body = $('loginAuditBody');
+      if(body) body.innerHTML = '<tr><td colspan="6">加载中…</td></tr>';
+      try{
+        const j = await apiJson('/api/admin/login-records?limit=100');
+        const list = (j && Array.isArray(j.records)) ? j.records : [];
+        if(!body) return;
+        if(!list.length){
+          body.innerHTML = '<tr><td colspan="6">(空)</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map((r)=>{
+          return '<tr>' +
+            '<td>' + esc(fmtTs(r.created_at)) + '</td>' +
+            '<td>' + esc(r.username || '--') + '</td>' +
+            '<td>' + loginResultTag(!!r.success) + '</td>' +
+            '<td>' + esc(loginReasonText(r.reason)) + '</td>' +
+            '<td>' + esc(r.ip || '--') + '</td>' +
+            '<td title="' + esc(r.user_agent || '') + '">' + esc(shortUa(r.user_agent)) + '</td>' +
+          '</tr>';
+        }).join('');
+        showMsg($('loginAuditMsg'), '');
+      }catch(e){
+        if(body) body.innerHTML = '<tr><td colspan="6">加载失败</td></tr>';
+        showMsg($('loginAuditMsg'), '登录记录加载失败：' + e.message);
       }
     }
 
@@ -933,6 +996,7 @@
           loadRetention();
           loadUsers();
           loadDevices();
+          loadLoginRecords();
         }
       });
       const idInput = $('newDeviceId');
@@ -956,6 +1020,9 @@
       setInterval(()=>{
         if(g_isAdmin) loadDevices();
       }, 15000);
+      setInterval(()=>{
+        if(g_isAdmin) loadLoginRecords();
+      }, 30000);
     })();
   </script>
 </body>
