@@ -14,6 +14,13 @@
 3. 微信小程序（`little_program/`）
 - 面向移动端，使用 `server/` 提供的 API 进行控制与管理。
 
+## 部署入口
+
+[![部署与迁移清单](https://img.shields.io/badge/Deployment-MIGRATION_CHECKLIST-blue?style=for-the-badge)](openclaw/MIGRATION_CHECKLIST.md)
+[![部署检查脚本](https://img.shields.io/badge/Deploy%20Check-openclaw%2Fdeploy__check.sh-green?style=for-the-badge)](openclaw/deploy_check.sh)
+
+生产部署或迁移新服务器时，优先阅读 [部署与迁移清单](openclaw/MIGRATION_CHECKLIST.md)，再运行 `openclaw/deploy_check.sh` 做自动检查。
+
 ## 1. 仓库结构
 
 - `firmware/`：ESP32 固件工程（PlatformIO）
@@ -104,7 +111,7 @@ npm run start
 ```
 
 4. 健康检查
-- `GET /healthz` 应返回 `ok=true`。
+- `GET /healthz` 应返回 `ok=true`，并在 `checks.db.ok`、`checks.mqtt.ok` 中显示分项状态。
 
 详细部署与 API 请看：`server/README.md`。
 
@@ -268,7 +275,7 @@ ACL 最小权限建议：
 - 保证 `http://<设备IP>/` 可访问，`/getData` 有数据。
 
 2. 再接入 MQTT 与云端
-- `server/healthz` 中 `mqtt=true`、`db=true`。
+- `server/healthz` 中 `checks.mqtt.ok=true`、`checks.db.ok=true`。
 
 3. 最后接入小程序
 - `BASE_URL` 指向云端地址，登录后能看到设备列表与状态。
@@ -294,10 +301,11 @@ ACL 最小权限建议：
 - 服务端：`server/README.md`
 - 小程序：`little_program/README.md`
 - 一键部署参考：`openclaw/openclaw_read.md`
+- 部署与迁移清单：`openclaw/MIGRATION_CHECKLIST.md`
 - OpenClaw 执行任务单：`openclaw/DEPLOYMENT_TASKS.md`
 - RS485 传感器说明：`doc/rs_485_ultrasonic_level_meter_readme.md`
 
-## 11. 项目验收清单（建议给 Reviewer）
+## 11. 项目验收清单
 
 1. 固件侧
 - [ ] 设备本地 `http://<设备IP>/` 可访问，`/api/state` 有实时数据。
@@ -305,7 +313,7 @@ ACL 最小权限建议：
 - [ ] 上传 LittleFS 后页面与 API 正常；不上传时内嵌 UI 兜底可用。
 
 2. 云端侧
-- [ ] `GET /healthz` 返回 `ok=true,mqtt=true,db=true`。
+- [ ] `GET /healthz` 返回 `ok=true`，且 `checks.mqtt.ok=true`、`checks.db.ok=true`。
 - [ ] `GET /api/state?device_id=fish1` 可看到最新 telemetry。
 - [ ] `POST /api/cmd` 可下发控制且设备有响应。
 - [ ] `GET /api/history` 与 `/api/telemetry/range` 可查询历史数据。
@@ -314,7 +322,7 @@ ACL 最小权限建议：
 - [ ] 登录、设备列表、主控命令、规则编辑、回放导出全流程可用。
 - [ ] 管理员账号能访问管理页，普通账号被正确限制。
 
-4. OpenClaw 部署侧
+4. agent 部署侧
 - [ ] 按 `openclaw/DEPLOYMENT_TASKS.md` 完成部署并逐项勾选。
 - [ ] 域名 `https://fish.530555.xyz/` 可访问且证书有效。
 - [ ] EMQX 匿名连接关闭，ACL 为最小权限。

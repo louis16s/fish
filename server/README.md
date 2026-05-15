@@ -83,7 +83,15 @@ curl http://127.0.0.1:8080/healthz
 正常返回示例：
 
 ```json
-{"ok":true,"mqtt":true,"db":true}
+{
+  "ok": true,
+  "status": "ok",
+  "service": "fish-cloud-panel",
+  "checks": {
+    "db": { "ok": true, "status": "ok", "latency_ms": 1 },
+    "mqtt": { "ok": true, "status": "ok", "connected": true }
+  }
+}
 ```
 
 ## 4. 数据库结构
@@ -172,7 +180,7 @@ curl http://127.0.0.1:8080/healthz
 
 4. `POST /api/cmd`
 - body: `{ "cmd": "gate_open|gate_close|gate_stop|auto_on|auto_off|auto_latch_off|manual_end" }`
-- 权限：仅 `admin`
+- 权限：已登录用户
 - 错误：`400 bad_cmd`、`500 mqtt_publish_failed`
 
 ### 7.4 历史与回放
@@ -238,6 +246,7 @@ curl http://127.0.0.1:8080/healthz
 7. `POST /api/admin/users/:id/password`
 8. `POST /api/admin/users/:id/disable`（`admin` 用户不可禁用）
 9. `POST /api/admin/users/:id/delete`（`admin` 用户不可删除）
+10. `GET /api/admin/login-records`（登录审计记录）
 
 约束补充：
 
@@ -246,7 +255,7 @@ curl http://127.0.0.1:8080/healthz
 
 ## 8. 访问控制与安全设计
 
-1. `helmet` 默认安全头（关闭 CSP，因页面内联脚本样式）。
+1. `helmet` 安全头与受限 CSP（当前页面仍使用少量内联脚本/事件，因此保留必要兼容项）。
 2. 关键操作限流：
 - 登录：`20/min`
 - 控制命令：`60/min`
@@ -259,7 +268,8 @@ curl http://127.0.0.1:8080/healthz
 - 默认 7 天
 
 4. Same-Origin 校验
-- 变更类接口要求 `Origin` 与 `Host` 一致（若请求无 Origin 则放行，兼容 CLI/小程序）。
+- 变更类接口要求 `Origin/Referer` 与 `Host` 一致。
+- 微信小程序请求允许 `Referer: https://servicewechat.com/<WECHAT_APPID>/...`，其他 AppID 仍拒绝。
 
 5. 登录成功后 `session.regenerate()`，防会话固定。
 
@@ -296,14 +306,14 @@ docker run --rm -p 8080:8080 --env-file server/.env fish-cloud-panel:latest
 1. 小程序 `BASE_URL` 指向本服务 HTTPS 地址。
 2. 微信后台配置 request 合法域名。
 3. 登录后先检查：
-- `/healthz` 是否 `mqtt=true`、`db=true`
+- `/healthz` 是否 `checks.mqtt.ok=true`、`checks.db.ok=true`
 - `/api/devices` 是否有设备
 - `/api/state?device_id=...` 是否有实时 telemetry
 
 ## 12. 部署验收与回滚
 
 1. 最小验收（生产）
-- [ ] `GET /healthz`：`ok=true,mqtt=true,db=true`
+- [ ] `GET /healthz`：`ok=true`，且 `checks.mqtt.ok=true`、`checks.db.ok=true`
 - [ ] 登录成功后 `GET /api/auth/me` 返回当前用户
 - [ ] `GET /api/state` 有实时 telemetry
 - [ ] `POST /api/cmd` 下发后设备侧有动作/回执
